@@ -45,6 +45,18 @@ struct git_diff_list {
 	uint32_t diffcaps;
 };
 
+struct git_diff_many_list {
+	git_repository *repo;
+	git_pool pool;
+	git_vector deltas; /* vector of git_diff_many_delta */
+};
+
+int git_diff_many_from_iterators(
+	git_diff_many_list **out,
+	git_repository *repo,
+	git_iterator **iterators,
+	size_t iterators_length);
+
 extern void git_diff__cleanup_modes(
 	uint32_t diffcaps, uint32_t *omode, uint32_t *nmode);
 

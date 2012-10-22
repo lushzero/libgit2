@@ -81,6 +81,11 @@ typedef struct {
 typedef struct git_diff_list git_diff_list;
 
 /**
+ * The diff list object that contains all individual file deltas.
+ */
+typedef struct git_diff_many_list git_diff_many_list;
+
+/**
  * Flags that can be set for the file on side of a diff.
  *
  * Most of the flags are just for internal consumption by libgit2,
@@ -149,6 +154,13 @@ typedef struct {
 	unsigned int  similarity; /**< for RENAMED and COPIED, value 0-100 */
 	int           binary;
 } git_diff_delta;
+
+/**
+ * Description of changes to one file across many iterators.
+ */
+typedef struct {
+	git_diff_file *files;
+} git_diff_many_delta;
 
 /**
  * When iterating over a diff, callback that will be made per file.
@@ -240,6 +252,11 @@ typedef struct git_diff_patch git_diff_patch;
  * Deallocate a diff list.
  */
 GIT_EXTERN(void) git_diff_list_free(git_diff_list *diff);
+
+/**
+ * Deallocate a diff_many list.
+ */
+GIT_EXTERN(void) git_diff_many_list_free(git_diff_many_list *diff_many);
 
 /**
  * Compute a difference between two tree objects.

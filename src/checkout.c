@@ -124,7 +124,7 @@ static int blob_content_to_link(git_blob *blob, const char *path, bool can_symli
 	return error;
 }
 
-static int checkout_blob(
+int git_checkout_blob(
 	git_repository *repo,
 	const git_oid *blob_oid,
 	const char *path,
@@ -194,7 +194,7 @@ static int checkout_diff_fn(
 			return 0;
 		}
 
-		if (checkout_blob(
+		if (git_checkout_blob(
 				data->owner,
 				&delta->old_file.oid,
 				git_buf_cstr(data->path),
@@ -209,7 +209,7 @@ static int checkout_diff_fn(
 		if (!(opts->checkout_strategy & GIT_CHECKOUT_CREATE_MISSING))
 			return 0;
 
-		if (checkout_blob(
+		if (git_checkout_blob(
 				data->owner,
 				&delta->old_file.oid,
 				git_buf_cstr(data->path),

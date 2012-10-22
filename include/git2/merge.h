@@ -21,6 +21,37 @@
 GIT_BEGIN_DECL
 
 /**
+ * Option flags for `git_merge_init`.
+ *
+ * GIT_MERGE_NO_FASTFORWARD - Do not fast-forward.
+ */
+enum {
+	GIT_MERGE_NO_FASTFORWARD      = (1 << 0),
+};
+
+/**
+ * Options for `git_merge_strategy_resolve`.
+ */ 
+enum {
+	GIT_MERGE_STRATEGY_RESOLVE_AUTOMERGE = 0,
+	GIT_MERGE_STRATEGY_RESOLVE_NONE = 1,
+	GIT_MERGE_STRATEGY_RESOLVE_OURS = 2,
+	GIT_MERGE_STRATEGY_RESOLVE_THEIRS = 3,
+};
+
+typedef struct git_merge_strategy_resolve_options {
+	int resolver;
+} git_merge_strategy_resolve_options;
+
+/**
+ * Determines if a merge is in progress
+ *
+ * @param out true if there is a merge in progress
+ * @param repo the repository where the merge may be in progress
+ */
+GIT_EXTERN(int) git_merge_inprogress(int *out, git_repository *repo);
+
+/**
  * Find a merge base between two commits
  *
  * @param out the OID of a merge base between 'one' and 'two'
@@ -39,6 +70,54 @@ GIT_EXTERN(int) git_merge_base(git_oid *out, git_repository *repo, const git_oid
  * @param length The number of commits in the provided `input_array`
  */
 GIT_EXTERN(int) git_merge_base_many(git_oid *out, git_repository *repo, const git_oid input_array[], size_t length);
+
+/**
+ * Merges the given commits into HEAD, producing a new commit.
+ *
+ * @param out the results of the merge
+ * @param repo the repository to merge
+ * @param merge_heads the heads to merge into
+ * @param merge_heads_length the number of heads to merge
+ * @param flags merge flags
+ */
+GIT_EXTERN(int) git_merge(git_merge_result **out,
+	git_repository *repo,
+	const git_commit *their_commits[],
+	size_t their_commits_length,
+	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data),
+	unsigned int flags,
+	void *strategy_data);
+
+GIT_EXTERN(int) git_merge_strategy_resolve(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data);
+
+GIT_EXTERN(int) git_merge_strategy_octopus(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data);
+
+/**
+ * Aborts an in-progress merge, resetting to ORIG_HEAD.
+ *
+ * @param repo the repository to abort
+ */
+GIT_EXTERN(int) git_merge_abort(git_repository *repo);
+
+/**
+ * Returns true if a merge is eligible for fastforward
+ */
+GIT_EXTERN(int) git_merge_result_is_fastforward(git_merge_result *merge_result);
+
+/**
+ * Gets the fast-forward OID if the merge was a fastforward.
+ *
+ * @param out the OID of the fast-forward
+ * @param merge_result the results of the merge
+ */
+GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_result);
+
+/**
+ * Free a merge result.
+ *
+ * @param merge_result the merge result to free
+ */
+void git_merge_result_free(git_merge_result *merge_result);
 
 /** @} */
 GIT_END_DECL
