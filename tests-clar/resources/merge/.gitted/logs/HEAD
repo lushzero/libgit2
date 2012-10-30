@@ -1,0 +1,8 @@
+0000000000000000000000000000000000000000 c607fc30883e335def28cd686b51f6cfa02b06ec Edward Thomson <ethomson@edwardthomson.com> 1351563869 -0500	commit (initial): initial
+c607fc30883e335def28cd686b51f6cfa02b06ec c607fc30883e335def28cd686b51f6cfa02b06ec Edward Thomson <ethomson@edwardthomson.com> 1351563886 -0500	checkout: moving from master to branch
+c607fc30883e335def28cd686b51f6cfa02b06ec 7cb63eed597130ba4abb87b3e544b85021905520 Edward Thomson <ethomson@edwardthomson.com> 1351563965 -0500	commit: branch
+7cb63eed597130ba4abb87b3e544b85021905520 c607fc30883e335def28cd686b51f6cfa02b06ec Edward Thomson <ethomson@edwardthomson.com> 1351563968 -0500	checkout: moving from branch to master
+c607fc30883e335def28cd686b51f6cfa02b06ec 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351564033 -0500	commit: master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351605785 -0500	checkout: moving from master to ff_branch
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 33d500f588fbbe65901d82b4e6b008e549064be0 Edward Thomson <ethomson@edwardthomson.com> 1351605830 -0500	commit: fastforward
+33d500f588fbbe65901d82b4e6b008e549064be0 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351605889 -0500	checkout: moving from ff_branch to master

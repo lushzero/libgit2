@@ -84,8 +84,8 @@ GIT_EXTERN(int) git_merge(git_merge_result **out,
 	git_repository *repo,
 	const git_commit *their_commits[],
 	size_t their_commits_length,
-	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data),
 	unsigned int flags,
+	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data),
 	void *strategy_data);
 
 GIT_EXTERN(int) git_merge_strategy_resolve(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data);

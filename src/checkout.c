@@ -475,7 +475,8 @@ int git_checkout_blob(git_repository *repo, git_diff_file *file)
 	memset(&data, 0x0, sizeof(struct checkout_diff_data));
 	memset(&opts, 0x0, sizeof(git_checkout_opts));
 
-	git_buf_puts(&path, git_repository_path(repo));
+	git_buf_puts(&path, git_repository_workdir(repo));
+	data.path = &path;
 	data.workdir_len = git_buf_len(&path);
 	data.checkout_opts = &opts;
 	data.owner = repo;

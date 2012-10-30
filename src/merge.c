@@ -202,8 +202,8 @@ int git_merge(git_merge_result **out,
 	git_repository *repo,
 	const git_commit *their_commits[],
 	size_t their_commits_length,
-	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data),
 	unsigned int flags,
+	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data),
 	void *strategy_data)
 {
 	git_merge_result *result;
@@ -301,7 +301,7 @@ static int merge_file_apply(git_repository *repo, git_index *index, git_diff_fil
 		error = git_checkout_blob(repo, file);
 
 	if (!error)
-		error = git_index_add(index, file->path, 1);
+		error = git_index_add_from_workdir(index, file->path);
 
 done:
 	git_buf_free(&path);
