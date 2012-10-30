@@ -7,6 +7,7 @@
 #include "common.h"
 #include "git2/attr.h"
 #include "git2/oid.h"
+#include "git2/submodule.h"
 #include "diff_output.h"
 #include <ctype.h>
 #include "fileops.h"
@@ -212,6 +213,22 @@ static int get_blob_content(
 	if (git_oid_iszero(&file->oid))
 		return 0;
 
+	if (file->mode == GIT_FILEMODE_COMMIT)
+	{
+		char oidstr[GIT_OID_HEXSZ+1];
+		git_buf content = GIT_BUF_INIT;
+
+		git_oid_fmt(oidstr, &file->oid);
+		oidstr[GIT_OID_HEXSZ] = 0;
+		git_buf_printf(&content, "Subproject commit %s\n", oidstr );
+
+		map->data = git_buf_detach(&content);
+		map->len = strlen(map->data);
+
+		file->flags |= GIT_DIFF_FILE_FREE_DATA;
+		return 0;
+	}
+
 	if (!file->size) {
 		git_odb *odb;
 		size_t len;
@@ -250,6 +267,51 @@ static int get_blob_content(
 	return diff_delta_is_binary_by_content(ctxt, delta, file, map);
 }
 
+static int get_workdir_sm_content(
+	diff_context *ctxt,
+	git_diff_file *file,
+	git_map *map)
+{
+	int error = 0;
+	git_buf content = GIT_BUF_INIT;
+	git_submodule* sm = NULL;
+	unsigned int sm_status = 0;
+	const char* sm_status_text = "";
+	char oidstr[GIT_OID_HEXSZ+1];
+
+	if ((error = git_submodule_lookup(&sm, ctxt->repo, file->path)) < 0 ||
+		(error = git_submodule_status(&sm_status, sm)) < 0)
+		return error;
+
+	/* update OID if we didn't have it previously */
+	if ((file->flags & GIT_DIFF_FILE_VALID_OID) == 0) {
+		const git_oid* sm_head;
+
+		if ((sm_head = git_submodule_wd_oid(sm)) != NULL ||
+			(sm_head = git_submodule_head_oid(sm)) != NULL)
+		{
+			git_oid_cpy(&file->oid, sm_head);
+			file->flags |= GIT_DIFF_FILE_VALID_OID;
+		}
+	}
+
+	git_oid_fmt(oidstr, &file->oid);
+	oidstr[GIT_OID_HEXSZ] = '\0';
+
+	if (GIT_SUBMODULE_STATUS_IS_WD_DIRTY(sm_status))
+		sm_status_text = "-dirty";
+
+	git_buf_printf(&content, "Subproject commit %s%s\n",
+				   oidstr, sm_status_text);
+
+	map->data = git_buf_detach(&content);
+	map->len = strlen(map->data);
+
+	file->flags |= GIT_DIFF_FILE_FREE_DATA;
+
+	return 0;
+}
+
 static int get_workdir_content(
 	diff_context *ctxt,
 	git_diff_delta *delta,
@@ -259,6 +321,12 @@ static int get_workdir_content(
 	int error = 0;
 	git_buf path = GIT_BUF_INIT;
 	const char *wd = git_repository_workdir(ctxt->repo);
+
+	if (S_ISGITLINK(file->mode))
+		return get_workdir_sm_content(ctxt, file, map);
+
+	if (S_ISDIR(file->mode))
+		return 0;
 
 	if (git_buf_joinpath(&path, wd, file->path) < 0)
 		return -1;
@@ -465,6 +533,11 @@ static int diff_patch_load(
 	if (delta->binary == 1)
 		goto cleanup;
 
+	if (!ctxt->hunk_cb &&
+		!ctxt->data_cb &&
+		(ctxt->opts->flags & GIT_DIFF_SKIP_BINARY_CHECK) != 0)
+		goto cleanup;
+
 	switch (delta->status) {
 	case GIT_DELTA_ADDED:
 		delta->old_file.flags |= GIT_DIFF_FILE_NO_DATA;
@@ -473,6 +546,11 @@ static int diff_patch_load(
 		delta->new_file.flags |= GIT_DIFF_FILE_NO_DATA;
 		break;
 	case GIT_DELTA_MODIFIED:
+		break;
+	case GIT_DELTA_UNTRACKED:
+		delta->old_file.flags |= GIT_DIFF_FILE_NO_DATA;
+		if ((ctxt->opts->flags & GIT_DIFF_INCLUDE_UNTRACKED_CONTENT) == 0)
+			delta->new_file.flags |= GIT_DIFF_FILE_NO_DATA;
 		break;
 	default:
 		delta->new_file.flags |= GIT_DIFF_FILE_NO_DATA;
@@ -625,8 +703,10 @@ static int diff_patch_generate(
 	if ((patch->flags & GIT_DIFF_PATCH_DIFFABLE) == 0)
 		return 0;
 
-	if (ctxt)
-		patch->ctxt = ctxt;
+	if (!ctxt->file_cb && !ctxt->hunk_cb)
+		return 0;
+
+	patch->ctxt = ctxt;
 
 	memset(&xdiff_callback, 0, sizeof(xdiff_callback));
 	xdiff_callback.outf = diff_patch_cb;
@@ -1009,6 +1089,9 @@ static int print_patch_file(
 
 	GIT_UNUSED(progress);
 
+	if (S_ISDIR(delta->new_file.mode))
+		return 0;
+
 	if (!oldpfx)
 		oldpfx = DIFF_OLD_PREFIX_DEFAULT;
 
@@ -1038,14 +1121,14 @@ static int print_patch_file(
 	if (git_buf_oom(pi->buf))
 		return -1;
 
-    if (pi->print_cb(pi->cb_data, delta, NULL, GIT_DIFF_LINE_FILE_HDR, git_buf_cstr(pi->buf), git_buf_len(pi->buf)))
+	if (pi->print_cb(pi->cb_data, delta, NULL, GIT_DIFF_LINE_FILE_HDR, git_buf_cstr(pi->buf), git_buf_len(pi->buf)))
 	{
 		giterr_clear();
 		return GIT_EUSER;
 	}
 
-    if (delta->binary != 1)
-        return 0;
+	if (delta->binary != 1)
+		return 0;
 
 	git_buf_clear(pi->buf);
 	git_buf_printf(
@@ -1073,6 +1156,9 @@ static int print_patch_hunk(
 {
 	diff_print_info *pi = data;
 
+	if (S_ISDIR(d->new_file.mode))
+		return 0;
+
 	git_buf_clear(pi->buf);
 	if (git_buf_printf(pi->buf, "%.*s", (int)header_len, header) < 0)
 		return -1;
@@ -1096,6 +1182,9 @@ static int print_patch_line(
 	size_t content_len)
 {
 	diff_print_info *pi = data;
+
+	if (S_ISDIR(delta->new_file.mode))
+		return 0;
 
 	git_buf_clear(pi->buf);
 
@@ -1278,7 +1367,9 @@ int git_diff_get_patch(
 	if (delta_ptr)
 		*delta_ptr = delta;
 
-	if (!patch_ptr && delta->binary != -1)
+	if (!patch_ptr &&
+		(delta->binary != -1 ||
+		 (diff->opts.flags & GIT_DIFF_SKIP_BINARY_CHECK) != 0))
 		return 0;
 
 	diff_context_init(

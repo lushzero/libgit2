@@ -10,6 +10,7 @@
 #include "common.h"
 #include "git2/index.h"
 #include "vector.h"
+#include "buffer.h"
 
 #define ITERATOR_PREFIXCMP(ITER, STR, PREFIX)	(((ITER).ignore_case) ? \
 	git__prefixcmp_icase((STR), (PREFIX)) : \
@@ -141,6 +142,9 @@ GIT_INLINE(git_iterator_type_t) git_iterator_type(git_iterator *iter)
 extern int git_iterator_current_tree_entry(
 	git_iterator *iter, const git_tree_entry **tree_entry);
 
+extern int git_iterator_current_parent_tree(
+	git_iterator *iter, const char *parent_path, const git_tree **tree_ptr);
+
 extern int git_iterator_current_is_ignored(git_iterator *iter);
 
 /**
@@ -165,5 +169,12 @@ extern int git_iterator_advance_into_directory(
 
 extern int git_iterator_cmp(
 	git_iterator *iter, const char *path_prefix);
+
+/**
+ * Get the full path of the current item from a workdir iterator.
+ * This will return NULL for a non-workdir iterator.
+ */
+extern int git_iterator_current_workdir_path(
+	git_iterator *iter, git_buf **path);
 
 #endif

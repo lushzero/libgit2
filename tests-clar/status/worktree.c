@@ -71,7 +71,7 @@ static int remove_file_cb(void *data, git_buf *file)
 		return 0;
 
 	if (git_path_isdir(filename))
-		cl_git_pass(git_futils_rmdir_r(filename, GIT_DIRREMOVAL_FILES_AND_DIRS));
+		cl_git_pass(git_futils_rmdir_r(filename, NULL, GIT_DIRREMOVAL_FILES_AND_DIRS));
 	else
 		cl_git_pass(p_unlink(git_buf_cstr(file)));
 
@@ -314,7 +314,7 @@ void test_status_worktree__issue_592_3(void)
 	repo = cl_git_sandbox_init("issue_592");
 
 	cl_git_pass(git_buf_joinpath(&path, git_repository_workdir(repo), "c"));
-	cl_git_pass(git_futils_rmdir_r(git_buf_cstr(&path), GIT_DIRREMOVAL_FILES_AND_DIRS));
+	cl_git_pass(git_futils_rmdir_r(git_buf_cstr(&path), NULL, GIT_DIRREMOVAL_FILES_AND_DIRS));
 
 	cl_git_pass(git_status_foreach(repo, cb_status__check_592, "c/a.txt"));
 
@@ -344,7 +344,7 @@ void test_status_worktree__issue_592_5(void)
 	repo = cl_git_sandbox_init("issue_592");
 
 	cl_git_pass(git_buf_joinpath(&path, git_repository_workdir(repo), "t"));
-	cl_git_pass(git_futils_rmdir_r(git_buf_cstr(&path), GIT_DIRREMOVAL_FILES_AND_DIRS));
+	cl_git_pass(git_futils_rmdir_r(git_buf_cstr(&path), NULL, GIT_DIRREMOVAL_FILES_AND_DIRS));
 	cl_git_pass(p_mkdir(git_buf_cstr(&path), 0777));
 
 	cl_git_pass(git_status_foreach(repo, cb_status__check_592, NULL));
@@ -414,15 +414,11 @@ void test_status_worktree__issue_592_ignored_dirs_with_tracked_content(void)
 void test_status_worktree__cannot_retrieve_the_status_of_a_bare_repository(void)
 {
 	git_repository *repo;
-	int error;
 	unsigned int status = 0;
 
 	cl_git_pass(git_repository_open(&repo, cl_fixture("testrepo.git")));
 
-	error = git_status_file(&status, repo, "dummy");
-
-	cl_git_fail(error);
-	cl_assert(error != GIT_ENOTFOUND);
+	cl_assert_equal_i(GIT_EBAREREPO, git_status_file(&status, repo, "dummy"));
 
 	git_repository_free(repo);
 }
@@ -490,7 +486,7 @@ static void fill_index_wth_head_entries(git_repository *repo, git_index *index)
 	cl_git_pass(git_commit_lookup(&commit, repo, &oid));
 	cl_git_pass(git_commit_tree(&tree, commit));
 
-	cl_git_pass(git_index_read_tree(index, tree, NULL));
+	cl_git_pass(git_index_read_tree(index, tree));
 	cl_git_pass(git_index_write(index));
 
 	git_tree_free(tree);

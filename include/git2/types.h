@@ -137,6 +137,9 @@ typedef struct git_reflog git_reflog;
 /** Representation of a git note */
 typedef struct git_note git_note;
 
+/** Representation of a git packbuilder */
+typedef struct git_packbuilder git_packbuilder;
+
 /** Representation of a git merge */
 typedef struct git_merge_result git_merge_result;
 

@@ -51,5 +51,7 @@
 #include "git2/notes.h"
 #include "git2/reset.h"
 #include "git2/message.h"
+#include "git2/pack.h"
+#include "git2/stash.h"
 
 #endif

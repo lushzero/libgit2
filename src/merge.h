@@ -9,10 +9,8 @@
 
 #include "git2/types.h"
 
-#define ORIG_HEAD_FILE			"ORIG_HEAD"
-#define MERGE_HEAD_FILE			"MERGE_HEAD"
-#define MERGE_MSG_FILE			"MERGE_MSG"
-#define MERGE_MODE_FILE			"MERGE_MODE"
+#define GIT_MERGE_MSG_FILE		"MERGE_MSG"
+#define GIT_MERGE_MODE_FILE		"MERGE_MODE"
 
 #define MERGE_CONFIG_FILE_MODE	0666
 
@@ -23,6 +21,6 @@ struct git_merge_result {
 	git_oid fastforward_oid;
 };
 
-int merge_cleanup(git_repository *repo);
+int git_merge__cleanup(git_repository *repo);
 
 #endif

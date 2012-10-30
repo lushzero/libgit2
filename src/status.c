@@ -25,7 +25,6 @@ static unsigned int index_delta2status(git_delta_t index_status)
 	switch (index_status) {
 	case GIT_DELTA_ADDED:
 	case GIT_DELTA_COPIED:
-	case GIT_DELTA_RENAMED:
 		st = GIT_STATUS_INDEX_NEW;
 		break;
 	case GIT_DELTA_DELETED:
@@ -33,6 +32,12 @@ static unsigned int index_delta2status(git_delta_t index_status)
 		break;
 	case GIT_DELTA_MODIFIED:
 		st = GIT_STATUS_INDEX_MODIFIED;
+		break;
+	case GIT_DELTA_RENAMED:
+		st = GIT_STATUS_INDEX_RENAMED;
+		break;
+	case GIT_DELTA_TYPECHANGE:
+		st = GIT_STATUS_INDEX_TYPECHANGE;
 		break;
 	default:
 		break;
@@ -47,8 +52,8 @@ static unsigned int workdir_delta2status(git_delta_t workdir_status)
 
 	switch (workdir_status) {
 	case GIT_DELTA_ADDED:
-	case GIT_DELTA_COPIED:
 	case GIT_DELTA_RENAMED:
+	case GIT_DELTA_COPIED:
 	case GIT_DELTA_UNTRACKED:
 		st = GIT_STATUS_WT_NEW;
 		break;
@@ -60,6 +65,9 @@ static unsigned int workdir_delta2status(git_delta_t workdir_status)
 		break;
 	case GIT_DELTA_IGNORED:
 		st = GIT_STATUS_IGNORED;
+		break;
+	case GIT_DELTA_TYPECHANGE:
+		st = GIT_STATUS_WT_TYPECHANGE;
 		break;
 	default:
 		break;
@@ -86,11 +94,17 @@ int git_status_foreach_ext(
 
 	assert(show <= GIT_STATUS_SHOW_INDEX_THEN_WORKDIR);
 
+	if (show != GIT_STATUS_SHOW_INDEX_ONLY &&
+		(err = git_repository__ensure_not_bare(repo, "status")) < 0)
+		return err;
+
 	if ((err = git_repository_head_tree(&head, repo)) < 0)
 		return err;
 
 	memset(&diffopt, 0, sizeof(diffopt));
 	memcpy(&diffopt.pathspec, &opts->pathspec, sizeof(diffopt.pathspec));
+
+	diffopt.flags = GIT_DIFF_INCLUDE_TYPECHANGE;
 
 	if ((opts->flags & GIT_STATUS_OPT_INCLUDE_UNTRACKED) != 0)
 		diffopt.flags = diffopt.flags | GIT_DIFF_INCLUDE_UNTRACKED;
@@ -245,9 +259,22 @@ int git_status_file(
 		error = GIT_EAMBIGUOUS;
 
 	if (!error && !sfi.count) {
-		giterr_set(GITERR_INVALID,
-			"Attempt to get status of nonexistent file '%s'", path);
-		error = GIT_ENOTFOUND;
+		git_buf full = GIT_BUF_INIT;
+
+		/* if the file actually exists and we still did not get a callback
+		 * for it, then it must be contained inside an ignored directory, so
+		 * mark it as such instead of generating an error.
+		 */
+		if (!git_buf_joinpath(&full, git_repository_workdir(repo), path) &&
+			git_path_exists(full.ptr))
+			sfi.status = GIT_STATUS_IGNORED;
+		else {
+			giterr_set(GITERR_INVALID,
+				"Attempt to get status of nonexistent file '%s'", path);
+			error = GIT_ENOTFOUND;
+		}
+
+		git_buf_free(&full);
 	}
 
 	*status_flags = sfi.status;

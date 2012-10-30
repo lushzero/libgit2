@@ -272,7 +272,8 @@ GIT_EXTERN(int) git_repository_init_ext(
  * @param head_out pointer to the reference which will be retrieved
  * @param repo a repository object
  *
- * @return 0 on success; error code otherwise
+ * @return 0 on success, GIT_EORPHANEDHEAD when HEAD points to a non existing
+ * branch, an error code otherwise
  */
 GIT_EXTERN(int) git_repository_head(git_reference **head_out, git_repository *repo);
 
@@ -562,10 +563,27 @@ GIT_EXTERN(int) git_repository_set_head_detached(
  * Otherwise, the HEAD will be detached and point to the peeled Commit.
  *
  * @param repo Repository pointer
- * @return 0 on success, or an error code
+ * @return 0 on success, GIT_EORPHANEDHEAD when HEAD points to a non existing
+ * branch or an error code
  */
 GIT_EXTERN(int) git_repository_detach_head(
 	git_repository* repo);
+
+typedef enum {
+	GIT_REPOSITORY_STATE_NONE,
+	GIT_REPOSITORY_STATE_MERGE,
+	GIT_REPOSITORY_STATE_REVERT,
+	GIT_REPOSITORY_STATE_CHERRY_PICK,
+} git_repository_state_t;
+
+/**
+ * Determines the status of a git repository - ie, whether an operation
+ * (merge, cherry-pick, etc) is in progress.
+ *
+ * @param repo Repository pointer
+ * @return The state of the repository
+ */
+GIT_EXTERN(int) git_repository_state(git_repository *repo);
 
 /** @} */
 GIT_END_DECL

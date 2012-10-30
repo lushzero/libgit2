@@ -10,13 +10,7 @@
 #include "git2/checkout.h"
 #include "git2/oid.h"
 
-int git_checkout_blob(
-	git_repository *repo,
-	const git_oid *blob_oid,
-	const char *path,
-	mode_t filemode,
-	bool can_symlink,
-	git_checkout_opts *opts);
+int git_checkout_blob(git_repository *repo, git_diff_file *file);
 
 #endif
 

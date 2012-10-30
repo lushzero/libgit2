@@ -15,6 +15,7 @@
 #include <git2/tag.h>
 #include <git2/object.h>
 #include <git2/oid.h>
+#include <git2/branch.h>
 
 GIT__USE_STRMAP;
 
@@ -154,11 +155,26 @@ static int loose_parse_symbolic(git_reference *ref, git_buf *file_content)
 
 static int loose_parse_oid(git_oid *oid, git_buf *file_content)
 {
-	/* File format: 40 chars (OID) */
-	if (git_buf_len(file_content) == GIT_OID_HEXSZ &&
-		git_oid_fromstr(oid, git_buf_cstr(file_content)) == 0)
+	size_t len;
+	const char *str;
+
+	len = git_buf_len(file_content);
+	if (len < GIT_OID_HEXSZ)
+		goto corrupted;
+
+	/* str is guranteed to be zero-terminated */
+	str = git_buf_cstr(file_content);
+
+	/* If the file is longer than 40 chars, the 41st must be a space */
+	if (git_oid_fromstr(oid, git_buf_cstr(file_content)) < 0)
+		goto corrupted;
+
+	/* If the file is longer than 40 chars, the 41st must be a space */
+	str += GIT_OID_HEXSZ;
+	if (*str == '\0' || git__isspace(*str))
 		return 0;
 
+corrupted:
 	giterr_set(GITERR_REFERENCE, "Corrupted loose reference file");
 	return -1;
 }
@@ -195,8 +211,6 @@ static int loose_lookup(git_reference *ref)
 	if (!updated)
 		return 0;
 
-	git_buf_rtrim(&ref_file);
-
 	if (ref->flags & GIT_REF_SYMBOLIC) {
 		git__free(ref->target.symbolic);
 		ref->target.symbolic = NULL;
@@ -206,6 +220,7 @@ static int loose_lookup(git_reference *ref)
 
 	if (git__prefixcmp((const char *)(ref_file.ptr), GIT_SYMREF) == 0) {
 		ref->flags |= GIT_REF_SYMBOLIC;
+		git_buf_rtrim(&ref_file);
 		result = loose_parse_symbolic(ref, &ref_file);
 	} else {
 		ref->flags |= GIT_REF_OID;
@@ -261,14 +276,15 @@ static int loose_write(git_reference *ref)
 	if (git_buf_joinpath(&ref_path, ref->owner->path_repository, ref->name) < 0)
 		return -1;
 
-	/* Remove a possibly existing empty directory hierarchy 
+	/* Remove a possibly existing empty directory hierarchy
 	 * which name would collide with the reference name
 	 */
-	if (git_path_isdir(git_buf_cstr(&ref_path)) && 
-		(git_futils_rmdir_r(git_buf_cstr(&ref_path), GIT_DIRREMOVAL_ONLY_EMPTY_DIRS) < 0)) {
-			git_buf_free(&ref_path);
-			return -1;
-		}
+	if (git_path_isdir(git_buf_cstr(&ref_path)) &&
+		git_futils_rmdir_r(git_buf_cstr(&ref_path), NULL,
+			GIT_DIRREMOVAL_ONLY_EMPTY_DIRS) < 0) {
+		git_buf_free(&ref_path);
+		return -1;
+	}
 
 	if (git_filebuf_open(&file, ref_path.ptr, GIT_FILEBUF_FORCE) < 0) {
 		git_buf_free(&ref_path);
@@ -1343,9 +1359,7 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 	unsigned int normalization_flags;
 	git_buf aux_path = GIT_BUF_INIT;
 	char normalized[GIT_REFNAME_MAX];
-
-	const char *head_target = NULL;
-	git_reference *head = NULL;
+	bool should_head_be_updated = false;
 
 	normalization_flags = ref->flags & GIT_REF_SYMBOLIC ?
 		GIT_REF_FORMAT_ALLOW_ONELEVEL
@@ -1358,13 +1372,19 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 		normalization_flags) < 0)
 			return -1;
 
-	if (reference_can_write(ref->owner, normalized, ref->name, force) < 0)
-		return -1;
+	if ((result = reference_can_write(ref->owner, normalized, ref->name, force)) < 0)
+		return result;
 
 	/* Initialize path now so we won't get an allocation failure once
 	 * we actually start removing things. */
 	if (git_buf_joinpath(&aux_path, ref->owner->path_repository, new_name) < 0)
 		return -1;
+
+	/*
+	 * Check if we have to update HEAD.
+	 */
+	if ((should_head_be_updated = git_branch_is_head(ref)) < 0)
+		goto cleanup;
 
 	/*
 	 * Now delete the old ref and remove an possibly existing directory
@@ -1390,25 +1410,13 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 		goto rollback;
 
 	/*
-	 * Check if we have to update HEAD.
+	 * Update HEAD it was poiting to the reference being renamed.
 	 */
-	if (git_reference_lookup(&head, ref->owner, GIT_HEAD_FILE) < 0) {
-		giterr_set(GITERR_REFERENCE,
-			"Failed to update HEAD after renaming reference");
-		goto cleanup;
-	}
-
-	head_target = git_reference_target(head);
-
-	if (head_target && !strcmp(head_target, ref->name)) {
-		git_reference_free(head);
-		head = NULL;
-
-		if (git_reference_create_symbolic(&head, ref->owner, "HEAD", new_name, 1) < 0) {
+	if (should_head_be_updated && 
+		git_repository_set_head(ref->owner, new_name) < 0) {
 			giterr_set(GITERR_REFERENCE,
 				"Failed to update HEAD after renaming reference");
 			goto cleanup;
-		}
 	}
 
 	/*
@@ -1426,12 +1434,10 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 	/* The reference is no longer packed */
 	ref->flags &= ~GIT_REF_PACKED;
 
-	git_reference_free(head);
 	git_buf_free(&aux_path);
 	return 0;
 
 cleanup:
-	git_reference_free(head);
 	git_buf_free(&aux_path);
 	return -1;
 

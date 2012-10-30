@@ -15,6 +15,7 @@
 #include "iterator.h"
 #include "diff.h"
 #include "checkout.h"
+#include "refs.h"
 
 #include "git2/types.h"
 #include "git2/repository.h"
@@ -27,20 +28,6 @@
 #include "git2/signature.h"
 #include "git2/config.h"
 
-int git_merge_inprogress(int *out, git_repository *repo)
-{
-	int error = 0;
-	git_buf merge_head_path = GIT_BUF_INIT;
-
-	assert(repo);
-
-	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository, MERGE_HEAD_FILE)) == 0)
-		*out = git_path_exists(merge_head_path.ptr);
-
-	git_buf_free(&merge_head_path);
-	return error;
-}
-
 static int write_orig_head(git_repository *repo, const git_commit *our_commit)
 {
 	git_filebuf orig_head_file = GIT_FILEBUF_INIT;
@@ -52,7 +39,7 @@ static int write_orig_head(git_repository *repo, const git_commit *our_commit)
 
 	git_oid_tostr(orig_oid_str, GIT_OID_HEXSZ+1, git_commit_id((git_commit *)our_commit));
 
-	if ((error = git_buf_joinpath(&orig_head_path, repo->path_repository, ORIG_HEAD_FILE)) == 0 &&
+	if ((error = git_buf_joinpath(&orig_head_path, repo->path_repository, GIT_ORIG_HEAD_FILE)) == 0 &&
 		(error = git_filebuf_open(&orig_head_file, orig_head_path.ptr, GIT_FILEBUF_FORCE)) == 0 &&
 		(error = git_filebuf_printf(&orig_head_file, "%s\n", orig_oid_str)) == 0)
 		error = git_filebuf_commit(&orig_head_file, MERGE_CONFIG_FILE_MODE);
@@ -75,7 +62,7 @@ static int write_merge_head(git_repository *repo, const git_commit *their_commit
 
 	assert(repo && their_commits);
 
-	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository, MERGE_HEAD_FILE)) < 0 ||
+	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository, GIT_MERGE_HEAD_FILE)) < 0 ||
 		(error = git_filebuf_open(&merge_head_file, merge_head_path.ptr, GIT_FILEBUF_FORCE)) < 0)
 		goto cleanup;
 
@@ -105,7 +92,7 @@ static int write_merge_mode(git_repository *repo, unsigned int flags)
 
 	assert(repo);
 
-	if ((error = git_buf_joinpath(&merge_mode_path, repo->path_repository, MERGE_MODE_FILE)) < 0 ||
+	if ((error = git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE)) < 0 ||
 		(error = git_filebuf_open(&merge_mode_file, merge_mode_path.ptr, GIT_FILEBUF_FORCE)) < 0)
 		goto cleanup;
 
@@ -141,7 +128,7 @@ static int write_merge_msg(git_repository *repo, const git_commit *their_commits
 
 	assert(repo && their_commits);
 
-	if ((error = git_buf_joinpath(&merge_msg_path, repo->path_repository, MERGE_MSG_FILE)) < 0 ||
+	if ((error = git_buf_joinpath(&merge_msg_path, repo->path_repository, GIT_MERGE_MSG_FILE)) < 0 ||
 		(error = git_filebuf_open(&merge_msg_file, merge_msg_path.ptr, GIT_FILEBUF_FORCE)) < 0 ||
 		(error = git_filebuf_write(&merge_msg_file, "Merge", 5)) < 0)
 		goto cleanup;
@@ -302,15 +289,8 @@ static int merge_file_cmp(git_diff_file *a, git_diff_file *b)
 
 static int merge_file_apply(git_repository *repo, git_index *index, git_diff_file *file)
 {
-	git_checkout_opts opts;
 	git_buf path = GIT_BUF_INIT;
 	int error = 0;
-
-	memset(&opts, 0x0, sizeof(git_checkout_opts));
-	opts.checkout_strategy = GIT_CHECKOUT_DEFAULT;
-	opts.dir_mode = GIT_DIR_MODE;
-	opts.file_mode = file->mode;
-	opts.file_open_flags = O_CREAT | O_TRUNC | O_WRONLY;
 
 	if ((error = git_buf_joinpath(&path, git_repository_workdir(repo), file->path)) < 0)
 		goto done;
@@ -318,7 +298,7 @@ static int merge_file_apply(git_repository *repo, git_index *index, git_diff_fil
 	if (file->path == NULL && git_oid_iszero(&file->oid))
 		error = p_unlink(path.ptr);
 	else
-		error = git_checkout_blob(repo, &file->oid, path.ptr, file->mode, true, &opts);
+		error = git_checkout_blob(repo, file);
 
 	if (!error)
 		error = git_index_add(index, file->path, 1);
@@ -506,41 +486,7 @@ void git_merge_result_free(git_merge_result *merge_result)
 	git__free(merge_result);
 }
 
-int git_merge_abort(git_repository *repo)
-{
-	int error = 0;
-	int inprogress;
-	git_oid head_oid;
-	git_object *head_object = NULL;
-
-	assert(repo);
-
-	if ((error = git_merge_inprogress(&inprogress, repo)) < 0)
-		goto cleanup;
-
-	if (!inprogress)
-	{
-		error = -1;
-		goto cleanup;
-	}
-
-	if ((error = git_reference_name_to_oid(&head_oid, repo, GIT_HEAD_FILE)) < 0)
-		goto cleanup;
-
-	if ((error = git_object_lookup(&head_object, repo, &head_oid, GIT_OBJ_COMMIT)) < 0)
-		goto cleanup;
-
-	if ((error = git_reset(repo, head_object, GIT_RESET_HARD)) < 0)
-		goto cleanup;
-
-cleanup:
-	if (head_object != NULL)
-		git_object_free(head_object);
-
-	return error;
-}
-
-int merge_cleanup(git_repository *repo)
+int git_merge__cleanup(git_repository *repo)
 {
 	int error = 0;
 	git_buf merge_head_path = GIT_BUF_INIT,
@@ -549,25 +495,20 @@ int merge_cleanup(git_repository *repo)
 
 	assert(repo);
 
-	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository, MERGE_HEAD_FILE)) < 0)
-		goto cleanup;
+	if (git_buf_joinpath(&merge_head_path, repo->path_repository, GIT_MERGE_HEAD_FILE) < 0 ||
+		git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE) < 0 ||
+		git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE) < 0)
+		return -1;
 
-	if ((error = git_buf_joinpath(&merge_mode_path, repo->path_repository, MERGE_MODE_FILE)) < 0)
-		goto cleanup;
-
-	if ((error = git_buf_joinpath(&merge_msg_path, repo->path_repository, MERGE_MSG_FILE)) < 0)
-		goto cleanup;
-
-	if (git_path_exists(merge_head_path.ptr))
-	{
+	if (git_path_isfile(merge_head_path.ptr)) {
 		if ((error = p_unlink(merge_head_path.ptr)) < 0)
 			goto cleanup;
 	}
 
-	if (git_path_exists(merge_mode_path.ptr))
+	if (git_path_isfile(merge_mode_path.ptr))
 		(void)p_unlink(merge_mode_path.ptr);
 
-	if (git_path_exists(merge_msg_path.ptr))
+	if (git_path_isfile(merge_msg_path.ptr))
 		(void)p_unlink(merge_msg_path.ptr);
 
 cleanup:
@@ -577,3 +518,4 @@ cleanup:
 
 	return error;
 }
+

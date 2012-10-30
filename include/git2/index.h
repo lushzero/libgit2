@@ -343,10 +343,17 @@ GIT_EXTERN(int) git_index_entry_stage(const git_index_entry *entry);
  *
  * @param index an existing index object
  * @param tree tree to read
- * @param stats structure that receives the total node count (may be NULL)
  * @return 0 or an error code
  */
-GIT_EXTERN(int) git_index_read_tree(git_index *index, git_tree *tree, git_indexer_stats *stats);
+GIT_EXTERN(int) git_index_read_tree(git_index *index, git_tree *tree);
+
+/**
+ * Get the repository this index relates to
+ *
+ * @param index The index
+ * @return A pointer to the repository
+ */
+GIT_EXTERN(git_repository *) git_index_owner(const git_index *index);
 
 /** @} */
 GIT_END_DECL

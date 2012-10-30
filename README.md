@@ -66,9 +66,9 @@ For more advanced use or questions about CMake please read <http://www.cmake.org
 
 The following CMake variables are declared:
 
-- `INSTALL_BIN`: Where to install binaries to.
+- `BIN_INSTALL_DIR`: Where to install binaries to.
 - `LIB_INSTALL_DIR`: Where to install libraries to.
-- `INSTALL_INC`: Where to install headers to.
+- `INCLUDE_INSTALL_DIR`: Where to install headers to.
 - `BUILD_SHARED_LIBS`: Build libgit2 as a Shared Library (defaults to ON)
 - `BUILD_CLAR`: Build [Clar](https://github.com/tanoku/clar)-based test suite (defaults to ON)
 - `THREADSAFE`: Build libgit2 with threading support (defaults to OFF)
@@ -82,6 +82,8 @@ Here are the bindings to libgit2 that are currently available:
     * libqgit2, Qt bindings <https://projects.kde.org/projects/playground/libs/libqgit2/>
 * Chicken Scheme
     * chicken-git <https://wiki.call-cc.org/egg/git>
+* D
+    * dlibgit <https://github.com/AndrejMitrovic/dlibgit>
 * Delphi
     * GitForDelphi <https://github.com/libgit2/GitForDelphi>
 * Erlang

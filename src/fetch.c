@@ -19,6 +19,8 @@
 #include "netops.h"
 #include "pkt.h"
 
+#define NETWORK_XFER_THRESHOLD (100*1024)
+
 struct filter_payload {
 	git_remote *remote;
 	const git_refspec *spec, *tagspec;
@@ -58,10 +60,11 @@ static int filter_wants(git_remote *remote)
 {
 	struct filter_payload p;
 	git_refspec tagspec;
+	int error = -1;
 
 	git_vector_clear(&remote->refs);
 	if (git_refspec__parse(&tagspec, GIT_REFSPEC_TAGS, true) < 0)
-		return -1;
+		return error;
 
 	/*
 	 * The fetch refspec can be NULL, and what this means is that the
@@ -75,9 +78,14 @@ static int filter_wants(git_remote *remote)
 	p.remote = remote;
 
 	if (git_repository_odb__weakptr(&p.odb, remote->repo) < 0)
-		return -1;
+		goto cleanup;
 
-	return git_remote_ls(remote, filter_ref__cb, &p);
+	error = git_remote_ls(remote, filter_ref__cb, &p);
+
+cleanup:
+	git_refspec__free(&tagspec);
+
+	return error;
 }
 
 /* Wait until we get an ack from the */
@@ -146,7 +154,7 @@ int git_fetch_negotiate(git_remote *remote)
 	gitno_buffer *buf = &t->buffer;
 	git_buf data = GIT_BUF_INIT;
 	git_revwalk *walk = NULL;
-	int error, pkt_type;
+	int error = -1, pkt_type;
 	unsigned int i;
 	git_oid oid;
 
@@ -184,6 +192,12 @@ int git_fetch_negotiate(git_remote *remote)
 		git_pkt_buffer_have(&oid, &data);
 		i++;
 		if (i % 20 == 0) {
+			if (t->cancel.val) {
+				giterr_set(GITERR_NET, "The fetch was cancelled by the user");
+					error = GIT_EUSER;
+					goto on_error;
+			}
+
 			git_pkt_buffer_flush(&data);
 			if (git_buf_oom(&data))
 				goto on_error;
@@ -248,6 +262,11 @@ int git_fetch_negotiate(git_remote *remote)
 	}
 
 	git_pkt_buffer_done(&data);
+	if (t->cancel.val) {
+		giterr_set(GITERR_NET, "The fetch was cancelled by the user");
+		error = GIT_EUSER;
+		goto on_error;
+	}
 	if (t->negotiation_step(t, data.ptr, data.size) < 0)
 		goto on_error;
 
@@ -282,10 +301,13 @@ int git_fetch_negotiate(git_remote *remote)
 on_error:
 	git_revwalk_free(walk);
 	git_buf_free(&data);
-	return -1;
+	return error;
 }
 
-int git_fetch_download_pack(git_remote *remote, git_off_t *bytes, git_indexer_stats *stats)
+int git_fetch_download_pack(
+		git_remote *remote,
+		git_transfer_progress_callback progress_cb,
+		void *progress_payload)
 {
 	git_transport *t = remote->transport;
 
@@ -293,17 +315,23 @@ int git_fetch_download_pack(git_remote *remote, git_off_t *bytes, git_indexer_st
 		return 0;
 
 	if (t->own_logic)
-		return t->download_pack(t, remote->repo, bytes, stats);
+		return t->download_pack(t, remote->repo, &remote->stats);
 
-	return git_fetch__download_pack(t, remote->repo, bytes, stats);
+	return git_fetch__download_pack(t, remote->repo, &remote->stats,
+			progress_cb, progress_payload);
 
 }
 
-static int no_sideband(git_indexer_stream *idx, gitno_buffer *buf, git_off_t *bytes, git_indexer_stats *stats)
+static int no_sideband(git_transport *t, git_indexer_stream *idx, gitno_buffer *buf, git_transfer_progress *stats)
 {
 	int recvd;
 
 	do {
+		if (t->cancel.val) {
+			giterr_set(GITERR_NET, "The fetch was cancelled by the user");
+			return GIT_EUSER;
+		}
+
 		if (git_indexer_stream_add(idx, buf->data, buf->offset, stats) < 0)
 			return -1;
 
@@ -311,8 +339,6 @@ static int no_sideband(git_indexer_stream *idx, gitno_buffer *buf, git_off_t *by
 
 		if ((recvd = gitno_recv(buf)) < 0)
 			return -1;
-
-		*bytes += recvd;
 	} while(recvd > 0);
 
 	if (git_indexer_stream_finalize(idx, stats))
@@ -321,26 +347,58 @@ static int no_sideband(git_indexer_stream *idx, gitno_buffer *buf, git_off_t *by
 	return 0;
 }
 
+struct network_packetsize_payload
+{
+	git_transfer_progress_callback callback;
+	void *payload;
+	git_transfer_progress *stats;
+	git_off_t last_fired_bytes;
+};
+
+static void network_packetsize(int received, void *payload)
+{
+	struct network_packetsize_payload *npp = (struct network_packetsize_payload*)payload;
+
+	/* Accumulate bytes */
+	npp->stats->received_bytes += received;
+
+	/* Fire notification if the threshold is reached */
+	if ((npp->stats->received_bytes - npp->last_fired_bytes) > NETWORK_XFER_THRESHOLD) {
+		npp->last_fired_bytes = npp->stats->received_bytes;
+		npp->callback(npp->stats, npp->payload);
+	}
+}
+
 /* Receiving data from a socket and storing it is pretty much the same for git and HTTP */
 int git_fetch__download_pack(
 	git_transport *t,
 	git_repository *repo,
-	git_off_t *bytes,
-	git_indexer_stats *stats)
+	git_transfer_progress *stats,
+	git_transfer_progress_callback progress_cb,
+	void *progress_payload)
 {
 	git_buf path = GIT_BUF_INIT;
 	gitno_buffer *buf = &t->buffer;
 	git_indexer_stream *idx = NULL;
+	int error = -1;
+	struct network_packetsize_payload npp = {0};
+
+	if (progress_cb) {
+		npp.callback = progress_cb;
+		npp.payload = progress_payload;
+		npp.stats = stats;
+		buf->packetsize_cb = &network_packetsize;
+		buf->packetsize_payload = &npp;
+	}
 
 	if (git_buf_joinpath(&path, git_repository_path(repo), "objects/pack") < 0)
 		return -1;
 
-	if (git_indexer_stream_new(&idx, git_buf_cstr(&path)) < 0)
+	if (git_indexer_stream_new(&idx, git_buf_cstr(&path), progress_cb, progress_payload) < 0)
 		goto on_error;
 
 	git_buf_free(&path);
-	memset(stats, 0, sizeof(git_indexer_stats));
-	*bytes = 0;
+	memset(stats, 0, sizeof(git_transfer_progress));
 
 	/*
 	 * If the remote doesn't support the side-band, we can feed
@@ -348,7 +406,7 @@ int git_fetch__download_pack(
 	 * check which one belongs there.
 	 */
 	if (!t->caps.side_band && !t->caps.side_band_64k) {
-		if (no_sideband(idx, buf, bytes, stats) < 0)
+		if (no_sideband(t, idx, buf, stats) < 0)
 			goto on_error;
 
 		git_indexer_stream_free(idx);
@@ -357,6 +415,13 @@ int git_fetch__download_pack(
 
 	do {
 		git_pkt *pkt;
+
+		if (t->cancel.val) {
+			giterr_set(GITERR_NET, "The fetch was cancelled by the user");
+			error = GIT_EUSER;
+			goto on_error;
+		}
+
 		if (recv_pkt(&pkt, buf) < 0)
 			goto on_error;
 
@@ -368,7 +433,6 @@ int git_fetch__download_pack(
 			git__free(pkt);
 		} else if (pkt->type == GIT_PKT_DATA) {
 			git_pkt_data *p = (git_pkt_data *) pkt;
-			*bytes += p->len;
 			if (git_indexer_stream_add(idx, p->data, p->len, stats) < 0)
 				goto on_error;
 
@@ -389,7 +453,7 @@ int git_fetch__download_pack(
 on_error:
 	git_buf_free(&path);
 	git_indexer_stream_free(idx);
-	return -1;
+	return error;
 }
 
 int git_fetch_setup_walk(git_revwalk **out, git_repository *repo)

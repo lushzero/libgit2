@@ -91,6 +91,8 @@ struct git_transport {
 	GIT_SOCKET socket;
 	git_transport_caps caps;
 	void *cb_data;
+	git_atomic cancel;
+
 	/**
 	 * Connect and store the remote heads
 	 */
@@ -111,7 +113,7 @@ struct git_transport {
 	/**
 	 * Download the packfile
 	 */
-	int (*download_pack)(struct git_transport *transport, git_repository *repo, git_off_t *bytes, git_indexer_stats *stats);
+	int (*download_pack)(struct git_transport *transport, git_repository *repo, git_transfer_progress *stats);
 	/**
 	 * Close the connection
 	 */
