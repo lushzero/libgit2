@@ -77,20 +77,20 @@ GIT_EXTERN(int) git_merge_base_many(git_oid *out, git_repository *repo, const gi
  * @param out the results of the merge
  * @param repo the repository to merge
  * @param merge_heads the heads to merge into
- * @param merge_heads_length the number of heads to merge
+ * @param merge_heads_len the number of heads to merge
  * @param flags merge flags
  */
 GIT_EXTERN(int) git_merge(git_merge_result **out,
 	git_repository *repo,
-	const git_commit *their_commits[],
-	size_t their_commits_length,
+	const git_merge_head *their_heads[],
+	size_t their_heads_len,
 	unsigned int flags,
-	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data),
+	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_len, void *data),
 	void *strategy_data);
 
-GIT_EXTERN(int) git_merge_strategy_resolve(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data);
+GIT_EXTERN(int) git_merge_strategy_resolve(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_len, void *data);
 
-GIT_EXTERN(int) git_merge_strategy_octopus(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_length, void *data);
+GIT_EXTERN(int) git_merge_strategy_octopus(int *out, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_len, void *data);
 
 /**
  * Aborts an in-progress merge, resetting to ORIG_HEAD.
@@ -117,7 +117,12 @@ GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result 
  *
  * @param merge_result the merge result to free
  */
-void git_merge_result_free(git_merge_result *merge_result);
+GIT_EXTERN(void) git_merge_result_free(git_merge_result *merge_result);
+
+GIT_EXTERN(int) git_merge_head_from_ref(git_merge_head **out, git_reference *ref);
+GIT_EXTERN(int) git_merge_head_from_oid(git_merge_head **out, const git_oid *oid);
+GIT_EXTERN(void) git_merge_head_free(git_merge_head *head);
+
 
 /** @} */
 GIT_END_DECL

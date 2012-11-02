@@ -3,6 +3,7 @@
 #include "git2/merge.h"
 #include "merge.h"
 #include "merge_helpers.h"
+#include "refs.h"
 
 static git_repository *repo;
 static git_index *repo_index;
@@ -28,14 +29,14 @@ void test_merge_fastforward__cleanup(void)
 
 static git_merge_result *merge_fastforward_branch(int flags)
 {
-	git_oid their_oids[1];
-	git_commit *their_commits[1];
+    git_reference *their_ref;
+    git_merge_head *their_heads[1];
 	git_merge_result *result;
 
-	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_FASTFORWARD_OID));
-	cl_git_pass(git_object_lookup((git_object **)&their_commits[0], repo, &their_oids[0], GIT_OBJ_COMMIT));
+    cl_git_pass(git_reference_lookup(&their_ref, repo, GIT_REFS_HEADS_DIR THEIRS_FASTFORWARD_BRANCH));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], their_ref));
 
-	cl_git_pass(git_merge(&result, repo, (const git_commit **)their_commits, 1, flags, NULL, NULL));
+	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, flags, NULL, NULL));
 
 	return result;
 }

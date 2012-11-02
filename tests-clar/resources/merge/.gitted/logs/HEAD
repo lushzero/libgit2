@@ -6,3 +6,25 @@ c607fc30883e335def28cd686b51f6cfa02b06ec 977c696519c5a3004c5f1d15d60c89dbeb8f235
 977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351605785 -0500	checkout: moving from master to ff_branch
 977c696519c5a3004c5f1d15d60c89dbeb8f235f 33d500f588fbbe65901d82b4e6b008e549064be0 Edward Thomson <ethomson@edwardthomson.com> 1351605830 -0500	commit: fastforward
 33d500f588fbbe65901d82b4e6b008e549064be0 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351605889 -0500	checkout: moving from ff_branch to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351874933 -0500	checkout: moving from master to octo1
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 16f825815cfd20a07a75c71554e82d8eede0b061 Edward Thomson <ethomson@edwardthomson.com> 1351874954 -0500	commit: octo1
+16f825815cfd20a07a75c71554e82d8eede0b061 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351874957 -0500	checkout: moving from octo1 to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351874960 -0500	checkout: moving from master to octo2
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 158dc7bedb202f5b26502bf3574faa7f4238d56c Edward Thomson <ethomson@edwardthomson.com> 1351874974 -0500	commit: octo2
+158dc7bedb202f5b26502bf3574faa7f4238d56c 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351874976 -0500	checkout: moving from octo2 to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351874980 -0500	checkout: moving from master to octo3
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 50ce7d7d01217679e26c55939eef119e0c93e272 Edward Thomson <ethomson@edwardthomson.com> 1351874998 -0500	commit: octo3
+50ce7d7d01217679e26c55939eef119e0c93e272 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875006 -0500	checkout: moving from octo3 to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875010 -0500	checkout: moving from master to octo4
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 54269b3f6ec3d7d4ede24dd350dd5d605495c3ae Edward Thomson <ethomson@edwardthomson.com> 1351875023 -0500	commit: octo4
+54269b3f6ec3d7d4ede24dd350dd5d605495c3ae 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875031 -0500	checkout: moving from octo4 to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875031 -0500	checkout: moving from master to octo5
+977c696519c5a3004c5f1d15d60c89dbeb8f235f e4f618a2c3ed0669308735727df5ebf2447f022f Edward Thomson <ethomson@edwardthomson.com> 1351875041 -0500	commit: octo5
+e4f618a2c3ed0669308735727df5ebf2447f022f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875046 -0500	checkout: moving from octo5 to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875046 -0500	checkout: moving from master to octo6
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 4ca408a8c88655f7586a1b580be6fad138121e98 Edward Thomson <ethomson@edwardthomson.com> 1351875057 -0500	commit: octo5
+4ca408a8c88655f7586a1b580be6fad138121e98 b6f610aef53bd343e6c96227de874c66f00ee8e8 Edward Thomson <ethomson@edwardthomson.com> 1351875065 -0500	commit (amend): octo6
+b6f610aef53bd343e6c96227de874c66f00ee8e8 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875071 -0500	checkout: moving from octo6 to master
+977c696519c5a3004c5f1d15d60c89dbeb8f235f 4e0d9401aee78eb345a8685a859d37c8c3c0bbed Edward Thomson <ethomson@edwardthomson.com> 1351875091 -0500	merge octo1 octo2 octo3 octo4: Merge made by the 'octopus' strategy.
+4e0d9401aee78eb345a8685a859d37c8c3c0bbed 54269b3f6ec3d7d4ede24dd350dd5d605495c3ae Edward Thomson <ethomson@edwardthomson.com> 1351875108 -0500	reset: moving to 54269b3f6ec3d7d4ede24dd350dd5d605495c3ae
+54269b3f6ec3d7d4ede24dd350dd5d605495c3ae 977c696519c5a3004c5f1d15d60c89dbeb8f235f Edward Thomson <ethomson@edwardthomson.com> 1351875584 -0500	reset: moving to 977c696519c5a3004c5f1d15d60c89dbeb8f235f

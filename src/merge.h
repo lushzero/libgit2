@@ -14,7 +14,13 @@
 
 #define MERGE_CONFIG_FILE_MODE	0666
 
-/** Internal structure for merge work */
+/** Internal structure for merge inputs */
+struct git_merge_head {
+	char *branch_name;
+	git_oid oid;
+};
+
+/** Internal structure for merge results */
 struct git_merge_result {
 
 	bool is_fastforward;
