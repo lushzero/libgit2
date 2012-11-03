@@ -28,6 +28,10 @@ enum {
 	GIT_DIFFCAPS_USE_DEV          = (1 << 4), /* use st_dev? */
 };
 
+enum {
+	GIT_DIFF_TREES_RETURN_UNMODIFIED = (1 << 0),
+};
+
 struct git_diff_list {
 	git_refcount     rc;
 	git_repository   *repo;
@@ -40,17 +44,18 @@ struct git_diff_list {
 	uint32_t diffcaps;
 };
 
-struct git_diff_many_list {
+struct git_diff_tree_list {
 	git_repository *repo;
 	git_pool pool;
-	git_vector deltas; /* vector of git_diff_many_delta */
+	git_vector deltas; /* vector of git_diff_tree_delta */
 };
 
-int git_diff_many_from_iterators(
-	git_diff_many_list **out,
+int git_diff_trees(
+	git_diff_tree_list **out,
 	git_repository *repo,
-	git_iterator **iterators,
-	size_t iterators_length);
+	git_tree **trees,
+	size_t trees_length,
+	unsigned int flags);
 
 extern void git_diff__cleanup_modes(
 	uint32_t diffcaps, uint32_t *omode, uint32_t *nmode);

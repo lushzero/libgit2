@@ -341,7 +341,7 @@ cleanup:
 	return error;
 }
 
-static int merge_file_cmp(git_diff_file *a, git_diff_file *b)
+GIT_INLINE(int) merge_file_cmp(git_diff_file *a, git_diff_file *b)
 {
 	int value = 0;
 
@@ -377,7 +377,32 @@ done:
 	return error;
 }
 
-static int resolve_conflict_none(int *resolved, git_repository *repo, git_index *index, git_diff_many_delta *delta)
+/* TODO: inspect cases #1-16 */
+static int resolve_trivial(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
+{
+    int ours_changed, theirs_changed;
+    git_diff_file *apply_file = NULL;
+    int error = 0;
+    
+    *resolved = 0;
+    
+    ours_changed = merge_file_cmp(&delta->files[0], &delta->files[1]);
+    theirs_changed = merge_file_cmp(&delta->files[0], &delta->files[2]);
+    
+    if (!ours_changed && !theirs_changed)
+        apply_file = &delta->files[0];
+    else if (ours_changed && !theirs_changed)
+        apply_file = &delta->files[1];
+    else if (!ours_changed && theirs_changed)
+        apply_file = &delta->files[2];
+
+    if (apply_file != NULL && (error = merge_file_apply(repo, index, apply_file)) >= 0)
+        *resolved = 1;
+    
+    return error;
+}
+
+static int resolve_conflict_none(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
 	assert (repo && index && delta);
 
@@ -385,7 +410,7 @@ static int resolve_conflict_none(int *resolved, git_repository *repo, git_index 
 	return 0;
 }
 
-static int resolve_conflict_ours(int *resolved, git_repository *repo, git_index *index, git_diff_many_delta *delta)
+static int resolve_conflict_ours(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
 	assert (repo && index && delta);
 
@@ -393,7 +418,7 @@ static int resolve_conflict_ours(int *resolved, git_repository *repo, git_index 
 	return merge_file_apply(repo, index, &delta->files[1]);
 }
 
-static int resolve_conflict_theirs(int *resolved, git_repository *repo, git_index *index, git_diff_many_delta *delta)
+static int resolve_conflict_theirs(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
 	assert (repo && index && delta);
 
@@ -401,7 +426,7 @@ static int resolve_conflict_theirs(int *resolved, git_repository *repo, git_inde
 	return merge_file_apply(repo, index, &delta->files[2]);
 }
 
-static int resolve_conflict_automerge(int *resolved, git_repository *repo, git_index *index, git_diff_many_delta *delta)
+static int resolve_conflict_automerge(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
 	assert (repo && index && delta);
 
@@ -419,14 +444,13 @@ int git_merge_strategy_resolve(
 	void *data)
 {
 	git_index *index = NULL;
-	git_iterator *iterators[3] = { NULL, NULL, NULL };
-	git_iterator *ancestor_iter = NULL, *our_iter = NULL, *their_iter = NULL;
-	git_tree *ancestor_tree = NULL, *our_tree = NULL, *their_tree = NULL;
-	git_diff_many_list *diff_many;
-	git_diff_many_delta *delta;
+    git_tree *trees[3];
+    git_tree *ancestor_tree = NULL, *our_tree = NULL, *their_tree = NULL;
+	git_diff_tree_list *diff_tree;
+	git_diff_tree_delta *delta;
 	git_merge_strategy_resolve_options *options;
 	int (*resolve_cb)(int *resolved, git_repository *repo, git_index *index,
-		git_diff_many_delta *delta) = resolve_conflict_automerge;
+		git_diff_tree_delta *delta) = resolve_conflict_automerge;
 	size_t i;
 	int error = 0;
 
@@ -459,50 +483,37 @@ int git_merge_strategy_resolve(
 		(error = git_commit_tree(&their_tree, (git_commit *)their_commits[0])) < 0)
 		goto done;
 
-	if ((error = git_iterator_for_tree(&ancestor_iter, repo, ancestor_tree)) < 0 ||
-		(error = git_iterator_for_tree(&our_iter, repo, our_tree)) < 0 ||
-		(error = git_iterator_for_tree(&their_iter, repo, their_tree)) < 0)
-		goto done;
+    trees[0] = ancestor_tree;
+    trees[1] = our_tree;
+    trees[2] = their_tree;
 
-	iterators[0] = ancestor_iter;
-	iterators[1] = our_iter;
-	iterators[2] = their_iter;
+    git_diff_trees(&diff_tree, repo, trees, 3, GIT_DIFF_TREES_RETURN_UNMODIFIED);
 
-	git_diff_many_from_iterators(&diff_many, repo, iterators, 3);
-
-	git_vector_foreach(&diff_many->deltas, i, delta) {
-		int ours_changed, theirs_changed, resolved = 1;
+	git_vector_foreach(&diff_tree->deltas, i, delta) {
+        int resolved = 0;
 
 		assert(delta->files);
+        
+        /* Handle "trivial" differences (not conflicts) */
+        if ((error = resolve_trivial(&resolved, repo, index, delta)) < 0)
+            goto done;
 
-		ours_changed = merge_file_cmp(&delta->files[0], &delta->files[1]);
-		theirs_changed = merge_file_cmp(&delta->files[0], &delta->files[2]);
+        /* Handle conflicts */
+        if (! resolved && (error = resolve_cb(&resolved, repo, index, delta)) < 0)
+            goto done;
 
-		assert (ours_changed || theirs_changed);
-
-		if (ours_changed && theirs_changed) {
-			if ((error = resolve_cb(&resolved, repo, index, delta)) < 0)
-				goto done;
-
-			if (! resolved)
-				*out = 0;
-		}
-		else if (ours_changed) {
-			if ((error = merge_file_apply(repo, index, &delta->files[1])) < 0)
-				goto done;
-		}
-		else if (theirs_changed) {
-			if ((error = merge_file_apply(repo, index, &delta->files[2])) < 0)
-				goto done;
-		}
+        /* Still not resolved, mark it as such. */
+        if (! resolved) {
+            /* TODO */
+        }
 	}
 
 	git_index_write(index);
 
 done:
-	git_iterator_free(ancestor_iter);
-	git_iterator_free(our_iter);
-	git_iterator_free(their_iter);
+    git_object_free((git_object *)ancestor_tree);
+    git_object_free((git_object *)our_tree);
+    git_object_free((git_object *)their_tree);
 	git_index_free(index);
 
 	return error;

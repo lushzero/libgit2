@@ -476,48 +476,44 @@ void git_diff_list_addref(git_diff_list *diff)
 	GIT_REFCOUNT_INC(diff);
 }
 
-static git_diff_many_list *git_diff_many_list_alloc(git_repository *repo)
+static git_diff_tree_list *diff_tree_list_alloc(git_repository *repo)
 {
-	git_diff_many_list *diff_many = git__calloc(1, sizeof(git_diff_many_list));
+	git_diff_tree_list *diff_tree = git__calloc(1, sizeof(git_diff_tree_list));
 
-	if (diff_many == NULL)
+	if (diff_tree == NULL)
 		return NULL;
 
-	GIT_REFCOUNT_INC(diff_many);
-	diff_many->repo = repo;
+	GIT_REFCOUNT_INC(diff_tree);
+	diff_tree->repo = repo;
 
-	if (git_vector_init(&diff_many->deltas, 0, diff_delta__cmp) < 0 ||
-		git_pool_init(&diff_many->pool, 1, 0) < 0)
-		goto fail;
-
-	return diff_many;
-
-fail:
-	git_diff_many_list_free(diff_many);
-	return NULL;
+	if (git_vector_init(&diff_tree->deltas, 0, diff_delta__cmp) < 0 ||
+		git_pool_init(&diff_tree->pool, 1, 0) < 0)
+        return NULL;
+    
+    return diff_tree;
 }
 
-static void diff_many_list_free(git_diff_many_list *diff_many)
+static void diff_tree_list_free(git_diff_tree_list *diff_tree)
 {
 	git_diff_delta *delta;
 	unsigned int i;
 
-	git_vector_foreach(&diff_many->deltas, i, delta) {
+	git_vector_foreach(&diff_tree->deltas, i, delta) {
 		git__free(delta);
-		diff_many->deltas.contents[i] = NULL;
+		diff_tree->deltas.contents[i] = NULL;
 	}
-	git_vector_free(&diff_many->deltas);
+	git_vector_free(&diff_tree->deltas);
 
-	git_pool_clear(&diff_many->pool);
-	git__free(diff_many);
+	git_pool_clear(&diff_tree->pool);
+	git__free(diff_tree);
 }
 
-void git_diff_many_list_free(git_diff_many_list *diff_many)
+void git_diff_tree_list_free(git_diff_tree_list *diff_tree)
 {
-	if (!diff_many)
+	if (!diff_tree)
 		return;
 
-	GIT_REFCOUNT_DEC(diff_many, diff_many_list_free);
+	GIT_REFCOUNT_DEC(diff_tree, diff_tree_list_free);
 }
 
 static int oid_for_workdir_item(
@@ -742,119 +738,85 @@ static int index_entry_cmp(git_index_entry *a, git_index_entry *b)
 	return diff;
 }
 
-static git_diff_many_delta *diff_many_delta__from_entries(
-	git_diff_many_list *diff_many,
+static git_diff_tree_delta *diff_tree_delta__from_entries(
+	git_diff_tree_list *diff_tree,
 	git_index_entry **entries,
 	size_t entries_length)
 {
-	git_diff_many_delta *delta_many;
+	git_diff_tree_delta *delta_tree;
 	size_t i;
 
-	if ((delta_many = git__calloc(1, sizeof(git_diff_many_delta))) == NULL ||
-		(delta_many->files = git__calloc(entries_length, sizeof(git_diff_file))) == NULL)
-		goto fail;
+	if ((delta_tree = git__calloc(1, sizeof(git_diff_tree_delta))) == NULL ||
+		(delta_tree->files = git__calloc(entries_length, sizeof(git_diff_file))) == NULL)
+        return NULL;
 
 	for (i = 0; i < entries_length; i++) {
 		if (entries[i] == NULL) {
-			memset(&delta_many->files[i], 0x0, sizeof(git_diff_file));
+			memset(&delta_tree->files[i], 0x0, sizeof(git_diff_file));
 			continue;
 		}
 
-		if ((delta_many->files[i].path = git_pool_strdup(&diff_many->pool, entries[i]->path)) == NULL) {
-			git__free(delta_many);
+		if ((delta_tree->files[i].path = git_pool_strdup(&diff_tree->pool, entries[i]->path)) == NULL)
 			return NULL;
-		}
 
-		git_oid_cpy(&delta_many->files[i].oid, &entries[i]->oid);
-		delta_many->files[i].size = entries[i]->file_size;
-		delta_many->files[i].mode = entries[i]->mode;
-		delta_many->files[i].flags |= GIT_DIFF_FILE_VALID_OID;
+		git_oid_cpy(&delta_tree->files[i].oid, &entries[i]->oid);
+		delta_tree->files[i].size = entries[i]->file_size;
+		delta_tree->files[i].mode = entries[i]->mode;
+		delta_tree->files[i].flags |= GIT_DIFF_FILE_VALID_OID;
 	}
 
-	return delta_many;
-
-fail:
-	if (delta_many->files != NULL)
-		free(delta_many->files);
-
-	if(delta_many != NULL)
-		free(delta_many);
-
-	return NULL;
+    return delta_tree;
 }
 
-int git_diff_many_from_iterators(
-	git_diff_many_list **out,
-	git_repository *repo,
-	git_iterator **iterators,
-	size_t iterators_length)
+int git_diff_trees(
+    git_diff_tree_list **out,
+    git_repository *repo,
+    git_tree **trees,
+    size_t trees_length,
+    unsigned int flags)
 {
+    git_iterator **iterators;
 	git_index_entry **items = NULL, *best_next_item, **next_items;
-	git_vector_cmp entry_compare;
-	git_diff_many_list *diff_many = git_diff_many_list_alloc(repo);
-	const int iter_case_ignore = (1 << 0), iter_case_exact = (1 << 1);
-	const int return_unmodified = 0;
-	int iter_case = 0, next_item_modified;
+	git_vector_cmp entry_compare = git_index_entry_cmp_case;
+	git_diff_tree_list *diff_tree = diff_tree_list_alloc(repo);
+	int next_item_modified;
+    bool return_unmodified;
 	size_t i;
 	int error = 0;
 
-	assert(out && repo && iterators);
+	assert(out && repo && trees);
 
 	*out = NULL;
+    
+    iterators = git__calloc(trees_length, sizeof(git_iterator *));
+    GITERR_CHECK_ALLOC(iterators);
 
-	for (i = 0; i < iterators_length; i++)
-		assert(iterators[i]->type == GIT_ITERATOR_TREE);
+    items = git__calloc(trees_length, sizeof(git_index_entry *));
+    GITERR_CHECK_ALLOC(items);
 
-	if (diff_many == NULL ||
-		(items = git__calloc(iterators_length, sizeof(git_index_entry *))) == NULL ||
-		(next_items = git__calloc(iterators_length, sizeof(git_index_entry *))) == NULL) {
-		error = -1;
-		goto done;
-	}
-
-	/* Determine if all iterators are the same case */
-	for (i = 0; i < iterators_length; i++) {
-		iter_case |= iterators[i]->ignore_case ? iter_case_ignore : iter_case_exact;
-
-		if(iter_case & (iter_case_ignore | iter_case_exact))
-			break;
-	}
-
-	/* Determine the casing of the iterators */
-	if (iter_case == iter_case_exact) {
-		entry_compare = git_index_entry_cmp_case;
-	}
-	else {
-		entry_compare = git_index_entry_cmp_icase;
-
-		/*
-		 * If the iterators are mixed in ignore / exact case,
-		 * then that's unfortunate because we'll have to spool
-		 * its data, sort it icase, and then use that for our
-		 * merge join to the other iterator that is icase sorted.
-		 */
-		if (iter_case != iter_case_ignore) {
-			for (i = 0; i < iterators_length; i++) {
-				if ((error = git_iterator_spoolandsort(&iterators[i], iterators[i], git_index_entry_cmp_icase, true)) < 0) {
-					goto done;
-				}
-			}
-		}
-	}
+    next_items = git__calloc(trees_length, sizeof(git_index_entry *));
+    GITERR_CHECK_ALLOC(next_items);
+    
+    return_unmodified = (flags & GIT_DIFF_TREES_RETURN_UNMODIFIED) == GIT_DIFF_TREES_RETURN_UNMODIFIED;
+    
+	for (i = 0; i < trees_length; i++) {
+        if ((error = git_iterator_for_tree(&iterators[i], repo, trees[i])) < 0)
+            goto done;
+    }
 
 	/* Set up the iterators */
-	for (i = 0; i < iterators_length; i++) {
+	for (i = 0; i < trees_length; i++) {
 		if ((error = git_iterator_current(iterators[i], (const git_index_entry **)&items[i])) < 0)
 			goto done;
 	}
 
 	while (true) {
-		memset(next_items, 0x0, sizeof(git_index_entry *) * iterators_length);
+		memset(next_items, 0x0, sizeof(git_index_entry *) * trees_length);
 		best_next_item = NULL;
 		next_item_modified = 0;
 
 		/* Find the next path(s) to consume from each iterator */
-		for (i = 0; i < iterators_length; i++) {
+		for (i = 0; i < trees_length; i++) {
 			if (items[i] == NULL) {
 				next_item_modified = 1;
 				continue;
@@ -868,12 +830,11 @@ int git_diff_many_from_iterators(
 				int diff = entry_compare(items[i], best_next_item);
 
 				if (diff < 0) {
-					memset(next_items, 0x0, sizeof(git_index_entry *) * iterators_length);
+					memset(next_items, 0x0, sizeof(git_index_entry *) * trees_length);
 					next_item_modified = 1;
 					best_next_item = items[i];
 					next_items[i] = items[i];
-				}
-				else if (diff == 0) {
+				} else if (diff == 0) {
 					next_items[i] = items[i];
 
 					if (!next_item_modified && !return_unmodified)
@@ -886,15 +847,15 @@ int git_diff_many_from_iterators(
 			break;
 
 		if (next_item_modified || return_unmodified) {
-			git_diff_many_delta *delta;
+			git_diff_tree_delta *delta;
 
-			if ((delta = diff_many_delta__from_entries(diff_many, next_items, iterators_length)) == NULL ||
-				(error = git_vector_insert(&diff_many->deltas, delta)) < 0)
+			if ((delta = diff_tree_delta__from_entries(diff_tree, next_items, trees_length)) == NULL ||
+				(error = git_vector_insert(&diff_tree->deltas, delta)) < 0)
 				goto done;
 		}
 
 		/* Advance each iterator that participated */
-		for (i = 0; i < iterators_length; i++) {
+		for (i = 0; i < trees_length; i++) {
 			if (next_items[i] != NULL && (error = git_iterator_advance(iterators[i], (const git_index_entry **)&items[i])) < 0)
 				goto done;
 		}
@@ -903,14 +864,12 @@ int git_diff_many_from_iterators(
 	/* TODO: renames */
 
 done:
-	if (items != NULL)
-		git__free(items);
+    git__free(iterators);
+	git__free(items);
+	git__free(next_items);
 
-	if (next_items != NULL)
-		git__free(next_items);
-
-	if (! error)
-		*out = diff_many;
+	if (error >= 0)
+		*out = diff_tree;
 
 	return error;
 }

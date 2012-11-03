@@ -121,7 +121,7 @@ typedef struct git_diff_list git_diff_list;
 /**
  * The diff list object that contains all individual file deltas.
  */
-typedef struct git_diff_many_list git_diff_many_list;
+typedef struct git_diff_tree_list git_diff_tree_list;
 
 /**
  * Flags that can be set for the file on side of a diff.
@@ -187,11 +187,11 @@ typedef struct {
 } git_diff_delta;
 
 /**
- * Description of changes to one file across many iterators.
+ * Description of changes to one file across many trees.
  */
 typedef struct {
 	git_diff_file *files;
-} git_diff_many_delta;
+} git_diff_tree_delta;
 
 /**
  * When iterating over a diff, callback that will be made per file.
@@ -285,9 +285,9 @@ typedef struct git_diff_patch git_diff_patch;
 GIT_EXTERN(void) git_diff_list_free(git_diff_list *diff);
 
 /**
- * Deallocate a diff_many list.
+ * Deallocate a diff_tree list.
  */
-GIT_EXTERN(void) git_diff_many_list_free(git_diff_many_list *diff_many);
+GIT_EXTERN(void) git_diff_tree_list_free(git_diff_tree_list *diff_tree);
 
 /**
  * Compute a difference between two tree objects.
