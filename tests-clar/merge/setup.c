@@ -9,10 +9,10 @@
 static git_repository *repo;
 static git_index *repo_index;
 
-#define TEST_REPO_PATH "merge"
+#define TEST_REPO_PATH "merge-resolve"
 #define TEST_INDEX_PATH TEST_REPO_PATH "/.git/index"
 
-#define ORIG_HEAD                   "977c696519c5a3004c5f1d15d60c89dbeb8f235f"
+#define ORIG_HEAD                   "bd593285fc7fe4ca18ccdbabf027f5d689101452"
 
 #define THEIRS_SIMPLE_BRANCH        "branch"
 #define THEIRS_SIMPLE_OID           "7cb63eed597130ba4abb87b3e544b85021905520"
@@ -35,7 +35,7 @@ static git_index *repo_index;
 // Fixture setup and teardown
 void test_merge_setup__initialize(void)
 {
-	repo = cl_git_sandbox_init("merge");
+	repo = cl_git_sandbox_init(TEST_REPO_PATH);
     git_repository_index(&repo_index, repo);
 }
 

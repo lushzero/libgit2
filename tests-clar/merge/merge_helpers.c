@@ -15,7 +15,7 @@ int merge_test_index(git_index *index, const struct merge_index_entry expected[]
         if ((index_entry = git_index_get_byindex(index, i)) == NULL)
             return 0;
         
-        if (strlen(expected[i].oid_str) != 0) {
+		if (strlen(expected[i].oid_str) != 0) {
             cl_git_pass(git_oid_fromstr(&expected_oid, expected[i].oid_str));
             test_oid = 1;
         } else

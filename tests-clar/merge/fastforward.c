@@ -8,16 +8,16 @@
 static git_repository *repo;
 static git_index *repo_index;
 
-#define TEST_REPO_PATH "merge"
+#define TEST_REPO_PATH "merge-resolve"
 #define TEST_INDEX_PATH TEST_REPO_PATH "/.git/index"
 
 #define THEIRS_FASTFORWARD_BRANCH	"ff_branch"
-#define THEIRS_FASTFORWARD_OID		"33d500f588fbbe65901d82b4e6b008e549064be0"
+#define THEIRS_FASTFORWARD_OID		"fd89f8cffb663ac89095a0f9764902e93ceaca6a"
 
 // Fixture setup and teardown
 void test_merge_fastforward__initialize(void)
 {
-	repo = cl_git_sandbox_init("merge");
+	repo = cl_git_sandbox_init(TEST_REPO_PATH);
     git_repository_index(&repo_index, repo);
 }
 
@@ -61,6 +61,7 @@ void test_merge_fastforward__no_fastforward(void)
 	git_merge_result *result;
     
     struct merge_index_entry merge_index_entries[] = {
+		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
         { 0100644, "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", 0, "automergeable.txt" },
         { 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-branch.txt" },
         { 0100644, "bd9cb4cd0a770cb9adcb5fce212142ef40ea1c35", 0, "changed-in-master.txt" },
@@ -72,8 +73,8 @@ void test_merge_fastforward__no_fastforward(void)
 
 	cl_assert(result = merge_fastforward_branch(GIT_MERGE_NO_FASTFORWARD));
 	cl_assert(!git_merge_result_is_fastforward(result));
-    
-    cl_assert(merge_test_index(repo_index, merge_index_entries, 7));
+
+    cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
     cl_assert(git_index_reuc_entrycount(repo_index) == 0);
     
 	git_merge_result_free(result);

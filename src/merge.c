@@ -344,59 +344,99 @@ cleanup:
 GIT_INLINE(int) merge_file_cmp(git_diff_file *a, git_diff_file *b)
 {
 	int value = 0;
-
-	if ((value = a->size - b->size) == 0 &&
-		(value = a->flags - b->flags) == 0 &&
-		(value = a->mode - b->mode) == 0 &&
-		(value = git_oid_cmp(&a->oid, &b->oid)) == 0 &&
-		(value = ((a->path == NULL) ^ (b->path == NULL))) == 0)
-		value = (a->path == NULL) ? 0 : strcmp(a->path, b->path);
+    
+    if (a->path == NULL)
+        return (b->path == NULL) ? 0 : 1;
+    
+	if ((value = a->mode - b->mode) == 0 &&
+		(value = git_oid_cmp(&a->oid, &b->oid)) == 0)
+		value = strcmp(a->path, b->path);
 
 	return value;
 }
 
-static int merge_file_apply(git_repository *repo, git_index *index, git_diff_file *file)
+GIT_INLINE(int) merge_file_empty(git_diff_file *file)
 {
-	git_buf path = GIT_BUF_INIT;
+    return file->path == NULL;
+}
+
+static int merge_file_apply(git_repository *repo, git_index *index, git_diff_tree_delta *delta, int idx)
+{
 	int error = 0;
+    
+    assert(repo && index && delta && idx >= 1 && idx <= 2);
+    
+    if (idx == 1 && delta->files[1].path != NULL) {
+        error = git_index_add_from_workdir(index, delta->files[1].path);
+    } else if (idx == 2 && delta->files[2].path == NULL) {
+        git_buf path = GIT_BUF_INIT;
+        
+        if ((error = git_buf_joinpath(&path, git_repository_workdir(repo), delta->files[1].path)) < 0 ||
+            (error = p_unlink(path.ptr)) < 0)
+            goto done;
 
-	if ((error = git_buf_joinpath(&path, git_repository_workdir(repo), file->path)) < 0)
-		goto done;
-
-	if (file->path == NULL && git_oid_iszero(&file->oid))
-		error = p_unlink(path.ptr);
-	else
-		error = git_checkout_blob(repo, file);
-
-	if (!error)
-		error = git_index_add_from_workdir(index, file->path);
-
+        error = git_index_remove(index, delta->files[0].path, 0);
+        
 done:
-	git_buf_free(&path);
+        git_buf_free(&path);
+    } else if(idx == 2) {
+        if ((error = git_checkout_blob(repo, &delta->files[2])) >= 0)
+            error = git_index_add_from_workdir(index, delta->files[2].path);
+    }
 
 	return error;
 }
 
-/* TODO: inspect cases #1-16 */
 static int resolve_trivial(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-    int ours_changed, theirs_changed;
-    git_diff_file *apply_file = NULL;
+    int ours_changed, theirs_changed, ours_theirs_changed;
+    int result = 0;
     int error = 0;
+    
+    assert(resolved && repo && index && delta);
     
     *resolved = 0;
     
     ours_changed = merge_file_cmp(&delta->files[0], &delta->files[1]);
     theirs_changed = merge_file_cmp(&delta->files[0], &delta->files[2]);
+    ours_theirs_changed = merge_file_cmp(&delta->files[1], &delta->files[2]);
     
-    if (!ours_changed && !theirs_changed)
-        apply_file = &delta->files[0];
-    else if (ours_changed && !theirs_changed)
-        apply_file = &delta->files[1];
-    else if (!ours_changed && theirs_changed)
-        apply_file = &delta->files[2];
+    /*
+     * Note: with only one ancestor, some cases are not distinct:
+     * 16: ancest:anc1/anc2, head:anc1, remote:anc2 = result:no merge     [11]
+     * 3: ancest:(empty)^, head:head, remote:(empty) = result:no merge    [11]
+     * 2: ancest:(empty)^, head:(empty), remote:remote = result:no merge  [11]
+     *
+     * And some are not possible:
+     * 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge
+     * 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge
+     * 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge
+     *
+     * Note that some are included in documentation only for completeness:
+     * 9: ancest:ancest+, head:head, remote:(empty) = result:no merge     [11]
+     * 7: ancest:ancest+, head:(empty), remote:remote = result:no merge   [11]
+     * 4: ancest:(empty)^, head:head, remote:remote = result:no merge     [11]
+     *
+     * Note that some include specific D/F conflict instructions but are
+     * equivalent to other cases when a D/F conflicted side is non-empty:
+     * 3ALT: ancest:(empty)+, head:head, remote:*empty* = result:head     [13]
+     * 2ALT: ancest:(empty)+, head:*empty*, remote:remote = result:remote [14]
+     */
 
-    if (apply_file != NULL && (error = merge_file_apply(repo, index, apply_file)) >= 0)
+    /* 5ALT: ancest:*, head:head, remote:head = result:head */
+    if (!ours_theirs_changed)
+        result = 1;
+    /* 14: ancest:ancest+, head:ancest, remote:remote = result:remote */
+    else if (!ours_changed && theirs_changed)
+        result = 2;
+    /* 13: ancest:ancest+, head:head, remote:ancest = result:head */
+    else if (ours_changed && !theirs_changed)
+        result = 1;
+    /* 11: ancest:ancest+, head:head, remote:remote = result:no merge */
+    else
+        *resolved = 0;
+
+    if (result > 0 && (error = merge_file_apply(repo, index, delta, result)) >= 0)
         *resolved = 1;
     
     return error;
@@ -404,7 +444,7 @@ static int resolve_trivial(int *resolved, git_repository *repo, git_index *index
 
 static int resolve_conflict_none(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-	assert (repo && index && delta);
+	assert(repo && index && delta);
 
 	*resolved = 0;
 	return 0;
@@ -412,18 +452,18 @@ static int resolve_conflict_none(int *resolved, git_repository *repo, git_index 
 
 static int resolve_conflict_ours(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-	assert (repo && index && delta);
+	assert(repo && index && delta);
 
 	*resolved = 1;
-	return merge_file_apply(repo, index, &delta->files[1]);
+	return merge_file_apply(repo, index, delta, 1);
 }
 
 static int resolve_conflict_theirs(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-	assert (repo && index && delta);
+	assert(repo && index && delta);
 
 	*resolved = 1;
-	return merge_file_apply(repo, index, &delta->files[2]);
+    return merge_file_apply(repo, index, delta, 2);
 }
 
 static int resolve_conflict_automerge(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
