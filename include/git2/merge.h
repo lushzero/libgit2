@@ -21,7 +21,7 @@
 GIT_BEGIN_DECL
 
 /**
- * Option flags for `git_merge_init`.
+ * Option flags for `git_merge`.
  *
  * GIT_MERGE_NO_FASTFORWARD - Do not fast-forward.
  */
@@ -30,17 +30,22 @@ enum {
 };
 
 /**
- * Options for `git_merge_strategy_resolve`.
+ * Resolver options for `git_merge_strategy_resolve`.
  */ 
 enum {
-	GIT_MERGE_STRATEGY_RESOLVE_AUTOMERGE = 0,
-	GIT_MERGE_STRATEGY_RESOLVE_NONE = 1,
-	GIT_MERGE_STRATEGY_RESOLVE_OURS = 2,
-	GIT_MERGE_STRATEGY_RESOLVE_THEIRS = 3,
+    GIT_MERGE_STRATEGY_RESOLVE_NONE = 0,
+	GIT_MERGE_STRATEGY_RESOLVE_OURS = 1,
+	GIT_MERGE_STRATEGY_RESOLVE_THEIRS = 2,
+};
+
+/* Flags for `git_merge_strategy_resolve`. */
+enum {
+    GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE = 1,
 };
 
 typedef struct git_merge_strategy_resolve_options {
 	int resolver;
+	int flags;
 } git_merge_strategy_resolve_options;
 
 /**

@@ -75,7 +75,7 @@ void test_merge_fastforward__no_fastforward(void)
 	cl_assert(!git_merge_result_is_fastforward(result));
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
-    cl_assert(git_index_reuc_entrycount(repo_index) == 0);
+	cl_assert(git_index_reuc_entrycount(repo_index) == 0);
     
 	git_merge_result_free(result);
 }

@@ -8,6 +8,18 @@ struct merge_index_entry {
 	char path[128];
 };
 
+struct merge_reuc_entry {
+	char path[128];
+	unsigned int ancestor_mode;
+	unsigned int our_mode;
+	unsigned int their_mode;
+	char ancestor_oid_str[41];
+	char our_oid_str[41];
+	char their_oid_str[41];
+};
+
 int merge_test_index(git_index *index, const struct merge_index_entry expected[], size_t expected_len);
+
+int merge_test_reuc(git_index *index, const struct merge_reuc_entry expected[], size_t expected_len);
 
 #endif

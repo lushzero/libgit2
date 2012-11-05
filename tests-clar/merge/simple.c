@@ -54,6 +54,13 @@ void test_merge_simple__ours(void)
         { 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 0, "conflicting.txt" },
         { 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt" },
     };
+
+	struct merge_reuc_entry merge_reuc_entries[] = {
+		{ "automergeable.txt", 0100644, 0100644, 0100644, "6212c31dab5e482247d7977e4f0dd3601decf13b", "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", "058541fc37114bfc1dddf6bd6bffc7fae5c2e6fe" },
+		{ "conflicting.txt", 0100644, 0100644, 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", "4e886e602529caa9ab11d71f86634bd1b6e0de10", "2bd0a343aeef7a2cf0d158478966a6e587ff3863" },
+		{ "removed-in-branch.txt", 0100644, 0100644, 0, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", "" },
+		{ "removed-in-master.txt", 0100644, 0, 0100644, "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", "", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5" },
+	};
     
     memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
     resolve_options.resolver = GIT_MERGE_STRATEGY_RESOLVE_OURS;
@@ -62,7 +69,7 @@ void test_merge_simple__ours(void)
 	cl_assert(!git_merge_result_is_fastforward(result));
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
-    cl_assert(git_index_reuc_entrycount(repo_index) == 0);
+	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 4));
     
 	git_merge_result_free(result);
 }
@@ -81,6 +88,13 @@ void test_merge_simple__theirs(void)
         { 0100644, "2bd0a343aeef7a2cf0d158478966a6e587ff3863", 0, "conflicting.txt" },
         { 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt" },
     };
+
+	struct merge_reuc_entry merge_reuc_entries[] = {
+		{ "automergeable.txt", 0100644, 0100644, 0100644, "6212c31dab5e482247d7977e4f0dd3601decf13b", "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", "058541fc37114bfc1dddf6bd6bffc7fae5c2e6fe" },
+		{ "conflicting.txt", 0100644, 0100644, 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", "4e886e602529caa9ab11d71f86634bd1b6e0de10", "2bd0a343aeef7a2cf0d158478966a6e587ff3863" },
+		{ "removed-in-branch.txt", 0100644, 0100644, 0, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", "" },
+		{ "removed-in-master.txt", 0100644, 0, 0100644, "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", "", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5" },
+	};
     
     memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
     resolve_options.resolver = GIT_MERGE_STRATEGY_RESOLVE_THEIRS;
@@ -89,7 +103,7 @@ void test_merge_simple__theirs(void)
 	cl_assert(!git_merge_result_is_fastforward(result));
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
-    cl_assert(git_index_reuc_entrycount(repo_index) == 0);
+	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 4));
     
 	git_merge_result_free(result);
 }

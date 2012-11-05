@@ -360,26 +360,37 @@ GIT_INLINE(int) merge_file_empty(git_diff_file *file)
     return file->path == NULL;
 }
 
+static int merge_remove_ours(git_repository *repo, git_index *index, git_diff_tree_delta *delta)
+{
+    git_buf path = GIT_BUF_INIT;
+    int error = 0;
+    
+    if (delta->files[1].path == NULL)
+        return 0;
+    
+    if ((error = git_buf_joinpath(&path, git_repository_workdir(repo), delta->files[1].path)) < 0 ||
+        (error = p_unlink(path.ptr)) < 0)
+        goto done;
+    
+    error = git_index_remove(index, delta->files[1].path, 0);
+    
+done:
+    git_buf_free(&path);
+    
+    return error;
+}
+
 static int merge_file_apply(git_repository *repo, git_index *index, git_diff_tree_delta *delta, int idx)
 {
 	int error = 0;
     
     assert(repo && index && delta && idx >= 1 && idx <= 2);
     
-    if (idx == 1 && delta->files[1].path != NULL) {
+    if (idx == 1 && delta->files[1].path != NULL)
         error = git_index_add_from_workdir(index, delta->files[1].path);
-    } else if (idx == 2 && delta->files[2].path == NULL) {
-        git_buf path = GIT_BUF_INIT;
-        
-        if ((error = git_buf_joinpath(&path, git_repository_workdir(repo), delta->files[1].path)) < 0 ||
-            (error = p_unlink(path.ptr)) < 0)
-            goto done;
-
-        error = git_index_remove(index, delta->files[0].path, 0);
-        
-done:
-        git_buf_free(&path);
-    } else if(idx == 2) {
+    else if (idx == 2 && delta->files[2].path == NULL)
+        error = merge_remove_ours(repo, index, delta);
+    else if(idx == 2) {
         if ((error = git_checkout_blob(repo, &delta->files[2])) >= 0)
             error = git_index_add_from_workdir(index, delta->files[2].path);
     }
@@ -389,6 +400,7 @@ done:
 
 static int resolve_trivial(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
+    int ancestor_empty, ours_empty, theirs_empty;
     int ours_changed, theirs_changed, ours_theirs_changed;
     int result = 0;
     int error = 0;
@@ -397,42 +409,56 @@ static int resolve_trivial(int *resolved, git_repository *repo, git_index *index
     
     *resolved = 0;
     
+    ancestor_empty = (delta->files[0].path == NULL);
+    ours_empty = (delta->files[1].path == NULL);
+    theirs_empty = (delta->files[2].path == NULL);
+    
     ours_changed = merge_file_cmp(&delta->files[0], &delta->files[1]);
     theirs_changed = merge_file_cmp(&delta->files[0], &delta->files[2]);
     ours_theirs_changed = merge_file_cmp(&delta->files[1], &delta->files[2]);
     
     /*
      * Note: with only one ancestor, some cases are not distinct:
-     * 16: ancest:anc1/anc2, head:anc1, remote:anc2 = result:no merge     [11]
-     * 3: ancest:(empty)^, head:head, remote:(empty) = result:no merge    [11]
-     * 2: ancest:(empty)^, head:(empty), remote:remote = result:no merge  [11]
      *
-     * And some are not possible:
-     * 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge
-     * 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge
-     * 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge
+     * 16: ancest:anc1/anc2, head:anc1, remote:anc2 = result:no merge
+     * 3: ancest:(empty)^, head:head, remote:(empty) = result:no merge
+     * 2: ancest:(empty)^, head:(empty), remote:remote = result:no merge
      *
-     * Note that some are included in documentation only for completeness:
-     * 9: ancest:ancest+, head:head, remote:(empty) = result:no merge     [11]
-     * 7: ancest:ancest+, head:(empty), remote:remote = result:no merge   [11]
-     * 4: ancest:(empty)^, head:head, remote:remote = result:no merge     [11]
+     * Note that the two cases that take D/F conflicts into account
+     * specifically do not need to be explicitly tested, as D/F conflicts
+     * would fail the *empty* test:
      *
-     * Note that some include specific D/F conflict instructions but are
-     * equivalent to other cases when a D/F conflicted side is non-empty:
-     * 3ALT: ancest:(empty)+, head:head, remote:*empty* = result:head     [13]
-     * 2ALT: ancest:(empty)+, head:*empty*, remote:remote = result:remote [14]
+     * 3ALT: ancest:(empty)+, head:head, remote:*empty* = result:head
+     * 2ALT: ancest:(empty)+, head:*empty*, remote:remote = result:remote
+     *
+     * Note that many of these cases need not be explicitly tested, as
+     * they simply degrade to "all different" cases (eg, 11):
+     *
+     * 4: ancest:(empty)^, head:head, remote:remote = result:no merge
+     * 7: ancest:ancest+, head:(empty), remote:remote = result:no merge
+     * 9: ancest:ancest+, head:head, remote:(empty) = result:no merge
+     * 11: ancest:ancest+, head:head, remote:remote = result:no merge
      */
-
+    
     /* 5ALT: ancest:*, head:head, remote:head = result:head */
-    if (!ours_theirs_changed)
+    if (ours_changed && !ours_empty && !ours_theirs_changed)
+        result = 1;
+    /* 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge */
+    else if (ours_changed && ours_empty && theirs_empty)
+        *resolved = 0;
+    /* 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge */
+    else if (ours_empty && !theirs_changed)
+        *resolved = 0;
+    /* 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge */
+    else if (!ours_changed && theirs_empty)
+        *resolved = 0;
+    /* 13: ancest:ancest+, head:head, remote:ancest = result:head */
+    else if (ours_changed && !theirs_changed)
         result = 1;
     /* 14: ancest:ancest+, head:ancest, remote:remote = result:remote */
     else if (!ours_changed && theirs_changed)
         result = 2;
-    /* 13: ancest:ancest+, head:head, remote:ancest = result:head */
-    else if (ours_changed && !theirs_changed)
-        result = 1;
-    /* 11: ancest:ancest+, head:head, remote:remote = result:no merge */
+    /* Should not happen */
     else
         *resolved = 0;
 
@@ -442,17 +468,9 @@ static int resolve_trivial(int *resolved, git_repository *repo, git_index *index
     return error;
 }
 
-static int resolve_conflict_none(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
-{
-	assert(repo && index && delta);
-
-	*resolved = 0;
-	return 0;
-}
-
 static int resolve_conflict_ours(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-	assert(repo && index && delta);
+	assert(resolved && repo && index && delta);
 
 	*resolved = 1;
 	return merge_file_apply(repo, index, delta, 1);
@@ -460,7 +478,7 @@ static int resolve_conflict_ours(int *resolved, git_repository *repo, git_index 
 
 static int resolve_conflict_theirs(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-	assert(repo && index && delta);
+	assert(resolved && repo && index && delta);
 
 	*resolved = 1;
     return merge_file_apply(repo, index, delta, 2);
@@ -468,10 +486,101 @@ static int resolve_conflict_theirs(int *resolved, git_repository *repo, git_inde
 
 static int resolve_conflict_automerge(int *resolved, git_repository *repo, git_index *index, git_diff_tree_delta *delta)
 {
-	assert (repo && index && delta);
+    int ours_empty, theirs_empty;
+    int ours_changed, theirs_changed, ours_theirs_changed;
+    int result = 0;
+    int error = 0;
+    
+    assert(resolved && repo && index && delta);
+    
+    *resolved = 0;
+    
+    ours_empty = (delta->files[1].path == NULL);
+    theirs_empty = (delta->files[2].path == NULL);
+    
+    ours_changed = merge_file_cmp(&delta->files[0], &delta->files[1]);
+    theirs_changed = merge_file_cmp(&delta->files[0], &delta->files[2]);
+    ours_theirs_changed = merge_file_cmp(&delta->files[1], &delta->files[2]);
 
-	*resolved = 0;
-	return 0;
+    /* Handle some cases that are not "trivial" but are, well, trivial. */
+    
+    if (ours_changed && ours_empty && theirs_empty)
+        result = 1;
+    if (ours_empty && !theirs_changed)
+        result = 1;
+    else if (!ours_changed && theirs_empty)
+        result = 2;
+    
+    if (result > 0 && (error = merge_file_apply(repo, index, delta, result)) >= 0)
+        *resolved = 1;
+
+	return error;
+}
+
+static int merge_mark_conflict_resolved(git_index *index, git_diff_tree_delta *delta)
+{
+    const char *path;
+    bool added[3] = { 0 };
+    int mode[3];
+    git_oid *oid[3];
+    size_t i, j;
+    int error = 0;
+    
+    assert(index && delta);
+    
+    for (i = 0; i < 3; i++) {
+        if (added[i] || (path = delta->files[i].path) == NULL)
+            continue;
+        
+        path = delta->files[i].path;
+        
+        for (j = 0; j < 3; j++) {
+            if (j < i) {
+                mode[j] = 0;
+                oid[j] = NULL;
+            } else {
+                mode[j] = delta->files[j].mode;
+                oid[j] = (mode[j] > 0) ? &delta->files[j].oid : NULL;
+                added[j] = 1;
+            }
+        }
+
+        if ((error = git_index_reuc_add(index, path, mode[0], oid[0], mode[1], oid[1], mode[2], oid[2])) < 0)
+            goto done;
+    }
+    
+done:
+    return error;
+}
+
+static int merge_mark_conflict_unresolved(git_repository *repo, git_index *index, git_diff_tree_delta *delta)
+{
+    bool exists[3] = { 0 };
+    git_index_entry conflict_entry[3];
+    size_t i;
+    int error = 0;
+    
+    assert(index && delta);
+    
+    for (i = 0; i < 3; i++) {
+        if (delta->files[i].path == NULL)
+            continue;
+        
+        exists[i] = 1;
+        
+        memset(&conflict_entry[i], 0x0, sizeof(git_index_entry));
+
+        conflict_entry[i].path = (char *)delta->files[i].path;
+        conflict_entry[i].mode = delta->files[i].mode;
+        
+        git_oid_cpy(&conflict_entry[i].oid, &delta->files[i].oid);
+    }
+    
+    if ((error = git_index_conflict_add(index, exists[0] ? &conflict_entry[0] : NULL,
+        exists[1] ? &conflict_entry[1] : NULL, exists[2] ? &conflict_entry[2] : NULL)) >= 0)
+        error = merge_remove_ours(repo, index, delta);
+
+    return error;
 }
 
 int git_merge_strategy_resolve(
@@ -490,7 +599,8 @@ int git_merge_strategy_resolve(
 	git_diff_tree_delta *delta;
 	git_merge_strategy_resolve_options *options;
 	int (*resolve_cb)(int *resolved, git_repository *repo, git_index *index,
-		git_diff_tree_delta *delta) = resolve_conflict_automerge;
+		git_diff_tree_delta *delta) = NULL;
+    bool automerge = 1;
 	size_t i;
 	int error = 0;
 
@@ -504,11 +614,11 @@ int git_merge_strategy_resolve(
 		giterr_set(GITERR_INVALID, "Merge strategy: ours requires exactly one head.");
 		return -1;
 	}
+    
+    if (options != NULL && (options->flags & GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE))
+        automerge = 0;
 
 	if (options != NULL &&
-		options->resolver == GIT_MERGE_STRATEGY_RESOLVE_NONE)
-		resolve_cb = resolve_conflict_none;
-	else if (options != NULL &&
 		options->resolver == GIT_MERGE_STRATEGY_RESOLVE_OURS)
 		resolve_cb = resolve_conflict_ours;
 	else if (options != NULL &&
@@ -527,7 +637,7 @@ int git_merge_strategy_resolve(
     trees[1] = our_tree;
     trees[2] = their_tree;
 
-    git_diff_trees(&diff_tree, repo, trees, 3, GIT_DIFF_TREES_RETURN_UNMODIFIED);
+    git_diff_trees(&diff_tree, repo, trees, 3, 0);
 
 	git_vector_foreach(&diff_tree->deltas, i, delta) {
         int resolved = 0;
@@ -539,13 +649,21 @@ int git_merge_strategy_resolve(
             goto done;
 
         /* Handle conflicts */
-        if (! resolved && (error = resolve_cb(&resolved, repo, index, delta)) < 0)
-            goto done;
+        if (!resolved) {
+            /* Try automerge first unless configured otherwise, emulates core git. */
+            if (automerge && (error = resolve_conflict_automerge(&resolved, repo, index, delta)) < 0)
+                goto done;
+
+            if (!resolved && resolve_cb != NULL && (error = resolve_cb(&resolved, repo, index, delta)) < 0)
+                goto done;
+            
+            if (resolved)
+                merge_mark_conflict_resolved(index, delta);            
+        }
 
         /* Still not resolved, mark it as such. */
-        if (! resolved) {
-            /* TODO */
-        }
+        if (! resolved)
+            merge_mark_conflict_unresolved(repo, index, delta);
 	}
 
 	git_index_write(index);

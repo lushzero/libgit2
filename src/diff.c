@@ -825,16 +825,22 @@ int git_diff_trees(
 			if (best_next_item == NULL) {
 				best_next_item = items[i];
 				next_items[i] = items[i];
-			}
-			else {
+			} else {
 				int diff = entry_compare(items[i], best_next_item);
 
 				if (diff < 0) {
+                    /*
+                     * Found an item that sorts before our current item, make
+                     * our current item this one.
+                     */
 					memset(next_items, 0x0, sizeof(git_index_entry *) * trees_length);
 					next_item_modified = 1;
 					best_next_item = items[i];
 					next_items[i] = items[i];
-				} else if (diff == 0) {
+                } else if (diff > 0) {
+                    /* No entry for the current item, this is modified */
+                    next_item_modified = 1;
+                } else if (diff == 0) {
 					next_items[i] = items[i];
 
 					if (!next_item_modified && !return_unmodified)
