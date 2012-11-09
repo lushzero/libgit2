@@ -123,7 +123,8 @@ static int reference_read(
 	if (git_buf_joinpath(&path, repo_path, ref_name) < 0)
 		return -1;
 
-	result = git_futils_readbuffer_updated(file_content, path.ptr, mtime, updated);
+	result = git_futils_readbuffer_updated(
+		file_content, path.ptr, mtime, NULL, updated);
 	git_buf_free(&path);
 
 	return result;
@@ -1948,10 +1949,10 @@ int git_reference_peel(
 		peel_error(error, ref, "Cannot retrieve reference target");
 		goto cleanup;
 	}
-	
+
 	if (target_type == GIT_OBJ_ANY && git_object_type(target) != GIT_OBJ_TAG)
 		error = git_object__dup(peeled, target);
-	else 
+	else
 		error = git_object_peel(peeled, target, target_type);
 
 cleanup:

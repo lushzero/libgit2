@@ -604,8 +604,8 @@ on_error:
 
 static int send_pack_file(void *buf, size_t size, void *data)
 {
-	git_transport *t = (git_transport *)data;
-	return gitno_send(t, buf, size, 0);
+	gitno_socket *s = (gitno_socket *)data;
+	return gitno_send(s, buf, size, 0);
 }
 
 static int write_pack_buf(void *buf, size_t size, void *data)
@@ -1231,10 +1231,16 @@ static int prepare_pack(git_packbuilder *pb)
 
 #define PREPARE_PACK if (prepare_pack(pb) < 0) { return -1; }
 
-int git_packbuilder_send(git_packbuilder *pb, git_transport *t)
+int git_packbuilder_send(git_packbuilder *pb, gitno_socket *s)
 {
 	PREPARE_PACK;
-	return write_pack(pb, &send_pack_file, t);
+	return write_pack(pb, &send_pack_file, s);
+}
+
+int git_packbuilder_foreach(git_packbuilder *pb, int (*cb)(void *buf, size_t size, void *payload), void *payload)
+{
+	PREPARE_PACK;
+	return write_pack(pb, cb, payload);
 }
 
 int git_packbuilder_write_buf(git_buf *buf, git_packbuilder *pb)
@@ -1284,6 +1290,16 @@ int git_packbuilder_insert_tree(git_packbuilder *pb, const git_oid *oid)
 
 	git_tree_free(tree);
 	return 0;
+}
+
+uint32_t git_packbuilder_object_count(git_packbuilder *pb)
+{
+	return pb->nr_objects;
+}
+
+uint32_t git_packbuilder_written(git_packbuilder *pb)
+{
+	return pb->nr_written;
 }
 
 void git_packbuilder_free(git_packbuilder *pb)
