@@ -48,7 +48,7 @@ void test_merge_simple__ours(void)
 	/* TODO: automergeable should be f2e1550a0c9e53d5811175864a29536642ae3821 */
     struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
-        { 0100644, "", 0, "automergeable.txt" },
+        { 0100644, "f2e1550a0c9e53d5811175864a29536642ae3821", 0, "automergeable.txt" },
         { 0100644, "4eb04c9e79e88f6640d01ff5b25ca2a60764f216", 0, "changed-in-branch.txt" },
         { 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt" },
         { 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 0, "conflicting.txt" },
@@ -82,7 +82,7 @@ void test_merge_simple__theirs(void)
 	/* TODO: automergeable should be f2e1550a0c9e53d5811175864a29536642ae3821 */
     struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
-        { 0100644, "", 0, "automergeable.txt" },
+        { 0100644, "f2e1550a0c9e53d5811175864a29536642ae3821", 0, "automergeable.txt" },
         { 0100644, "4eb04c9e79e88f6640d01ff5b25ca2a60764f216", 0, "changed-in-branch.txt" },
         { 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt" },
         { 0100644, "2bd0a343aeef7a2cf0d158478966a6e587ff3863", 0, "conflicting.txt" },
