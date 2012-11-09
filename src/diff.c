@@ -439,7 +439,7 @@ static git_diff_tree_list *diff_tree_list_alloc(git_repository *repo)
 	GIT_REFCOUNT_INC(diff_tree);
 	diff_tree->repo = repo;
 
-	if (git_vector_init(&diff_tree->deltas, 0, diff_delta__cmp) < 0 ||
+	if (git_vector_init(&diff_tree->deltas, 0, git_diff_delta__cmp) < 0 ||
 		git_pool_init(&diff_tree->pool, 1, 0) < 0)
         return NULL;
     
