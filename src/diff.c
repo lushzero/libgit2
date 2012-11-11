@@ -603,7 +603,7 @@ static int maybe_modified(
 		diff, status, oitem, omode, nitem, nmode, use_noid);
 }
 
-static int git_index_entry_cmp_case(const void *a, const void *b)
+int git_index_entry_cmp_case(const void *a, const void *b)
 {
 	const git_index_entry *entry_a = a;
 	const git_index_entry *entry_b = b;
@@ -611,7 +611,7 @@ static int git_index_entry_cmp_case(const void *a, const void *b)
 	return strcmp(entry_a->path, entry_b->path);
 }
 
-static int git_index_entry_cmp_icase(const void *a, const void *b)
+int git_index_entry_cmp_icase(const void *a, const void *b)
 {
 	const git_index_entry *entry_a = a;
 	const git_index_entry *entry_b = b;

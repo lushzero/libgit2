@@ -53,5 +53,9 @@ extern int git_diff_delta__cmp(const void *a, const void *b);
 extern bool git_diff_delta__should_skip(
 	const git_diff_options *opts, const git_diff_delta *delta);
 
+extern int git_index_entry_cmp_case(const void *a, const void *b);
+
+extern int git_index_entry_cmp_icase(const void *a, const void *b);
+
 #endif
 
