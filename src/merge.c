@@ -13,10 +13,12 @@
 #include "refs.h"
 #include "object.h"
 #include "iterator.h"
-#include "diff.h"
 #include "checkout.h"
 #include "refs.h"
+#include "diff.h"
+#include "diff_tree.h"
 
+#include "git2/diff_tree.h"
 #include "git2/types.h"
 #include "git2/repository.h"
 #include "git2/object.h"

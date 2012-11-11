@@ -28,10 +28,6 @@ enum {
 	GIT_DIFFCAPS_USE_DEV          = (1 << 4), /* use st_dev? */
 };
 
-enum {
-	GIT_DIFF_TREES_RETURN_UNMODIFIED = (1 << 0),
-};
-
 #define GIT_DELTA__TO_DELETE 10
 #define GIT_DELTA__TO_SPLIT  11
 
@@ -47,19 +43,6 @@ struct git_diff_list {
 	uint32_t diffcaps;
 };
 
-struct git_diff_tree_list {
-	git_repository *repo;
-	git_pool pool;
-	git_vector deltas; /* vector of git_diff_tree_delta */
-};
-
-int git_diff_trees(
-	git_diff_tree_list **out,
-	git_repository *repo,
-	git_tree **trees,
-	size_t trees_length,
-	unsigned int flags);
-
 extern void git_diff__cleanup_modes(
 	uint32_t diffcaps, uint32_t *omode, uint32_t *nmode);
 
@@ -69,6 +52,10 @@ extern int git_diff_delta__cmp(const void *a, const void *b);
 
 extern bool git_diff_delta__should_skip(
 	const git_diff_options *opts, const git_diff_delta *delta);
+
+extern int git_index_entry_cmp_case(const void *a, const void *b);
+
+extern int git_index_entry_cmp_icase(const void *a, const void *b);
 
 #endif
 
