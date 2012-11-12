@@ -42,6 +42,7 @@ enum {
 enum {
     GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE =  (1 << 0),
     GIT_MERGE_STRATEGY_RESOLVE_NO_DIFF3_FILE = (1 << 1),
+    GIT_MERGE_STRATEGY_RESOLVE_NO_SIMPLE = (1 << 2),
 };
 
 typedef struct git_merge_strategy_resolve_options {

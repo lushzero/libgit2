@@ -42,7 +42,8 @@ static git_merge_result *merge_trivial(const char *ours, const char *theirs, boo
 		GIT_CHECKOUT_REMOVE_UNTRACKED;
 
 	memset(&resolve_opts, 0x0, sizeof(git_merge_strategy_resolve_options));
-	resolve_opts.flags = automerge ? 0 : GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE;
+	resolve_opts.flags |= automerge ? 0 : GIT_MERGE_STRATEGY_RESOLVE_NO_SIMPLE;
+	resolve_opts.flags |= automerge ? 0 : GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE;
 
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, ours);
 	cl_git_pass(git_reference_create_symbolic(&our_ref, repo, "HEAD", branch_buf.ptr, 1));
