@@ -47,15 +47,19 @@ void test_merge_setup__cleanup(void)
 
 static int fake_strategy(int *success,
 	git_repository *repo,
-	const git_commit *our_commit,
-	const git_commit *ancestor_commit,
-	const git_commit *their_commits[],
-	size_t their_commits_len,
+	const git_merge_head *our_head,
+	const git_merge_head *ancestor_head,
+	const git_merge_head *their_heads[],
+	size_t their_heads_len,
 	void *data)
 {
     /* Avoid unused warnings */
-    if (repo && our_commit && ancestor_commit && their_commits && their_commits_len && data)
-        ;
+	GIT_UNUSED(repo);
+	GIT_UNUSED(our_head);
+	GIT_UNUSED(ancestor_head);
+	GIT_UNUSED(their_heads);
+	GIT_UNUSED(their_heads_len);
+	GIT_UNUSED(data);
     
 	*success = 0;
 	return 0;
@@ -85,7 +89,7 @@ void test_merge_setup__one_branch(void)
 	git_merge_result *result;
     
     cl_git_pass(git_reference_lookup(&octo1_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], octo1_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, octo1_ref));
     
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, GIT_MERGE_NO_FASTFORWARD, fake_strategy, NULL));
 
@@ -107,7 +111,7 @@ void test_merge_setup__one_oid(void)
 	git_merge_result *result;
     
     cl_git_pass(git_oid_fromstr(&octo1_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[0], &octo1_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &octo1_oid));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, GIT_MERGE_NO_FASTFORWARD, fake_strategy, NULL));
     
@@ -128,10 +132,10 @@ void test_merge_setup__two_branches(void)
 	git_merge_result *result;
     
     cl_git_pass(git_reference_lookup(&octo1_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], octo1_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, octo1_ref));
 
     cl_git_pass(git_reference_lookup(&octo2_ref, repo, GIT_REFS_HEADS_DIR OCTO2_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[1], octo2_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[1], repo, octo2_ref));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 2, 0, fake_strategy, NULL));
     
@@ -157,13 +161,13 @@ void test_merge_setup__three_branches(void)
 	git_merge_result *result;
     
     cl_git_pass(git_reference_lookup(&octo1_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], octo1_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, octo1_ref));
     
     cl_git_pass(git_reference_lookup(&octo2_ref, repo, GIT_REFS_HEADS_DIR OCTO2_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[1], octo2_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[1], repo, octo2_ref));
 
     cl_git_pass(git_reference_lookup(&octo3_ref, repo, GIT_REFS_HEADS_DIR OCTO3_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[2], octo3_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[2], repo, octo3_ref));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 3, 0, fake_strategy, NULL));
     
@@ -191,13 +195,13 @@ void test_merge_setup__three_oids(void)
 	git_merge_result *result;
     
     cl_git_pass(git_oid_fromstr(&octo1_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[0], &octo1_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &octo1_oid));
     
     cl_git_pass(git_oid_fromstr(&octo2_oid, OCTO2_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[1], &octo2_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[1], repo, &octo2_oid));
 
     cl_git_pass(git_oid_fromstr(&octo3_oid, OCTO3_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[2], &octo3_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[2], repo, &octo3_oid));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 3, 0, fake_strategy, NULL));
     
@@ -220,10 +224,10 @@ void test_merge_setup__branches_and_oids_1(void)
 	git_merge_result *result;
 
     cl_git_pass(git_reference_lookup(&octo1_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], octo1_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, octo1_ref));
 
     cl_git_pass(git_oid_fromstr(&octo2_oid, OCTO2_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[1], &octo2_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[1], repo, &octo2_oid));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 2, 0, fake_strategy, NULL));
     
@@ -249,16 +253,16 @@ void test_merge_setup__branches_and_oids_2(void)
 	git_merge_result *result;
     
     cl_git_pass(git_reference_lookup(&octo1_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], octo1_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, octo1_ref));
     
     cl_git_pass(git_oid_fromstr(&octo2_oid, OCTO2_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[1], &octo2_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[1], repo, &octo2_oid));
 
     cl_git_pass(git_reference_lookup(&octo3_ref, repo, GIT_REFS_HEADS_DIR OCTO3_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[2], octo3_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[2], repo, octo3_ref));
     
     cl_git_pass(git_oid_fromstr(&octo4_oid, OCTO4_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[3], &octo4_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[3], repo, &octo4_oid));
     
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 4, 0, fake_strategy, NULL));
     
@@ -287,16 +291,16 @@ void test_merge_setup__branches_and_oids_3(void)
 	git_merge_result *result;
 
     cl_git_pass(git_oid_fromstr(&octo1_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[0], &octo1_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &octo1_oid));
 
     cl_git_pass(git_reference_lookup(&octo2_ref, repo, GIT_REFS_HEADS_DIR OCTO2_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[1], octo2_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[1], repo, octo2_ref));
 
     cl_git_pass(git_oid_fromstr(&octo3_oid, OCTO3_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[2], &octo3_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[2], repo, &octo3_oid));
     
     cl_git_pass(git_reference_lookup(&octo4_ref, repo, GIT_REFS_HEADS_DIR OCTO4_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[3], octo4_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[3], repo, octo4_ref));
     
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 4, 0, fake_strategy, NULL));
     
@@ -326,19 +330,19 @@ void test_merge_setup__branches_and_oids_4(void)
 	git_merge_result *result;
     
     cl_git_pass(git_oid_fromstr(&octo1_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[0], &octo1_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &octo1_oid));
     
     cl_git_pass(git_reference_lookup(&octo2_ref, repo, GIT_REFS_HEADS_DIR OCTO2_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[1], octo2_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[1], repo, octo2_ref));
     
     cl_git_pass(git_oid_fromstr(&octo3_oid, OCTO3_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[2], &octo3_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[2], repo, &octo3_oid));
     
     cl_git_pass(git_reference_lookup(&octo4_ref, repo, GIT_REFS_HEADS_DIR OCTO4_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[3], octo4_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[3], repo, octo4_ref));
 
     cl_git_pass(git_reference_lookup(&octo5_ref, repo, GIT_REFS_HEADS_DIR OCTO5_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[4], octo5_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[4], repo, octo5_ref));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 5, 0, fake_strategy, NULL));
     
@@ -368,13 +372,13 @@ void test_merge_setup__three_same_branches(void)
 	git_merge_result *result;
     
     cl_git_pass(git_reference_lookup(&octo1_1_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], octo1_1_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, octo1_1_ref));
     
     cl_git_pass(git_reference_lookup(&octo1_2_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[1], octo1_2_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[1], repo, octo1_2_ref));
     
     cl_git_pass(git_reference_lookup(&octo1_3_ref, repo, GIT_REFS_HEADS_DIR OCTO1_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[2], octo1_3_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[2], repo, octo1_3_ref));
     
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 3, 0, fake_strategy, NULL));
     
@@ -402,13 +406,13 @@ void test_merge_setup__three_same_oids(void)
 	git_merge_result *result;
     
     cl_git_pass(git_oid_fromstr(&octo1_1_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[0], &octo1_1_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &octo1_1_oid));
     
     cl_git_pass(git_oid_fromstr(&octo1_2_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[1], &octo1_2_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[1], repo, &octo1_2_oid));
     
     cl_git_pass(git_oid_fromstr(&octo1_3_oid, OCTO1_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[2], &octo1_3_oid));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[2], repo, &octo1_3_oid));
     
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 3, 0, fake_strategy, NULL));
     

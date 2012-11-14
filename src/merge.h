@@ -18,6 +18,8 @@
 struct git_merge_head {
 	char *branch_name;
 	git_oid oid;
+
+	git_commit *commit;
 };
 
 /** Internal structure for merge results */

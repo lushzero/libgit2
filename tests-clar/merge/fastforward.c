@@ -34,7 +34,7 @@ static git_merge_result *merge_fastforward_branch(int flags)
 	git_merge_result *result;
 
     cl_git_pass(git_reference_lookup(&their_ref, repo, GIT_REFS_HEADS_DIR THEIRS_FASTFORWARD_BRANCH));
-    cl_git_pass(git_merge_head_from_ref(&their_heads[0], their_ref));
+    cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, their_ref));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, flags, NULL, NULL));
 

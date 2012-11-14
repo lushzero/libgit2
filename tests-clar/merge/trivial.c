@@ -53,7 +53,7 @@ static git_merge_result *merge_trivial(const char *ours, const char *theirs, boo
 	git_buf_clear(&branch_buf);
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, theirs);
 	cl_git_pass(git_reference_lookup(&their_ref, repo, branch_buf.ptr));
-	cl_git_pass(git_merge_head_from_ref(&their_heads[0], their_ref));
+	cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, their_ref));
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, 0, git_merge_strategy_resolve, &resolve_opts));
 

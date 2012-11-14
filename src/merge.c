@@ -32,16 +32,16 @@
 
 #include "xdiff/xdiff.h"
 
-static int write_orig_head(git_repository *repo, const git_commit *our_commit)
+static int write_orig_head(git_repository *repo, const git_merge_head *our_head)
 {
 	git_filebuf orig_head_file = GIT_FILEBUF_INIT;
 	git_buf orig_head_path = GIT_BUF_INIT;
 	char orig_oid_str[GIT_OID_HEXSZ + 1];
 	int error = 0;
 
-	assert(repo && our_commit);
+	assert(repo && our_head);
 
-	git_oid_tostr(orig_oid_str, GIT_OID_HEXSZ+1, git_commit_id((git_commit *)our_commit));
+	git_oid_tostr(orig_oid_str, GIT_OID_HEXSZ+1, &our_head->oid);
 
 	if ((error = git_buf_joinpath(&orig_head_path, repo->path_repository, GIT_ORIG_HEAD_FILE)) == 0 &&
 		(error = git_filebuf_open(&orig_head_file, orig_head_path.ptr, GIT_FILEBUF_FORCE)) == 0 &&
@@ -203,16 +203,16 @@ cleanup:
 
 static int merge_setup(
 	git_repository *repo,
-	const git_commit *our_commit,
+	const git_merge_head *our_head,
     const git_merge_head *their_heads[],
 	size_t their_heads_len,
 	unsigned int flags)
 {
 	int error = 0;
 
-	assert (repo && our_commit && their_heads);
+	assert (repo && our_head && their_heads);
 
-	if ((error = write_orig_head(repo, our_commit)) == 0 &&
+	if ((error = write_orig_head(repo, our_head)) == 0 &&
 		(error = write_merge_head(repo, their_heads, their_heads_len)) == 0 &&
 		(error = write_merge_mode(repo, flags)) == 0) {
 		error = write_merge_msg(repo, their_heads, their_heads_len);
@@ -222,30 +222,30 @@ static int merge_setup(
 }
 
 static int common_ancestor(
-	git_commit **ancestor_commit,
+	git_merge_head **ancestor_head,
 	git_repository *repo,
-	git_commit *our_commit,
-    git_commit *their_commits[],
-	size_t their_commits_len)
+	const git_merge_head *our_head,
+	const git_merge_head *their_heads[],
+	size_t their_heads_len)
 {
 	git_oid *oids, ancestor_oid;
 	size_t i;
     int error = 0;
 
-	assert(repo && our_commit && their_commits);
+	assert(repo && our_head && their_heads);
 
-	if ((oids = git__calloc(their_commits_len + 1, sizeof(git_oid))) == NULL)
+	if ((oids = git__calloc(their_heads_len + 1, sizeof(git_oid))) == NULL)
 		return -1;
     
-    git_oid_cpy(&oids[0], git_commit_id(our_commit));
+    git_oid_cpy(&oids[0], git_commit_id(our_head->commit));
 
-	for (i = 0; i < their_commits_len; i++)
-		git_oid_cpy(&oids[i + 1], git_commit_id((git_commit *)their_commits[i]));
+	for (i = 0; i < their_heads_len; i++)
+		git_oid_cpy(&oids[i + 1], &their_heads[i]->oid);
 
-	if ((error = git_merge_base_many(&ancestor_oid, repo, oids, their_commits_len + 1)) < 0)
+	if ((error = git_merge_base_many(&ancestor_oid, repo, oids, their_heads_len + 1)) < 0)
         goto cleanup;
 
-	return git_object_lookup((git_object **)ancestor_commit, repo, &ancestor_oid, GIT_OBJ_COMMIT);
+	return git_merge_head_from_oid(ancestor_head, repo, &ancestor_oid);
 
 cleanup:
     git__free(oids);
@@ -257,15 +257,14 @@ int git_merge(git_merge_result **out,
     const git_merge_head *their_heads[],
 	size_t their_heads_len,
 	unsigned int flags,
-	int (*merge_strategy)(int *success, git_repository *repo, const git_commit *our_commit, const git_commit *ancestor_commit, const git_commit *their_commits[], size_t their_commits_len, void *data),
+	git_merge_strategy merge_strategy,
 	void *strategy_data)
 {
 	git_merge_result *result;
-	git_oid our_oid;
-	git_commit *ancestor_commit = NULL, *our_commit = NULL, **their_commits = NULL;
+	git_reference *our_ref;
+	git_merge_head *ancestor_head = NULL, *our_head = NULL;
 	int strategy_success = 0;
 	int error = 0;
-    size_t i;
 
 	assert(out && repo && their_heads);
 
@@ -278,20 +277,12 @@ int git_merge(git_merge_result **out,
 
 	result = git__calloc(1, sizeof(git_merge_result));
 	GITERR_CHECK_ALLOC(result);
-    
-    their_commits = git__calloc(their_heads_len, sizeof(git_commit *));
-    GITERR_CHECK_ALLOC(their_commits);
 
-	if ((error = git_reference_name_to_oid(&our_oid, repo, GIT_HEAD_FILE)) < 0 ||
-		(error = git_object_lookup((git_object **)&our_commit, repo, &our_oid, GIT_OBJ_COMMIT)) < 0)
+	if ((error = git_reference_lookup(&our_ref, repo, GIT_HEAD_FILE)) < 0 ||
+		(error = git_merge_head_from_ref(&our_head, repo, our_ref)) < 0)
 		goto cleanup;
     
-    for (i = 0; i < their_heads_len; i++) {
-        if ((error = git_object_lookup((git_object **)&their_commits[i], repo, &their_heads[i]->oid, GIT_OBJ_COMMIT)) < 0)
-            goto cleanup;
-    }
-
-	if ((error = common_ancestor(&ancestor_commit, repo, our_commit, their_commits, their_heads_len)) < 0)
+	if ((error = common_ancestor(&ancestor_head, repo, our_head, their_heads, their_heads_len)) < 0)
 		goto cleanup;
     
     /* TODO: check for up-to-date? */
@@ -299,7 +290,7 @@ int git_merge(git_merge_result **out,
 	/* Check for fast-forward. */
 	if (their_heads_len == 1 && (flags & GIT_MERGE_NO_FASTFORWARD) == 0) {
 		/* If we are our own best common ancestor, this is a fast-forward. */
-		if (git_oid_cmp(git_commit_id(ancestor_commit), git_commit_id(our_commit)) == 0)
+		if (git_oid_cmp(&ancestor_head->oid, &our_head->oid) == 0)
 		{
 			result->is_fastforward = 1;
 			git_oid_cpy(&result->fastforward_oid, &their_heads[0]->oid);
@@ -309,7 +300,7 @@ int git_merge(git_merge_result **out,
 	}
     
 	/* Set up the merge files */
-	if ((error = merge_setup(repo, our_commit, their_heads, their_heads_len, flags)) < 0)
+	if ((error = merge_setup(repo, our_head, their_heads, their_heads_len, flags)) < 0)
 		goto cleanup;
 
 	/* Determine the best strategy if one was not provided. */
@@ -318,26 +309,24 @@ int git_merge(git_merge_result **out,
 	else if (merge_strategy == NULL)
 		merge_strategy = git_merge_strategy_octopus;
 
-	if((error = (*merge_strategy)(&strategy_success, repo, our_commit, ancestor_commit, (const git_commit **)their_commits, their_heads_len, strategy_data)) < 0)
+	if((error = (*merge_strategy)(&strategy_success,
+		repo,
+		ancestor_head,
+		our_head,
+		(const git_merge_head **)their_heads,
+		their_heads_len,
+		strategy_data)) < 0)
 		goto cleanup;
 
 cleanup:
-	git_object_free((git_object *)ancestor_commit);
-	git_object_free((git_object *)our_commit);
-    
-    if (their_commits != NULL) {
-        for (i = 0; i < their_heads_len; i++)
-            git_object_free((git_object *)their_commits[i]);
-        
-        git__free(their_commits);
-    }
+	git_merge_head_free(ancestor_head);
+	git_merge_head_free(our_head);
 
+	git_reference_free(our_ref);
+    
 	if (error == 0)
-	{
 		*out = result;
-	}
-	else
-	{
+	else {
 		free(result);
 		*out = NULL;
 	}
@@ -575,6 +564,7 @@ static int merge_conflict_calc_automerge_data(
 	merge_conflict_automerge_data *automerge_data;
     xmparam_t xmparam;
     git_oid *ancestor_oid, *our_oid, *their_oid;
+	char *ancestor_name = NULL, *our_name = NULL, *their_name = NULL;
     mmfile_t *ancestor_mmfile = NULL, *our_mmfile = NULL, *their_mmfile = NULL;
 	int xdl_result;
 	int error = 0;
@@ -586,7 +576,7 @@ static int merge_conflict_calc_automerge_data(
 	if ((automerge_data = git__calloc(1, sizeof(merge_conflict_automerge_data))) == NULL)
 		return -1;
 
-	/* TODO: handle mode conflicts */
+	/* TODO: handle mode conflicts and renames */
     automerge_data->path = (delta->files[0].path != NULL) ?
 		delta->files[0].path : delta->files[1].path;
     automerge_data->mode = (delta->files[0].path != NULL) ?
@@ -594,12 +584,13 @@ static int merge_conflict_calc_automerge_data(
     
     /* Do the auto merge */
     memset(&xmparam, 0x0, sizeof(xmparam_t));
-    
+
 	/*
-	 * TODO: filenames should be:
-	 * 'branch_name' or 'oid' of the branch (if all filenames the same)
-	 * otherwise, 'branch_name:path' (if they differ)
+	 * TODO:
+	 * If all filenames are equal, we set the names to the branch name.  If
+	 * they differ, we use branch_hane:path.
 	 */
+
     xmparam.ancestor = delta->files[0].path == NULL ? NULL : delta->files[0].path;
     xmparam.file1 = delta->files[1].path == NULL ? NULL : delta->files[1].path;
     xmparam.file2 = delta->files[2].path == NULL ? NULL : delta->files[2].path;
@@ -632,7 +623,16 @@ done:
     
     if (their_mmfile != NULL)
         git__free(their_mmfile);
-    
+
+	if (ancestor_name != NULL)
+		git__free(ancestor_name);
+	
+	if (our_name != NULL)
+		git__free(our_name);
+	
+	if (their_name != NULL)
+		git__free(their_name);
+
 	return error;
 }
 
@@ -745,10 +745,10 @@ static int merge_mark_conflict_unresolved(git_index *index, git_diff_tree_delta 
 int git_merge_strategy_resolve(
 	int *out,
 	git_repository *repo,
-	const git_commit *our_commit,
-	const git_commit *ancestor_commit,
-	const git_commit *their_commits[],
-	size_t their_commits_length,
+	const git_merge_head *ancestor_head,
+	const git_merge_head *our_head,
+	const git_merge_head *their_heads[],
+	size_t their_heads_len,
 	void *data)
 {
 	git_index *index = NULL;
@@ -764,13 +764,13 @@ int git_merge_strategy_resolve(
 	size_t i;
 	int error = 0;
 
-	assert(repo && our_commit && ancestor_commit && their_commits);
+	assert(repo && ancestor_head && our_head && their_heads);
 
 	options = (git_merge_strategy_resolve_options *)data;
 
 	*out = 1;
 
-	if (their_commits_length != 1)	{
+	if (their_heads_len != 1)	{
 		giterr_set(GITERR_INVALID, "Merge strategy: ours requires exactly one head.");
 		return -1;
 	}
@@ -794,16 +794,17 @@ int git_merge_strategy_resolve(
 	if ((error = git_repository_index(&index, repo)) < 0)
 		goto done;
 
-	if ((error = git_commit_tree(&ancestor_tree, (git_commit *)ancestor_commit)) < 0 ||
-		(error = git_commit_tree(&our_tree, (git_commit *)our_commit)) < 0 ||
-		(error = git_commit_tree(&their_tree, (git_commit *)their_commits[0])) < 0)
+	if ((error = git_commit_tree(&ancestor_tree, (git_commit *)ancestor_head->commit)) < 0 ||
+		(error = git_commit_tree(&our_tree, (git_commit *)our_head->commit)) < 0 ||
+		(error = git_commit_tree(&their_tree, (git_commit *)their_heads[0]->commit)) < 0)
 		goto done;
 
     trees[0] = ancestor_tree;
     trees[1] = our_tree;
     trees[2] = their_tree;
 
-    git_diff_trees(&diff_tree, repo, trees, 3, 0);
+    if ((error = git_diff_trees(&diff_tree, repo, trees, 3, 0)) < 0)
+        goto done;
 
 	git_vector_foreach(&diff_tree->deltas, i, delta) {
         int resolved = 0;
@@ -880,24 +881,26 @@ done:
 int git_merge_strategy_octopus(
 	int *success,
 	git_repository *repo,
-	const git_commit *our_commit,
-	const git_commit *ancestor_commit,
-	const git_commit *their_commits[],
-	size_t their_commits_length,
+	const git_merge_head *ancestor_head,
+	const git_merge_head *our_head,
+	const git_merge_head *their_heads[],
+	size_t their_heads_len,
 	void *data)
 {
-	assert(repo && our_commit && ancestor_commit && their_commits);
-    
-    /* Prevent unused warnings */
-    if (data)
-        ;
+	assert(repo && ancestor_head && our_head && their_heads);
 
-	if(their_commits_length < 2) {
+	if(their_heads_len < 2) {
 		giterr_set(GITERR_INVALID, "Merge strategy: octopus requires at least two heads.");
 		return -1;
 	}
 
-	*success = 1;
+	GIT_UNUSED(repo);
+	GIT_UNUSED(ancestor_head);
+	GIT_UNUSED(our_head);
+	GIT_UNUSED(their_heads);
+	GIT_UNUSED(data);
+
+	*success = 0;
 
 	giterr_set(GITERR_MERGE, "Merge strategy: octopus is not yet implemented.");
 	return -1;
@@ -962,9 +965,13 @@ cleanup:
 
 /* git_merge_head functions */
 
-static int merge_head_init(git_merge_head **out, const char *branch_name, const git_oid *oid)
+static int merge_head_init(git_merge_head **out,
+	git_repository *repo,
+	const char *branch_name,
+	const git_oid *oid)
 {
     git_merge_head *head;
+	int error = 0;
     
     assert(out && oid);
     
@@ -979,12 +986,19 @@ static int merge_head_init(git_merge_head **out, const char *branch_name, const 
     }
     
     git_oid_cpy(&head->oid, oid);
+
+	if ((error = git_commit_lookup(&head->commit, repo, &head->oid)) < 0) {
+		git_merge_head_free(head);
+		return error;
+	}
     
     *out = head;
-    return 0;
+    return error;
 }
 
-int git_merge_head_from_ref(git_merge_head **out, git_reference *ref)
+int git_merge_head_from_ref(git_merge_head **out,
+	git_repository *repo,
+	git_reference *ref)
 {
     git_reference *resolved;
     char *ref_name = NULL;
@@ -1001,24 +1015,29 @@ int git_merge_head_from_ref(git_merge_head **out, git_reference *ref)
         ref_name = (char *)git_reference_name(ref) + strlen(GIT_REFS_HEADS_DIR);
     }
 
-    error = merge_head_init(out, ref_name, git_reference_oid(resolved));
+    error = merge_head_init(out, repo, ref_name, git_reference_oid(resolved));
 
     git_reference_free(resolved);
     return error;
 }
 
-int git_merge_head_from_oid(git_merge_head **out, const git_oid *oid)
+int git_merge_head_from_oid(git_merge_head **out,
+	git_repository *repo,
+	const git_oid *oid)
 {
-    return merge_head_init(out, NULL, oid);
+    return merge_head_init(out, repo, NULL, oid);
 }
 
 void git_merge_head_free(git_merge_head *head)
 {
     if (head == NULL)
         return;
+
+	if (head->commit != NULL)
+		git_object_free((git_object *)head->commit);
     
     if (head->branch_name != NULL)
-        free(head->branch_name);
+        git__free(head->branch_name);
     
-    free(head);
+    git__free(head);
 }

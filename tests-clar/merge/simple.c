@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "merge.h"
 #include "merge_helpers.h"
+#include "fileops.h"
 
 static git_repository *repo;
 static git_index *repo_index;
@@ -91,7 +92,7 @@ static git_merge_result *merge_simple_branch(int flags, git_merge_strategy_resol
 	git_merge_result *result;
     
 	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_SIMPLE_OID));
-    cl_git_pass(git_merge_head_from_oid(&their_heads[0], &their_oids[0]));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
     
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, flags, git_merge_strategy_resolve, resolve_options));
     
