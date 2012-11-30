@@ -11,6 +11,8 @@
 #include "pool.h"
 #include "vector.h"
 
+#define GIT_DIFF_TREE_FILE_EXISTS(X)	((X).file.mode != 0)
+
 struct git_diff_tree_list {
 	git_repository *repo;
 	git_pool pool;
