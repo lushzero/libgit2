@@ -122,13 +122,6 @@ GIT_EXTERN(int) git_merge_strategy_octopus(
 	void *data);
 
 /**
- * Aborts an in-progress merge, resetting to ORIG_HEAD.
- *
- * @param repo the repository to abort
- */
-GIT_EXTERN(int) git_merge_abort(git_repository *repo);
-
-/**
  * Returns true if a merge is up-to-date (we were asked to merge the target
  * into itself.)
  */
