@@ -565,6 +565,87 @@ typedef struct {
 
 #define MERGE_FILEDIFF_RESULT_INIT		{0}
 
+static const char *merge_filediff_best_path(const git_diff_tree_delta *delta)
+{
+	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor)) {
+		if (strcmp(delta->ours.file.path, delta->theirs.file.path) == 0)
+			return delta->ours.file.path;
+		
+		return NULL;
+	}
+	
+	if (strcmp(delta->ancestor.file.path, delta->ours.file.path) == 0)
+		return delta->theirs.file.path;
+	else if(strcmp(delta->ancestor.file.path, delta->theirs.file.path) == 0)
+		return delta->ours.file.path;
+	
+	return NULL;
+}
+
+static int merge_filediff_best_mode(const git_diff_tree_delta *delta)
+{
+	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor)) {
+		if (delta->ours.file.mode == delta->theirs.file.mode)
+			return delta->ours.file.mode;
+
+		return 0;
+	}
+	
+	if (delta->ancestor.file.mode == delta->ours.file.mode)
+		return delta->theirs.file.mode;
+	else if(delta->ancestor.file.mode == delta->theirs.file.mode)
+		return delta->ours.file.mode;
+	
+	return 0;
+}
+
+static char *merge_filediff_entry_name(const git_merge_head *merge_head,
+	const git_diff_tree_entry *entry,
+	bool rename)
+{
+	char oid[GIT_OID_HEXSZ];
+	git_buf name = GIT_BUF_INIT;
+	
+	assert(merge_head && entry);
+
+	if (merge_head->branch_name)
+		git_buf_puts(&name, merge_head->branch_name);
+	else {
+		git_oid_fmt(oid, &merge_head->oid);
+		git_buf_put(&name, oid, GIT_OID_HEXSZ);
+	}
+	
+	if (rename) {
+		git_buf_putc(&name, ':');
+		git_buf_puts(&name, entry->file.path);
+	}
+	
+	return strdup(name.ptr);
+}
+
+static int merge_filediff_entry_names(char **our_path,
+	char **their_path,
+	const git_merge_head *merge_heads[],
+	const git_diff_tree_delta *delta)
+{
+	bool rename;
+
+	if (!merge_heads)
+		return 0;
+
+	/*
+	 * If all the paths are identical, decorate the diff3 file with the branch
+	 * names.  Otherwise, use branch_name:path
+	 */
+	rename = strcmp(delta->ours.file.path, delta->theirs.file.path) != 0;
+	
+	if ((*our_path = merge_filediff_entry_name(merge_heads[1], &delta->ours, rename)) == NULL ||
+		(*their_path = merge_filediff_entry_name(merge_heads[2], &delta->theirs, rename)) == NULL)
+		return -1;
+
+	return 0;
+}
+
 static int merge_filediff(
 	merge_filediff_result *result,
 	git_odb *odb,
@@ -572,6 +653,7 @@ static int merge_filediff(
 	const git_diff_tree_delta *delta)
 {
 	git_odb_object *ancestor_odb = NULL, *our_odb = NULL, *their_odb = NULL;
+	char *our_name = NULL, *their_name = NULL;
 	mmfile_t ancestor_mmfile, our_mmfile, their_mmfile;
 	xmparam_t xmparam;
 	mmbuffer_t mmbuffer;
@@ -580,32 +662,37 @@ static int merge_filediff(
 
 	assert(result && odb && delta);
 	
-	/* TODO: handle mode changes and renames */
-    result->path = (delta->ancestor.file.path != NULL) ?
-		delta->ancestor.file.path : delta->ours.file.path;
-    result->mode = (delta->ancestor.file.mode != 0) ?
-		delta->ancestor.file.mode : delta->ours.file.mode;
-
-	memset(&xmparam, 0x0, sizeof(xmparam_t));
-
-	/* 
-	 * TODO: if filenames differ (eg, renames) then set filenames to be
-	 * branch_name:path.
-	 */
-	GIT_UNUSED(merge_heads);
-
-	xmparam.ancestor = GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor) ? delta->ancestor.file.path : NULL;
-	xmparam.file1 = GIT_DIFF_TREE_FILE_EXISTS(delta->ours) ? delta->ours.file.path : NULL;
-	xmparam.file2 = GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) ? delta->theirs.file.path : NULL;
+	memset(result, 0x0, sizeof(merge_filediff_result));
 	
+	/* Can't automerge unless ours and theirs exist */
+	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ours) ||
+		!GIT_DIFF_TREE_FILE_EXISTS(delta->theirs))
+		return 0;
+
+	/* Reject filename collisions */
+	result->path = merge_filediff_best_path(delta);
+	result->mode = merge_filediff_best_mode(delta);
+
+	if (result->path == NULL || result->mode == 0)
+		return 0;
+	
+	memset(&xmparam, 0x0, sizeof(xmparam_t));
+	
+	if (merge_heads &&
+		(error = merge_filediff_entry_names(&our_name, &their_name, merge_heads, delta)) < 0)
+		return -1;
+
+	/* Ancestor isn't decorated in diff3, use NULL. */
+	xmparam.ancestor = NULL;
+	xmparam.file1 = our_name ? our_name : delta->ours.file.path;
+	xmparam.file2 = their_name ? their_name : delta->theirs.file.path;
+
 	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor)) {
 		if ((error = git_odb_read(&ancestor_odb, odb, &delta->ancestor.file.oid)) < 0)
 			goto done;
 		
 		ancestor_mmfile.size = git_odb_object_size(ancestor_odb);
 		ancestor_mmfile.ptr = (char *)git_odb_object_data(ancestor_odb);
-		
-		xmparam.ancestor = delta->ancestor.file.path;
 	} else
 		memset(&ancestor_mmfile, 0x0, sizeof(mmfile_t));
 
@@ -615,8 +702,6 @@ static int merge_filediff(
 		
 		our_mmfile.size = git_odb_object_size(our_odb);
 		our_mmfile.ptr = (char *)git_odb_object_data(our_odb);
-		
-		xmparam.file1 = delta->ours.file.path;
 	} else
 		memset(&our_mmfile, 0x0, sizeof(mmfile_t));
 	
@@ -626,8 +711,6 @@ static int merge_filediff(
 		
 		their_mmfile.size = git_odb_object_size(their_odb);
 		their_mmfile.ptr = (char *)git_odb_object_data(their_odb);
-		
-		xmparam.file2 = delta->theirs.file.path;
 	} else
 		memset(&their_mmfile, 0x0, sizeof(mmfile_t));
 
@@ -642,6 +725,12 @@ static int merge_filediff(
 	result->len = mmbuffer.size;
 	
 done:
+	if (our_name)
+		git__free(our_name);
+
+	if (their_name)
+		git__free(their_name);
+
 	git_odb_object_free(ancestor_odb);
 	git_odb_object_free(our_odb);
 	git_odb_object_free(their_odb);
@@ -961,8 +1050,12 @@ static int merge_conflict_write_diff3(int *conflict_written,
 	/* TODO: reject name conflicts */
 	/* TODO: reject filemode conflicts */
 	
-	if ((error = git_repository_odb(&odb, repo)) < 0 ||
+	git_repository_odb(&odb, repo);
+	
+	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ours) || !GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) ||
+		(error = git_repository_odb(&odb, repo)) < 0 ||
 		(error = merge_filediff(&result, odb, merge_heads, delta)) < 0 ||
+		result.path == NULL || result.mode == 0 ||
 		(error = git_buf_joinpath(&workdir_path, git_repository_workdir(repo), result.path)) < 0 ||
 		(error = git_filebuf_open(&output, workdir_path.ptr, GIT_FILEBUF_DO_NOT_BUFFER)) < 0 ||
 		(error = git_filebuf_write(&output, result.data, result.len)) < 0 ||
@@ -1230,7 +1323,7 @@ int git_merge_head_from_ref(git_merge_head **out,
 	git_reference *ref)
 {
     git_reference *resolved;
-    char *ref_name = NULL;
+    char const *ref_name = NULL;
     int error = 0;
     
     assert(out && ref);
@@ -1239,10 +1332,11 @@ int git_merge_head_from_ref(git_merge_head **out,
     
     if ((error = git_reference_resolve(&resolved, ref)) < 0)
         return error;
-    
-    if (git__prefixcmp(git_reference_name(ref), GIT_REFS_HEADS_DIR) == 0) {
-        ref_name = (char *)git_reference_name(ref) + strlen(GIT_REFS_HEADS_DIR);
-    }
+	
+	ref_name = git_reference_name(ref);
+	
+	if (git__prefixcmp(ref_name, GIT_REFS_HEADS_DIR) == 0)
+        ref_name += strlen(GIT_REFS_HEADS_DIR);
 
     error = merge_head_init(out, repo, ref_name, git_reference_target(resolved));
 

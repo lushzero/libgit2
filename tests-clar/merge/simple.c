@@ -66,11 +66,11 @@ static git_index *repo_index;
 	"this file is changed in branch\n"
 
 #define CONFLICTING_DIFF3_FILE \
-	"<<<<<<< conflicting.txt\n" \
+	"<<<<<<< HEAD\n" \
 	"this file is changed in master and branch\n" \
 	"=======\n" \
 	"this file is changed in branch and master\n" \
-	">>>>>>> conflicting.txt\n"
+	">>>>>>> 7cb63eed597130ba4abb87b3e544b85021905520\n"
 
 // Fixture setup and teardown
 void test_merge_simple__initialize(void)
