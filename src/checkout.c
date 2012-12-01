@@ -226,37 +226,6 @@ static int retrieve_symlink_caps(git_repository *repo, bool *out)
 	return error;
 }
 
-/* TODO: remove */
-int git_checkout_blob(
-					  git_repository *repo,
-					  const git_diff_file *file)
-{
-    git_buf path = GIT_BUF_INIT;
-    checkout_diff_data data;
-    git_checkout_opts opts;
-    int error;
-	
-    memset(&data, 0x0, sizeof(checkout_diff_data));
-    memset(&opts, 0x0, sizeof(git_checkout_opts));
-	
-    git_buf_puts(&path, git_repository_workdir(repo));
-	data.repo = repo;
-    data.path = &path;
-    data.workdir_len = git_buf_len(&path);
-	
-    opts.checkout_strategy = GIT_CHECKOUT_DEFAULT;
-    opts.dir_mode = GIT_DIR_MODE;
-    opts.file_mode = file->mode;
-    opts.file_open_flags = O_CREAT | O_TRUNC | O_WRONLY;
-	
-	data.opts = &opts;
-	
-    if ((error = retrieve_symlink_caps(repo, &data.can_symlink)) < 0)
-        return error;
-	
-    return checkout_blob(&data, file);
-}
-
 static void normalize_options(
 	git_checkout_opts *normalized, git_checkout_opts *proposed)
 {

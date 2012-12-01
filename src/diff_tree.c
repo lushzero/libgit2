@@ -200,7 +200,8 @@ static git_diff_tree_delta *diff_tree__delta_from_entries(
 			tree_entries[i]->status = GIT_DELTA_ADDED;
 		else if (entries[INDEX_ANCESTOR] != NULL && entries[i] == NULL)
 			tree_entries[i]->status = GIT_DELTA_DELETED;
-		else if (S_ISDIR(entries[i]->mode) ^ S_ISDIR(entries[i]->mode))
+		else if (S_ISDIR(entries[i]->mode) ^ S_ISDIR(entries[i]->mode) ||
+			S_ISLNK(entries[i]->mode) ^ S_ISLNK(entries[i]->mode))
 			tree_entries[i]->status = GIT_DELTA_TYPECHANGE;
 		else if (git_oid_cmp(&entries[INDEX_ANCESTOR]->oid, &entries[i]->oid) ||
 				 entries[INDEX_ANCESTOR]->mode != entries[i]->mode)
