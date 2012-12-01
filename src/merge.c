@@ -18,6 +18,7 @@
 #include "refs.h"
 #include "diff.h"
 #include "diff_tree.h"
+#include "checkout.h"
 
 #include "git2/diff_tree.h"
 #include "git2/types.h"
@@ -584,11 +585,17 @@ static const char *merge_filediff_best_path(const git_diff_tree_delta *delta)
 
 static int merge_filediff_best_mode(const git_diff_tree_delta *delta)
 {
+	/*
+	 * If ancestor didn't exist and either ours or theirs is executable,
+	 * assume executable.  Otherwise, if any mode changed from the ancestor,
+	 * use that one.
+	 */
 	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor)) {
-		if (delta->ours.file.mode == delta->theirs.file.mode)
-			return delta->ours.file.mode;
-
-		return 0;
+		if (delta->ours.file.mode == GIT_FILEMODE_BLOB_EXECUTABLE ||
+			delta->theirs.file.mode == GIT_FILEMODE_BLOB_EXECUTABLE)
+			return GIT_FILEMODE_BLOB_EXECUTABLE;
+		
+		return GIT_FILEMODE_BLOB;
 	}
 	
 	if (delta->ancestor.file.mode == delta->ours.file.mode)
@@ -603,7 +610,7 @@ static char *merge_filediff_entry_name(const git_merge_head *merge_head,
 	const git_diff_tree_entry *entry,
 	bool rename)
 {
-	char oid[GIT_OID_HEXSZ];
+	char oid_str[GIT_OID_HEXSZ];
 	git_buf name = GIT_BUF_INIT;
 	
 	assert(merge_head && entry);
@@ -611,8 +618,8 @@ static char *merge_filediff_entry_name(const git_merge_head *merge_head,
 	if (merge_head->branch_name)
 		git_buf_puts(&name, merge_head->branch_name);
 	else {
-		git_oid_fmt(oid, &merge_head->oid);
-		git_buf_put(&name, oid, GIT_OID_HEXSZ);
+		git_oid_fmt(oid_str, &merge_head->oid);
+		git_buf_put(&name, oid_str, GIT_OID_HEXSZ);
 	}
 	
 	if (rename) {
@@ -1072,6 +1079,41 @@ done:
 	return error;
 }
 
+static int merge_conflict_write_side(git_repository *repo,
+	const git_merge_head *merge_head,
+	const git_diff_tree_entry *entry)
+{
+	git_buf path = GIT_BUF_INIT;
+	char oid_str[GIT_OID_HEXSZ];
+	git_checkout_opts opts;
+	int error = 0;
+	
+	assert(repo && merge_head && entry);
+	
+	memset(&opts, 0x0, sizeof(git_checkout_opts));
+
+	/* TODO: what if this file exists? */
+
+	git_buf_puts(&path, entry->file.path);
+	git_buf_putc(&path, '~');
+	
+	if (merge_head->branch_name)
+		git_buf_puts(&path, merge_head->branch_name);
+	else {
+		git_oid_fmt(oid_str, &merge_head->oid);
+		git_buf_put(&path, oid_str, GIT_OID_HEXSZ);
+	}
+	
+	opts.file_open_flags =  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL;
+	
+	error = git_checkout_blob(repo, &entry->file.oid, git_buf_cstr(&path),
+		entry->file.mode, &opts);
+
+	git_buf_free(&path);
+	
+	return error;
+}
+
 static int merge_conflict_write_sides(int *conflict_written,
 	git_repository *repo,
 	const git_merge_head *ancestor_head,
@@ -1084,31 +1126,40 @@ static int merge_conflict_write_sides(int *conflict_written,
 	assert(conflict_written && repo && ancestor_head && our_head && their_head && delta);
 	
 	*conflict_written = 0;
-
-	/* TODO: write side.HEAD and side.BRANCHNAME */
 	
+	/* TODO: handle trees */
+	
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
+		(error = merge_conflict_write_side(repo, our_head, &delta->ours)) >= 0 &&
+		GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
+		(error = merge_conflict_write_side(repo, their_head, &delta->theirs)) >= 0)
+		*conflict_written = 1;
+
 	return error;
 }
 
-static int merge_conflict_write_default(int *conflict_written,
+static int merge_conflict_write_default(int *out,
 	git_repository *repo,
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
 	const git_diff_tree_delta *delta)
 {
+	int conflict_written = 0;
 	int error = 0;
 
-	assert(conflict_written && repo && ancestor_head && our_head && their_head && delta);
+	assert(out && repo && ancestor_head && our_head && their_head && delta);
 	
-	*conflict_written = 0;
+	*out = 0;
 
-	if ((error = merge_conflict_write_diff3(conflict_written, repo, ancestor_head, our_head, their_head, delta)) < 0)
+	if ((error = merge_conflict_write_diff3(&conflict_written, repo, ancestor_head, our_head, their_head, delta)) < 0)
 		goto done;
 
 	if (!conflict_written)
-		error = merge_conflict_write_sides(conflict_written, repo, ancestor_head, our_head, their_head, delta);
-	
+		error = merge_conflict_write_sides(&conflict_written, repo, ancestor_head, our_head, their_head, delta);
+
+	*out = conflict_written;
+
 done:
 	return error;
 }
