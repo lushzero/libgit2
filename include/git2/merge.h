@@ -13,8 +13,8 @@
 
 /**
  * @file git2/merge.h
- * @brief Git merge-base routines
- * @defgroup git_revwalk Git merge-base routines
+ * @brief Git merge routines
+ * @defgroup git_merge Git merge routines
  * @ingroup Git
  * @{
  */
