@@ -33,15 +33,14 @@ static git_merge_result *merge_trivial(const char *ours, const char *theirs, boo
 	git_checkout_opts checkout_opts = GIT_CHECKOUT_OPTS_INIT;
 	git_reference *our_ref, *their_ref;
     git_merge_head *their_heads[1];
-	git_merge_strategy_resolve_options resolve_opts;
+	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
 	git_merge_result *result;
 
 	memset(&checkout_opts, 0x0, sizeof(git_checkout_opts));
 	checkout_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 
-	memset(&resolve_opts, 0x0, sizeof(git_merge_strategy_resolve_options));
-	resolve_opts.flags |= automerge ? 0 : GIT_MERGE_STRATEGY_RESOLVE_NO_SIMPLE;
-	resolve_opts.flags |= automerge ? 0 : GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE;
+	opts.merge_trees_opts.resolve_flags |= automerge ? 0 : GIT_MERGE_RESOLVE_NO_REMOVED;
+	opts.merge_trees_opts.resolve_flags |= automerge ? 0 : GIT_MERGE_RESOLVE_NO_AUTOMERGE;
 
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, ours);
 	cl_git_pass(git_reference_symbolic_create(&our_ref, repo, "HEAD", branch_buf.ptr, 1));
@@ -53,7 +52,7 @@ static git_merge_result *merge_trivial(const char *ours, const char *theirs, boo
 	cl_git_pass(git_reference_lookup(&their_ref, repo, branch_buf.ptr));
 	cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, their_ref));
 
-	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, 0, git_merge_strategy_resolve, &resolve_opts));
+	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
 
 	git_buf_free(&branch_buf);
 	git_reference_free(our_ref);

@@ -9,7 +9,10 @@
 
 #include "vector.h"
 #include "commit_list.h"
+#include "diff_tree.h"
+
 #include "git2/types.h"
+#include "git2/diff_tree.h"
 
 #define GIT_MERGE_MSG_FILE		"MERGE_MSG"
 #define GIT_MERGE_MODE_FILE		"MERGE_MODE"
@@ -30,8 +33,17 @@ struct git_merge_result {
 
 	bool is_fastforward;
 	git_oid fastforward_oid;
+	
+	git_diff_tree_list *diff_tree;
+	git_vector conflicts;
 };
 
+int git_merge__setup(
+	git_repository *repo,
+	const git_merge_head *our_head,
+	const git_merge_head *their_heads[],
+	size_t their_heads_len,
+	unsigned int flags);
 int git_merge__bases_many(git_commit_list **out, git_revwalk *walk, git_commit_list_node *one, git_vector *twos);
 int git_merge__cleanup(git_repository *repo);
 

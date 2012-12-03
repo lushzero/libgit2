@@ -7,6 +7,9 @@
 #ifndef INCLUDE_git_diff_tree_h__
 #define INCLUDE_git_diff_tree_h__
 
+#include "git2/diff.h"
+#include "git2/index.h"
+
 /**
  * @file git2/diff_tree.h
  * @brief Git tree differencing routines.
@@ -56,7 +59,7 @@ typedef struct {
 typedef int (*git_diff_tree_many_cb)(const git_index_entry **tree_items, void *payload);
 
 /** Callback for the 3-way tree difference function */
-typedef int (*git_diff_tree_cb)(const git_diff_tree_delta *delta, void *payload);
+typedef int (*git_diff_tree_delta_cb)(const git_diff_tree_delta *delta, void *payload);
 
 /** @name Tree Diff Functions
  *
@@ -78,7 +81,7 @@ typedef int (*git_diff_tree_cb)(const git_diff_tree_delta *delta, void *payload)
  */
 GIT_EXTERN(int) git_diff_tree_many(
 	git_repository *repo,
-	git_tree **trees,
+	const git_tree **trees,
 	size_t trees_length,
 	uint32_t flags,
 	git_diff_tree_many_cb callback,
@@ -104,9 +107,9 @@ GIT_EXTERN(int) git_diff_tree_many(
 GIT_EXTERN(int) git_diff_tree(
 	git_diff_tree_list **out,
 	git_repository *repo,
-	git_tree *ancestor_tree,
-	git_tree *our_tree,
-	git_tree *their_tree,
+	const git_tree *ancestor_tree,
+	const git_tree *our_tree,
+	const git_tree *their_tree,
 	uint32_t flags);
 
 /**
@@ -122,7 +125,7 @@ GIT_EXTERN(int) git_diff_tree(
  */
 GIT_EXTERN(int) git_diff_tree_foreach(
 	git_diff_tree_list *diff,
-	git_diff_tree_cb callback,
+	git_diff_tree_delta_cb callback,
 	void *payload);
 
 /**

@@ -32,7 +32,7 @@ static int index_entry_cmp(git_index_entry *a, git_index_entry *b)
 
 int git_diff_tree_many(
 	git_repository *repo,
-	git_tree **trees,
+	const git_tree **trees,
 	size_t trees_length,
 	uint32_t flags,
 	git_diff_tree_many_cb callback,
@@ -227,13 +227,13 @@ static int diff_tree__create_delta(const git_index_entry **tree_items, void *pay
 
 int git_diff_tree(git_diff_tree_list **out,
 	git_repository *repo,
-	git_tree *ancestor_tree,
-	git_tree *our_tree,
-	git_tree *their_tree,
+	const git_tree *ancestor_tree,
+	const git_tree *our_tree,
+	const git_tree *their_tree,
 	uint32_t flags)
 {
 	git_diff_tree_list *diff_tree;
-	git_tree *trees[3];
+	git_tree const *trees[3];
 	int error = 0;
 	
 	assert(out && repo && ancestor_tree && our_tree && their_tree);
@@ -258,7 +258,7 @@ int git_diff_tree(git_diff_tree_list **out,
 
 int git_diff_tree_foreach(
 	git_diff_tree_list *diff_tree,
-	git_diff_tree_cb callback,
+	git_diff_tree_delta_cb callback,
 	void *payload)
 {
 	git_diff_tree_delta *delta;

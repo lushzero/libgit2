@@ -7,9 +7,11 @@
 #ifndef INCLUDE_git_merge_h__
 #define INCLUDE_git_merge_h__
 
-#include "common.h"
-#include "types.h"
-#include "oid.h"
+#include "git2/common.h"
+#include "git2/types.h"
+#include "git2/oid.h"
+#include "git2/diff_tree.h"
+#include "git2/checkout.h"
 
 /**
  * @file git2/merge.h
@@ -33,22 +35,32 @@ enum {
  * Resolver options for `git_merge_strategy_resolve`.
  */ 
 enum {
-    GIT_MERGE_STRATEGY_RESOLVE_NONE = 0,
-	GIT_MERGE_STRATEGY_RESOLVE_OURS = 1,
-	GIT_MERGE_STRATEGY_RESOLVE_THEIRS = 2,
+	GIT_MERGE_RESOLVE_NO_REMOVED = (1 << 0),
+	GIT_MERGE_RESOLVE_NO_AUTOMERGE = (1 << 1),
+	GIT_MERGE_RESOLVE_FAVOR_OURS = (1 << 2),
+	GIT_MERGE_RESOLVE_FAVOR_THEIRS = (1 << 3),
 };
 
-/* Flags for `git_merge_strategy_resolve`. */
 enum {
-    GIT_MERGE_STRATEGY_RESOLVE_NO_AUTOMERGE =  (1 << 0),
-    GIT_MERGE_STRATEGY_RESOLVE_NO_DIFF3_FILE = (1 << 1),
-    GIT_MERGE_STRATEGY_RESOLVE_NO_SIMPLE = (1 << 2),
+	GIT_MERGE_CONFLICT_NO_DIFF3 = (1 << 0),
 };
 
-typedef struct git_merge_strategy_resolve_options {
-	int resolver;
-	int flags;
-} git_merge_strategy_resolve_options;
+#define GIT_MERGE_TREES_OPTS_INIT {0}
+
+typedef struct {
+	unsigned int diff_flags;
+	unsigned int resolve_flags;
+} git_merge_trees_opts;
+
+#define GIT_MERGE_OPTS_INIT {0}
+
+typedef struct {
+	unsigned int merge_flags;
+	git_merge_trees_opts merge_trees_opts;
+	unsigned int conflict_flags;
+
+	git_checkout_opts checkout_opts;
+} git_merge_opts;
 
 /**
  * Determines if a merge is in progress
@@ -95,31 +107,21 @@ typedef int (*git_merge_strategy)(int *success,
  * @param merge_heads_len the number of heads to merge
  * @param flags merge flags
  */
-GIT_EXTERN(int) git_merge(git_merge_result **out,
+GIT_EXTERN(int) git_merge(
+	git_merge_result **out,
 	git_repository *repo,
-	const git_merge_head *their_heads[],
+	const git_merge_head **their_heads,
 	size_t their_heads_len,
-	unsigned int flags,
-	git_merge_strategy strategy,
-	void *strategy_data);
+	const git_merge_opts *opts);
 
-GIT_EXTERN(int) git_merge_strategy_resolve(
-	int *out,
+GIT_EXTERN(int) git_merge_trees(
+	git_merge_result **out,
 	git_repository *repo,
-	const git_merge_head *ancestor_head,
-	const git_merge_head *our_head,
-	const git_merge_head *their_heads[],
-	size_t their_heads_len,
-	void *data);
-
-GIT_EXTERN(int) git_merge_strategy_octopus(
-	int *out,
-	git_repository *repo,
-	const git_merge_head *ancestor_head,
-	const git_merge_head *our_head,
-	const git_merge_head *their_heads[],
-	size_t their_heads_len,
-	void *data);
+	git_index *index,
+	const git_tree *ancestor_tree,
+	const git_tree *our_tree,
+	const git_tree *their_tree,
+	const git_merge_trees_opts *opts);
 
 /**
  * Returns true if a merge is up-to-date (we were asked to merge the target
@@ -139,6 +141,14 @@ GIT_EXTERN(int) git_merge_result_is_fastforward(git_merge_result *merge_result);
  * @param merge_result the results of the merge
  */
 GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_result);
+
+GIT_EXTERN(int) git_merge_result_delta_foreach(git_merge_result *merge_result,
+	git_diff_tree_delta_cb delta_cb,
+	void *payload);
+
+GIT_EXTERN(int) git_merge_result_conflict_foreach(git_merge_result *merge_result,
+	git_diff_tree_delta_cb conflict_cb,
+	void *payload);
 
 /**
  * Free a merge result.

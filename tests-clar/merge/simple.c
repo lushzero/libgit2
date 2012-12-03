@@ -85,16 +85,19 @@ void test_merge_simple__cleanup(void)
 	cl_git_sandbox_cleanup();
 }
 
-static git_merge_result *merge_simple_branch(int flags, git_merge_strategy_resolve_options *resolve_options)
+static git_merge_result *merge_simple_branch(int resolve_flags, int conflict_flags)
 {
 	git_oid their_oids[1];
     git_merge_head *their_heads[1];
 	git_merge_result *result;
+	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
     
 	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_SIMPLE_OID));
     cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
     
-	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, flags, git_merge_strategy_resolve, resolve_options));
+	opts.merge_trees_opts.resolve_flags = resolve_flags;
+	opts.conflict_flags = conflict_flags;
+	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
     
 	return result;
 }
@@ -102,7 +105,6 @@ static git_merge_result *merge_simple_branch(int flags, git_merge_strategy_resol
 void test_merge_simple__automerge(void)
 {
 	git_merge_result *result;
-    git_merge_strategy_resolve_options resolve_options;
 	git_buf automergeable_buf = GIT_BUF_INIT;
     
     struct merge_index_entry merge_index_entries[] = {
@@ -123,10 +125,8 @@ void test_merge_simple__automerge(void)
 		REMOVED_IN_BRANCH_REUC_ENTRY,
 		REMOVED_IN_MASTER_REUC_ENTRY
 	};
-    
-    memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
 
-	cl_assert(result = merge_simple_branch(0, &resolve_options));
+	cl_assert(result = merge_simple_branch(0, 0));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
 	cl_git_pass(git_futils_readbuffer(&automergeable_buf,
@@ -143,7 +143,6 @@ void test_merge_simple__automerge(void)
 void test_merge_simple__diff3(void)
 {
 	git_merge_result *result;
-    git_merge_strategy_resolve_options resolve_options;
 	git_buf conflicting_buf = GIT_BUF_INIT;
     
     struct merge_index_entry merge_index_entries[] = {
@@ -165,9 +164,7 @@ void test_merge_simple__diff3(void)
 		REMOVED_IN_MASTER_REUC_ENTRY
 	};
     
-    memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
-
-	cl_assert(result = merge_simple_branch(0, &resolve_options));
+	cl_assert(result = merge_simple_branch(0, 0));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
 	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
@@ -184,7 +181,6 @@ void test_merge_simple__diff3(void)
 void test_merge_simple__no_diff3(void)
 {
 	git_merge_result *result;
-    git_merge_strategy_resolve_options resolve_options;
     
     struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -205,10 +201,7 @@ void test_merge_simple__no_diff3(void)
 		REMOVED_IN_MASTER_REUC_ENTRY
 	};
     
-    memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
-	resolve_options.flags |= GIT_MERGE_STRATEGY_RESOLVE_NO_DIFF3_FILE;
-
-	cl_assert(result = merge_simple_branch(0, &resolve_options));
+	cl_assert(result = merge_simple_branch(0, GIT_MERGE_CONFLICT_NO_DIFF3));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
@@ -222,7 +215,6 @@ void test_merge_simple__no_diff3(void)
 void test_merge_simple__ours(void)
 {
 	git_merge_result *result;
-    git_merge_strategy_resolve_options resolve_options;
     
     struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -240,10 +232,7 @@ void test_merge_simple__ours(void)
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
     
-    memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
-    resolve_options.resolver = GIT_MERGE_STRATEGY_RESOLVE_OURS;
-        
-	cl_assert(result = merge_simple_branch(0, &resolve_options));
+	cl_assert(result = merge_simple_branch(GIT_MERGE_RESOLVE_FAVOR_OURS, 0));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
@@ -255,7 +244,6 @@ void test_merge_simple__ours(void)
 void test_merge_simple__theirs(void)
 {
 	git_merge_result *result;
-    git_merge_strategy_resolve_options resolve_options;
     
     struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -273,10 +261,7 @@ void test_merge_simple__theirs(void)
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
     
-    memset(&resolve_options, 0x0, sizeof(git_merge_strategy_resolve_options));
-    resolve_options.resolver = GIT_MERGE_STRATEGY_RESOLVE_THEIRS;
-        
-	cl_assert(result = merge_simple_branch(0, &resolve_options));
+	cl_assert(result = merge_simple_branch(GIT_MERGE_RESOLVE_FAVOR_THEIRS, 0));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
