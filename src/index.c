@@ -600,8 +600,9 @@ static int index_entry_init(git_index_entry **entry_out, git_index *index, const
 
 static int index_entry_reuc_init(git_index_reuc_entry **reuc_out,
 	const char *path,
-	int ancestor_mode, git_oid *ancestor_oid,
-	int our_mode, git_oid *our_oid, int their_mode, git_oid *their_oid)
+	int ancestor_mode, const git_oid *ancestor_oid,
+	int our_mode, const git_oid *our_oid,
+	int their_mode, const git_oid *their_oid)
 {
 	git_index_reuc_entry *reuc = NULL;
 
@@ -708,7 +709,7 @@ static int index_conflict_to_reuc(git_index *index, const char *path)
 {
 	git_index_entry *conflict_entries[3];
 	int ancestor_mode, our_mode, their_mode;
-	git_oid *ancestor_oid, *our_oid, *their_oid;
+	git_oid const *ancestor_oid, *our_oid, *their_oid;
 	int ret;
 
 	if ((ret = git_index_conflict_get(&conflict_entries[0],
@@ -1027,9 +1028,9 @@ static int index_reuc_insert(git_index *index, git_index_reuc_entry *reuc, int r
 }
 
 int git_index_reuc_add(git_index *index, const char *path,
-	int ancestor_mode, git_oid *ancestor_oid,
-	int our_mode, git_oid *our_oid,
-	int their_mode, git_oid *their_oid)
+	int ancestor_mode, const git_oid *ancestor_oid,
+	int our_mode, const git_oid *our_oid,
+	int their_mode, const git_oid *their_oid)
 {
 	git_index_reuc_entry *reuc = NULL;
 	int error = 0;

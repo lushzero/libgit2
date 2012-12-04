@@ -23,6 +23,7 @@
 #include "blob.h"
 #include "diff.h"
 #include "pathspec.h"
+#include "checkout.h"
 
 typedef struct {
 	git_repository *repo;
@@ -73,7 +74,7 @@ static int blob_content_to_file(
 	git_blob *blob,
 	const char *path,
 	mode_t entry_filemode,
-	git_checkout_opts *opts)
+	const git_checkout_opts *opts)
 {
 	int error = -1, nb_filters = 0;
 	mode_t file_mode = opts->file_mode;
@@ -208,7 +209,7 @@ static int retrieve_symlink_caps(git_repository *repo, bool *out)
 	git_config *cfg;
 	int can_symlink = 0;
 	int error;
-
+	
 	if (git_repository_config__weakptr(&cfg, repo) < 0)
 		return -1;
 
@@ -219,10 +220,69 @@ static int retrieve_symlink_caps(git_repository *repo, bool *out)
 		can_symlink = true;
 		error = 0;
 	}
-        
+
 	if (error >= 0)
 		*out = can_symlink;
+	
+	return error;
+}
 
+static int checkout_blob_content(
+	git_repository *repo,
+	const git_oid *oid,
+	const char *full_path,
+	int mode,
+	bool can_symlink,
+	const git_checkout_opts *opts)
+{
+	git_blob *blob;
+	int error = 0;
+
+	if ((error = git_blob_lookup(&blob, repo, oid)) < 0)
+		return error;
+	
+	if (S_ISLNK(mode))
+		error = blob_content_to_link(blob, full_path, can_symlink);
+	else
+		error = blob_content_to_file(blob, full_path, mode, opts);
+	
+	git_blob_free(blob);
+	
+	return error;
+}
+
+static int checkout_blob(
+	checkout_diff_data *data,
+	const git_diff_file *file)
+{
+	git_buf_truncate(data->path, data->workdir_len);
+	if (git_buf_puts(data->path, file->path) < 0)
+		return -1;
+
+	return checkout_blob_content(data->repo, &file->oid,
+		git_buf_cstr(data->path), file->mode, data->can_symlink, data->opts);
+}
+
+int git_checkout_blob(
+	git_repository *repo,
+	const git_oid *oid,
+	const char *path,
+	int mode,
+	const git_checkout_opts *opts)
+{
+	git_buf full_path = GIT_BUF_INIT;
+	bool can_symlink = 0;
+	int error = 0;
+	
+	if ((error = retrieve_symlink_caps(repo, &can_symlink)) < 0 ||
+		git_buf_joinpath(&full_path, repo->workdir, path) < 0)
+		goto done;
+	
+	error = checkout_blob_content(repo, oid, git_buf_cstr(&full_path), mode, can_symlink, opts);
+	
+done:
+	git_buf_free(&full_path);
+	
 	return error;
 }
 
