@@ -178,32 +178,6 @@ static void report_progress(
 			data->opts->progress_payload);
 }
 
-static int checkout_blob(
-	checkout_diff_data *data,
-	const git_diff_file *file)
-{
-	int error = 0;
-	git_blob *blob;
-
-	git_buf_truncate(data->path, data->workdir_len);
-	if (git_buf_puts(data->path, file->path) < 0)
-		return -1;
-
-	if ((error = git_blob_lookup(&blob, data->repo, &file->oid)) < 0)
-		return error;
-
-	if (S_ISLNK(file->mode))
-		error = blob_content_to_link(
-			blob, git_buf_cstr(data->path), data->can_symlink);
-	else
-		error = blob_content_to_file(
-			blob, git_buf_cstr(data->path), file->mode, data->opts);
-
-	git_blob_free(blob);
-
-	return error;
-}
-
 static int retrieve_symlink_caps(git_repository *repo, bool *out)
 {
 	git_config *cfg;
