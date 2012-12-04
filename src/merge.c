@@ -490,12 +490,14 @@ static int merge_filediff_best_mode(const git_diff_tree_delta *delta)
 	return 0;
 }
 
+/* TODO: clean this up */
 static char *merge_filediff_entry_name(const git_merge_head *merge_head,
 	const git_diff_tree_entry *entry,
 	bool rename)
 {
 	char oid_str[GIT_OID_HEXSZ];
 	git_buf name = GIT_BUF_INIT;
+	char *ret;
 	
 	assert(merge_head && entry);
 
@@ -511,7 +513,11 @@ static char *merge_filediff_entry_name(const git_merge_head *merge_head,
 		git_buf_puts(&name, entry->file.path);
 	}
 	
-	return strdup(name.ptr);
+	ret = strdup(name.ptr);
+
+	git_buf_free(&name);
+
+	return ret;
 }
 
 static int merge_filediff_entry_names(char **our_path,
@@ -521,6 +527,9 @@ static int merge_filediff_entry_names(char **our_path,
 {
 	bool rename;
 
+	*our_path = NULL;
+	*their_path = NULL;
+
 	if (!merge_heads)
 		return 0;
 
@@ -528,9 +537,15 @@ static int merge_filediff_entry_names(char **our_path,
 	 * If all the paths are identical, decorate the diff3 file with the branch
 	 * names.  Otherwise, use branch_name:path
 	 */
-	rename = strcmp(delta->ours.file.path, delta->theirs.file.path) != 0;
+	rename = GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
+		GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
+		strcmp(delta->ours.file.path, delta->theirs.file.path) != 0;
+
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
+		(*our_path = merge_filediff_entry_name(merge_heads[1], &delta->ours, rename)) == NULL)
+		return -1;
 	
-	if ((*our_path = merge_filediff_entry_name(merge_heads[1], &delta->ours, rename)) == NULL ||
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
 		(*their_path = merge_filediff_entry_name(merge_heads[2], &delta->theirs, rename)) == NULL)
 		return -1;
 
@@ -623,11 +638,8 @@ static int merge_filediff(
 	result->len = mmbuffer.size;
 	
 done:
-	if (our_name)
-		git__free(our_name);
-
-	if (their_name)
-		git__free(their_name);
+	git__free(our_name);
+	git__free(their_name);
 
 	git_odb_object_free(ancestor_odb);
 	git_odb_object_free(our_odb);
@@ -1212,7 +1224,7 @@ static int merge_ancestor_head(
 	if ((error = git_merge_base_many(&ancestor_oid, repo, oids, their_heads_len + 1)) < 0)
 		goto on_error;
 
-	return git_merge_head_from_oid(ancestor_head, repo, &ancestor_oid);
+	error = git_merge_head_from_oid(ancestor_head, repo, &ancestor_oid);
 
 on_error:
 	git__free(oids);

@@ -98,6 +98,8 @@ static git_merge_result *merge_simple_branch(int resolve_flags, int conflict_fla
 	opts.merge_trees_opts.resolve_flags = resolve_flags;
 	opts.conflict_flags = conflict_flags;
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
+
+	git_merge_head_free(their_heads[0]);
     
 	return result;
 }
