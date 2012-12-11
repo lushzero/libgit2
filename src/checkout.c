@@ -237,29 +237,6 @@ static int checkout_blob(
 		git_buf_cstr(data->path), file->mode, data->can_symlink, data->opts);
 }
 
-int git_checkout_blob(
-	git_repository *repo,
-	const git_oid *oid,
-	const char *path,
-	int mode,
-	const git_checkout_opts *opts)
-{
-	git_buf full_path = GIT_BUF_INIT;
-	bool can_symlink = 0;
-	int error = 0;
-	
-	if ((error = retrieve_symlink_caps(repo, &can_symlink)) < 0 ||
-		git_buf_joinpath(&full_path, repo->workdir, path) < 0)
-		goto done;
-	
-	error = checkout_blob_content(repo, oid, git_buf_cstr(&full_path), mode, can_symlink, opts);
-	
-done:
-	git_buf_free(&full_path);
-	
-	return error;
-}
-
 static void normalize_options(
 	git_checkout_opts *normalized, git_checkout_opts *proposed)
 {
@@ -285,6 +262,32 @@ static void normalize_options(
 
 	if (!normalized->file_open_flags)
 		normalized->file_open_flags = O_CREAT | O_TRUNC | O_WRONLY;
+}
+
+int git_checkout_blob(
+	git_repository *repo,
+	const git_oid *oid,
+	const char *path,
+	int mode,
+	git_checkout_opts *opts)
+{
+	git_buf full_path = GIT_BUF_INIT;
+	git_checkout_opts checkout_opts;
+	bool can_symlink = 0;
+	int error = 0;
+	
+	if ((error = retrieve_symlink_caps(repo, &can_symlink)) < 0 ||
+		git_buf_joinpath(&full_path, repo->workdir, path) < 0)
+		goto done;
+
+	normalize_options(&checkout_opts, opts);
+	
+	error = checkout_blob_content(repo, oid, git_buf_cstr(&full_path), mode, can_symlink, &checkout_opts);
+	
+done:
+	git_buf_free(&full_path);
+	
+	return error;
 }
 
 enum {

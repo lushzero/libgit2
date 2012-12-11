@@ -1019,9 +1019,8 @@ static int merge_conflict_write_file(
 	const git_diff_tree_entry *entry,
 	const char *path)
 {
-	git_checkout_opts opts;
+	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 	
-	memset(&opts, 0x0, sizeof(git_checkout_opts));
 	opts.file_open_flags =  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL;
 	
 	if (path == NULL)
@@ -1299,11 +1298,12 @@ static int merge_normalize_opts(
 
 		if (!opts->checkout_opts.checkout_strategy)
 			opts->checkout_opts.checkout_strategy = default_checkout_strategy;
-		
+
 		error = merge_trees_normalize_opts(&opts->merge_trees_opts, &given->merge_trees_opts);
 	} else {
-		memset(opts, 0x0, sizeof(git_merge_opts));
-
+		git_merge_opts default_opts = GIT_MERGE_OPTS_INIT;
+		memcpy(opts, &default_opts, sizeof(git_merge_opts));
+		
 		opts->checkout_opts.checkout_strategy = default_checkout_strategy;
 
 		error = merge_trees_normalize_opts(&opts->merge_trees_opts, NULL);

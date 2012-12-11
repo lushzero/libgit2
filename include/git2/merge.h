@@ -52,7 +52,7 @@ typedef struct {
 	unsigned int resolve_flags;
 } git_merge_trees_opts;
 
-#define GIT_MERGE_OPTS_INIT {0}
+#define GIT_MERGE_OPTS_INIT {0, GIT_MERGE_TREES_OPTS_INIT, 0, GIT_CHECKOUT_OPTS_INIT}
 
 typedef struct {
 	unsigned int merge_flags;

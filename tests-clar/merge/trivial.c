@@ -36,7 +36,6 @@ static git_merge_result *merge_trivial(const char *ours, const char *theirs, boo
 	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
 	git_merge_result *result;
 
-	memset(&checkout_opts, 0x0, sizeof(git_checkout_opts));
 	checkout_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 
 	opts.merge_trees_opts.resolve_flags |= automerge ? 0 : GIT_MERGE_RESOLVE_NO_REMOVED;

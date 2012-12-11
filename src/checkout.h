@@ -14,6 +14,6 @@ int git_checkout_blob(
 	const git_oid *oid,
 	const char *path,
 	int mode,
-	const git_checkout_opts *opts);
+	git_checkout_opts *opts);
 
 #endif

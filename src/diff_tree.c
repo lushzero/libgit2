@@ -61,7 +61,7 @@ int git_diff_tree_many(
 	GITERR_CHECK_ALLOC(cur_items);
 	
 	for (i = 0; i < trees_length; i++) {
-		if ((error = git_iterator_for_tree(&iterators[i], repo, trees[i])) < 0)
+		if ((error = git_iterator_for_tree(&iterators[i], trees[i])) < 0)
 			return -1;
 	}
 	
