@@ -208,11 +208,13 @@ void test_merge_simple__no_diff3(void)
 	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 3));
 
 	cl_assert(!git_path_exists(TEST_REPO_PATH "/conflicting.txt"));
+	cl_assert(git_path_exists(TEST_REPO_PATH "/conflicting.txt~7cb63eed597130ba4abb87b3e544b85021905520"));
+	cl_assert(git_path_exists(TEST_REPO_PATH "/conflicting.txt~HEAD"));
     
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__ours(void)
+void test_merge_simple__favor_ours(void)
 {
 	git_merge_result *result;
     
@@ -241,7 +243,7 @@ void test_merge_simple__ours(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__theirs(void)
+void test_merge_simple__favor_theirs(void)
 {
 	git_merge_result *result;
     

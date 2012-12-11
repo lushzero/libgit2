@@ -133,3 +133,80 @@ bd593285fc7fe4ca18ccdbabf027f5d689101452 bd593285fc7fe4ca18ccdbabf027f5d68910145
 bd593285fc7fe4ca18ccdbabf027f5d689101452 c607fc30883e335def28cd686b51f6cfa02b06ec Edward Thomson <ethomson@edwardthomson.com> 1353794677 -0600	reset: moving to c607fc30883e335def28cd686b51f6cfa02b06ec
 c607fc30883e335def28cd686b51f6cfa02b06ec ab40af3cb8a3ed2e2843e96d9aa7871336b94573 Edward Thomson <ethomson@edwardthomson.com> 1353794852 -0600	commit: renames2
 ab40af3cb8a3ed2e2843e96d9aa7871336b94573 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1353794883 -0600	checkout: moving from renames2 to master
+bd593285fc7fe4ca18ccdbabf027f5d689101452 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1354574697 -0600	checkout: moving from master to df_side1
+bd593285fc7fe4ca18ccdbabf027f5d689101452 d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1354574962 -0600	commit: df_ancestor
+d4207f77243500bec335ab477f9227fcdb1e271a c94b27e41064c521120627e07e2035cca1d24ffa Edward Thomson <ethomson@edwardthomson.com> 1354575027 -0600	commit: df_side1
+c94b27e41064c521120627e07e2035cca1d24ffa d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1354575070 -0600	checkout: moving from df_side1 to df_side2
+d4207f77243500bec335ab477f9227fcdb1e271a f8958bdf4d365a84a9a178b1f5f35ff1dacbd884 Edward Thomson <ethomson@edwardthomson.com> 1354575206 -0600	commit: df_side2
+f8958bdf4d365a84a9a178b1f5f35ff1dacbd884 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1354575381 -0600	checkout: moving from df_side2 to master
+bd593285fc7fe4ca18ccdbabf027f5d689101452 c94b27e41064c521120627e07e2035cca1d24ffa Edward Thomson <ethomson@edwardthomson.com> 1355017614 -0600	checkout: moving from master to df_side1
+c94b27e41064c521120627e07e2035cca1d24ffa a90bc3fb6f15181972a2959a921429efbd81a473 Edward Thomson <ethomson@edwardthomson.com> 1355017650 -0600	commit: df_added
+a90bc3fb6f15181972a2959a921429efbd81a473 c94b27e41064c521120627e07e2035cca1d24ffa Edward Thomson <ethomson@edwardthomson.com> 1355017673 -0600	checkout: moving from df_side1 to c94b27e
+c94b27e41064c521120627e07e2035cca1d24ffa d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355017673 -0600	rebase -i (squash): updating HEAD
+d4207f77243500bec335ab477f9227fcdb1e271a 005b6fcc8fec71d2550bef8462d169b3c26aa14b Edward Thomson <ethomson@edwardthomson.com> 1355017673 -0600	rebase -i (squash): df_side1
+005b6fcc8fec71d2550bef8462d169b3c26aa14b 005b6fcc8fec71d2550bef8462d169b3c26aa14b Edward Thomson <ethomson@edwardthomson.com> 1355017676 -0600	rebase -i (finish): returning to refs/heads/df_side1
+005b6fcc8fec71d2550bef8462d169b3c26aa14b f8958bdf4d365a84a9a178b1f5f35ff1dacbd884 Edward Thomson <ethomson@edwardthomson.com> 1355017715 -0600	reset: moving to df_side2
+f8958bdf4d365a84a9a178b1f5f35ff1dacbd884 8c749d9968d4b10dcfb06c9f97d0e5d92d337071 Edward Thomson <ethomson@edwardthomson.com> 1355017744 -0600	commit: df_added
+8c749d9968d4b10dcfb06c9f97d0e5d92d337071 f8958bdf4d365a84a9a178b1f5f35ff1dacbd884 Edward Thomson <ethomson@edwardthomson.com> 1355017754 -0600	checkout: moving from df_side1 to f8958bd
+f8958bdf4d365a84a9a178b1f5f35ff1dacbd884 d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355017754 -0600	rebase -i (squash): updating HEAD
+d4207f77243500bec335ab477f9227fcdb1e271a 0204a84f822acbf6386b36d33f1f6bc68bbbf858 Edward Thomson <ethomson@edwardthomson.com> 1355017754 -0600	rebase -i (squash): df_side2
+0204a84f822acbf6386b36d33f1f6bc68bbbf858 0204a84f822acbf6386b36d33f1f6bc68bbbf858 Edward Thomson <ethomson@edwardthomson.com> 1355017756 -0600	rebase -i (finish): returning to refs/heads/df_side1
+0204a84f822acbf6386b36d33f1f6bc68bbbf858 005b6fcc8fec71d2550bef8462d169b3c26aa14b Edward Thomson <ethomson@edwardthomson.com> 1355017793 -0600	reset: moving to 005b6fcc8fec71d2550bef8462d169b3c26aa14b
+005b6fcc8fec71d2550bef8462d169b3c26aa14b 0204a84f822acbf6386b36d33f1f6bc68bbbf858 Edward Thomson <ethomson@edwardthomson.com> 1355017826 -0600	reset: moving to 0204a84
+0204a84f822acbf6386b36d33f1f6bc68bbbf858 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1355017847 -0600	checkout: moving from df_side1 to master
+bd593285fc7fe4ca18ccdbabf027f5d689101452 0204a84f822acbf6386b36d33f1f6bc68bbbf858 Edward Thomson <ethomson@edwardthomson.com> 1355168677 -0600	checkout: moving from master to df_side1
+005b6fcc8fec71d2550bef8462d169b3c26aa14b 005b6fcc8fec71d2550bef8462d169b3c26aa14b Edward Thomson <ethomson@edwardthomson.com> 1355168829 -0600	checkout: moving from df_side1 to df_side1
+005b6fcc8fec71d2550bef8462d169b3c26aa14b 005b6fcc8fec71d2550bef8462d169b3c26aa14b Edward Thomson <ethomson@edwardthomson.com> 1355168838 -0600	checkout: moving from df_side1 to df_side1
+005b6fcc8fec71d2550bef8462d169b3c26aa14b e8107f24196736b870a318a0e28f048e29f6feff Edward Thomson <ethomson@edwardthomson.com> 1355169065 -0600	commit: df_side1
+e8107f24196736b870a318a0e28f048e29f6feff 005b6fcc8fec71d2550bef8462d169b3c26aa14b Edward Thomson <ethomson@edwardthomson.com> 1355169081 -0600	checkout: moving from df_side1 to 005b6fc
+005b6fcc8fec71d2550bef8462d169b3c26aa14b d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355169081 -0600	rebase -i (squash): updating HEAD
+d4207f77243500bec335ab477f9227fcdb1e271a 80a8fbb3abb1ba423d554e9630b8fc2e5698f86b Edward Thomson <ethomson@edwardthomson.com> 1355169081 -0600	rebase -i (squash): df_side1
+80a8fbb3abb1ba423d554e9630b8fc2e5698f86b 80a8fbb3abb1ba423d554e9630b8fc2e5698f86b Edward Thomson <ethomson@edwardthomson.com> 1355169084 -0600	rebase -i (finish): returning to refs/heads/df_side1
+80a8fbb3abb1ba423d554e9630b8fc2e5698f86b 0204a84f822acbf6386b36d33f1f6bc68bbbf858 Edward Thomson <ethomson@edwardthomson.com> 1355169141 -0600	checkout: moving from df_side1 to df_side2
+0204a84f822acbf6386b36d33f1f6bc68bbbf858 944f5dd1a867cab4c2bbcb896493435cae1dcc1a Edward Thomson <ethomson@edwardthomson.com> 1355169174 -0600	commit: both
+944f5dd1a867cab4c2bbcb896493435cae1dcc1a 0204a84f822acbf6386b36d33f1f6bc68bbbf858 Edward Thomson <ethomson@edwardthomson.com> 1355169182 -0600	checkout: moving from df_side2 to 0204a84
+0204a84f822acbf6386b36d33f1f6bc68bbbf858 d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355169182 -0600	rebase -i (squash): updating HEAD
+d4207f77243500bec335ab477f9227fcdb1e271a 57079a46233ae2b6df62e9ade71c4948512abefb Edward Thomson <ethomson@edwardthomson.com> 1355169182 -0600	rebase -i (squash): df_side2
+57079a46233ae2b6df62e9ade71c4948512abefb 57079a46233ae2b6df62e9ade71c4948512abefb Edward Thomson <ethomson@edwardthomson.com> 1355169185 -0600	rebase -i (finish): returning to refs/heads/df_side2
+57079a46233ae2b6df62e9ade71c4948512abefb 80a8fbb3abb1ba423d554e9630b8fc2e5698f86b Edward Thomson <ethomson@edwardthomson.com> 1355169241 -0600	checkout: moving from df_side2 to df_side1
+80a8fbb3abb1ba423d554e9630b8fc2e5698f86b e65a9bb2af9f4c2d1c375dd0f8f8a46cf9c68812 Edward Thomson <ethomson@edwardthomson.com> 1355169419 -0600	commit: side1
+e65a9bb2af9f4c2d1c375dd0f8f8a46cf9c68812 80a8fbb3abb1ba423d554e9630b8fc2e5698f86b Edward Thomson <ethomson@edwardthomson.com> 1355169431 -0600	checkout: moving from df_side1 to 80a8fbb
+80a8fbb3abb1ba423d554e9630b8fc2e5698f86b d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355169431 -0600	rebase -i (squash): updating HEAD
+d4207f77243500bec335ab477f9227fcdb1e271a 5dc1018e90b19654bee986b7a0c268804d39659d Edward Thomson <ethomson@edwardthomson.com> 1355169431 -0600	rebase -i (squash): df_side1
+5dc1018e90b19654bee986b7a0c268804d39659d 5dc1018e90b19654bee986b7a0c268804d39659d Edward Thomson <ethomson@edwardthomson.com> 1355169435 -0600	rebase -i (finish): returning to refs/heads/df_side1
+5dc1018e90b19654bee986b7a0c268804d39659d 57079a46233ae2b6df62e9ade71c4948512abefb Edward Thomson <ethomson@edwardthomson.com> 1355169439 -0600	checkout: moving from df_side1 to df_side2
+57079a46233ae2b6df62e9ade71c4948512abefb 58e853f66699fd02629fd50bde08082bc005933a Edward Thomson <ethomson@edwardthomson.com> 1355169460 -0600	commit: side2
+58e853f66699fd02629fd50bde08082bc005933a 57079a46233ae2b6df62e9ade71c4948512abefb Edward Thomson <ethomson@edwardthomson.com> 1355169469 -0600	checkout: moving from df_side2 to 57079a4
+57079a46233ae2b6df62e9ade71c4948512abefb d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355169469 -0600	rebase -i (squash): updating HEAD
+d4207f77243500bec335ab477f9227fcdb1e271a fada9356aa3f74622327a3038ae9c6f92e1c5c1d Edward Thomson <ethomson@edwardthomson.com> 1355169469 -0600	rebase -i (squash): df_side2
+fada9356aa3f74622327a3038ae9c6f92e1c5c1d fada9356aa3f74622327a3038ae9c6f92e1c5c1d Edward Thomson <ethomson@edwardthomson.com> 1355169471 -0600	rebase -i (finish): returning to refs/heads/df_side2
+fada9356aa3f74622327a3038ae9c6f92e1c5c1d 5dc1018e90b19654bee986b7a0c268804d39659d Edward Thomson <ethomson@edwardthomson.com> 1355169494 -0600	checkout: moving from df_side2 to df_side1
+5dc1018e90b19654bee986b7a0c268804d39659d d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355169663 -0600	checkout: moving from df_side1 to d4207f77243500bec335ab477f9227fcdb1e271a
+d4207f77243500bec335ab477f9227fcdb1e271a 849619b03ae540acee4d1edec96b86993da6b497 Edward Thomson <ethomson@edwardthomson.com> 1355169683 -0600	commit: both_dirs
+849619b03ae540acee4d1edec96b86993da6b497 d4207f77243500bec335ab477f9227fcdb1e271a Edward Thomson <ethomson@edwardthomson.com> 1355169691 -0600	checkout: moving from 849619b03ae540acee4d1edec96b86993da6b497 to d4207f7
+d4207f77243500bec335ab477f9227fcdb1e271a bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1355169691 -0600	rebase -i (squash): updating HEAD
+bd593285fc7fe4ca18ccdbabf027f5d689101452 a765fb87eb2f7a1920b73b2d5a057f8f8476a42b Edward Thomson <ethomson@edwardthomson.com> 1355169691 -0600	rebase -i (squash): df_ancestor
+a765fb87eb2f7a1920b73b2d5a057f8f8476a42b 5dc1018e90b19654bee986b7a0c268804d39659d Edward Thomson <ethomson@edwardthomson.com> 1355169706 -0600	checkout: moving from a765fb87eb2f7a1920b73b2d5a057f8f8476a42b to df_side1
+5dc1018e90b19654bee986b7a0c268804d39659d a765fb87eb2f7a1920b73b2d5a057f8f8476a42b Edward Thomson <ethomson@edwardthomson.com> 1355169715 -0600	checkout: moving from df_side1 to a765fb87eb2f7a1920b73b2d5a057f8f8476a42b^0
+a765fb87eb2f7a1920b73b2d5a057f8f8476a42b bc744705e1d8a019993cf88f62bc4020f1b80919 Edward Thomson <ethomson@edwardthomson.com> 1355169801 -0600	commit: df_side1
+bc744705e1d8a019993cf88f62bc4020f1b80919 bc744705e1d8a019993cf88f62bc4020f1b80919 Edward Thomson <ethomson@edwardthomson.com> 1355169822 -0600	checkout: moving from bc744705e1d8a019993cf88f62bc4020f1b80919 to df_side1
+bc744705e1d8a019993cf88f62bc4020f1b80919 fada9356aa3f74622327a3038ae9c6f92e1c5c1d Edward Thomson <ethomson@edwardthomson.com> 1355169826 -0600	checkout: moving from df_side1 to df_side2
+fada9356aa3f74622327a3038ae9c6f92e1c5c1d a765fb87eb2f7a1920b73b2d5a057f8f8476a42b Edward Thomson <ethomson@edwardthomson.com> 1355169866 -0600	checkout: moving from df_side2 to a765fb87eb2f7a1920b73b2d5a057f8f8476a42b^0
+a765fb87eb2f7a1920b73b2d5a057f8f8476a42b 95646149ab6b6ba6edc83cff678582538b457b2b Edward Thomson <ethomson@edwardthomson.com> 1355169897 -0600	rebase: df_side2
+95646149ab6b6ba6edc83cff678582538b457b2b 95646149ab6b6ba6edc83cff678582538b457b2b Edward Thomson <ethomson@edwardthomson.com> 1355169897 -0600	rebase finished: returning to refs/heads/df_side2
+95646149ab6b6ba6edc83cff678582538b457b2b bc744705e1d8a019993cf88f62bc4020f1b80919 Edward Thomson <ethomson@edwardthomson.com> 1355169949 -0600	checkout: moving from df_side2 to df_side1
+bc744705e1d8a019993cf88f62bc4020f1b80919 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1355170046 -0600	checkout: moving from df_side1 to master
+bd593285fc7fe4ca18ccdbabf027f5d689101452 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1355181639 -0600	checkout: moving from master to df_ancestor
+bd593285fc7fe4ca18ccdbabf027f5d689101452 2da538570bc1e5b2c3e855bf702f35248ad0735f Edward Thomson <ethomson@edwardthomson.com> 1355181673 -0600	commit: df_ancestor
+2da538570bc1e5b2c3e855bf702f35248ad0735f a7dbfcbfc1a60709cb80b5ca24539008456531d0 Edward Thomson <ethomson@edwardthomson.com> 1355181715 -0600	commit: df_side1
+a7dbfcbfc1a60709cb80b5ca24539008456531d0 a7dbfcbfc1a60709cb80b5ca24539008456531d0 Edward Thomson <ethomson@edwardthomson.com> 1355181743 -0600	checkout: moving from df_ancestor to df_ancestor
+a7dbfcbfc1a60709cb80b5ca24539008456531d0 9a301fbe6fada7dcb74fcd7c20269b5c743459a7 Edward Thomson <ethomson@edwardthomson.com> 1355181775 -0600	commit: df_side2
+9a301fbe6fada7dcb74fcd7c20269b5c743459a7 a7dbfcbfc1a60709cb80b5ca24539008456531d0 Edward Thomson <ethomson@edwardthomson.com> 1355181793 -0600	checkout: moving from df_ancestor to df_side1
+a7dbfcbfc1a60709cb80b5ca24539008456531d0 9a301fbe6fada7dcb74fcd7c20269b5c743459a7 Edward Thomson <ethomson@edwardthomson.com> 1355181797 -0600	checkout: moving from df_side1 to df_side2
+9a301fbe6fada7dcb74fcd7c20269b5c743459a7 9a301fbe6fada7dcb74fcd7c20269b5c743459a7 Edward Thomson <ethomson@edwardthomson.com> 1355182062 -0600	checkout: moving from df_side2 to df_ancestor
+9a301fbe6fada7dcb74fcd7c20269b5c743459a7 2da538570bc1e5b2c3e855bf702f35248ad0735f Edward Thomson <ethomson@edwardthomson.com> 1355182067 -0600	reset: moving to 2da538570bc1e5b2c3e855bf702f35248ad0735f
+2da538570bc1e5b2c3e855bf702f35248ad0735f 2da538570bc1e5b2c3e855bf702f35248ad0735f Edward Thomson <ethomson@edwardthomson.com> 1355182087 -0600	checkout: moving from df_ancestor to df_side2
+2da538570bc1e5b2c3e855bf702f35248ad0735f fc90237dc4891fa6c69827fc465632225e391618 Edward Thomson <ethomson@edwardthomson.com> 1355182104 -0600	commit: df_side2
+fc90237dc4891fa6c69827fc465632225e391618 a7dbfcbfc1a60709cb80b5ca24539008456531d0 Edward Thomson <ethomson@edwardthomson.com> 1355182111 -0600	checkout: moving from df_side2 to df_side1
+a7dbfcbfc1a60709cb80b5ca24539008456531d0 fc90237dc4891fa6c69827fc465632225e391618 Edward Thomson <ethomson@edwardthomson.com> 1355182115 -0600	checkout: moving from df_side1 to df_side2
+fc90237dc4891fa6c69827fc465632225e391618 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1355182122 -0600	checkout: moving from df_side2 to master

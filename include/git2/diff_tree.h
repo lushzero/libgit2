@@ -32,6 +32,20 @@ typedef enum {
 	GIT_DIFF_TREE_RETURN_UNMODIFIED = (1 << 0),
 } git_diff_tree_option_t;
 
+typedef enum {
+	GIT_DIFF_TREE_CONFLICT_NONE = 0,
+	GIT_DIFF_TREE_CONFLICT_BOTH_MODIFIED = (1 << 0),
+	GIT_DIFF_TREE_CONFLICT_BOTH_ADDED = (1 << 1),
+	GIT_DIFF_TREE_CONFLICT_BOTH_DELETED = (1 << 2),
+	GIT_DIFF_TREE_CONFLICT_MODIFY_DELETE = (1 << 3),
+} git_diff_tree_conflict_t;
+
+typedef enum {
+	GIT_DIFF_TREE_DF_NONE = 0,
+	GIT_DIFF_TREE_DF_DIRECTORY_FILE = (1 << 0),
+	GIT_DIFF_TREE_DF_CHILD = (1 << 1),
+} git_diff_tree_df_conflict_t;
+
 /**
  * The git_diff_tree_list list object that contains all individual
  * object deltas.
@@ -53,6 +67,8 @@ typedef struct {
     git_diff_tree_entry ancestor;
     git_diff_tree_entry ours;
     git_diff_tree_entry theirs;
+	git_diff_tree_conflict_t conflict;
+	git_diff_tree_df_conflict_t df_conflict;
 } git_diff_tree_delta;
 
 /** Callback for the tree difference function. */

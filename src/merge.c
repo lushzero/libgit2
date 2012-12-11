@@ -705,8 +705,6 @@ static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_
     assert(index && delta);
 	
 	if ((ancestor_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor))) {
-		ancestor_exists = 1;
-		
 		memset(&ancestor_entry, 0x0, sizeof(git_index_entry));
 		ancestor_entry.path = (char *)delta->ancestor.file.path;
 		ancestor_entry.mode = delta->ancestor.file.mode;
@@ -714,8 +712,6 @@ static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_
 	}
 	
 	if ((ours_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->ours))) {
-		ours_exists = 1;
-		
 		memset(&our_entry, 0x0, sizeof(git_index_entry));
 		our_entry.path = (char *)delta->ours.file.path;
 		our_entry.mode = delta->ours.file.mode;
@@ -723,8 +719,6 @@ static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_
 	}
 	
 	if ((theirs_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->theirs))) {
-		theirs_exists = 1;
-		
 		memset(&their_entry, 0x0, sizeof(git_index_entry));
 		their_entry.path = (char *)delta->theirs.file.path;
 		their_entry.mode = delta->theirs.file.mode;
@@ -758,7 +752,10 @@ static int merge_conflict_resolve_trivial(
     
     *resolved = 0;
     
-	/* TODO: reject non-files */
+	/* TODO: (optionally) reject children of d/f conflicts */
+	
+	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
+		return 0;
 
 	ancestor_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor);
 	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ours);
@@ -842,8 +839,11 @@ static int merge_conflict_resolve_removed(
 	if (resolve_flags & GIT_MERGE_RESOLVE_NO_REMOVED)
 		return 0;
 
-	/* TODO: reject non-files */
-	
+	/* TODO: (optionally) reject children of d/f conflicts */
+
+	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
+		return 0;
+
 	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ours);
 	theirs_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->theirs);
 
@@ -890,9 +890,18 @@ static int merge_conflict_resolve_automerge(
 	if (resolve_flags & GIT_MERGE_RESOLVE_NO_AUTOMERGE)
 		return 0;
 
-	/* TODO: reject non-files */
+	/* Reject D/F conflicts */
+	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
+		return 0;
+
+	/* Reject link/file conflicts. */
+	if ((S_ISLNK(delta->ancestor.file.mode) ^ S_ISLNK(delta->ours.file.mode)) ||
+		(S_ISLNK(delta->ancestor.file.mode) ^ S_ISLNK(delta->theirs.file.mode)))
+		return 0;
+
+	/* TODO: reject children of d/f conflicts */
+
 	/* TODO: reject name conflicts */
-	/* TODO: reject filemode conflicts */
 
 	if ((error = git_repository_odb(&odb, repo)) < 0)
 		goto done;
@@ -971,10 +980,17 @@ static int merge_conflict_write_diff3(int *conflict_written,
 	
 	if (flags & GIT_MERGE_CONFLICT_NO_DIFF3)
 		return 0;
+
+	/* Reject link/file conflicts. */
+	if ((S_ISLNK(delta->ancestor.file.mode) ^ S_ISLNK(delta->ours.file.mode)) ||
+		(S_ISLNK(delta->ancestor.file.mode) ^ S_ISLNK(delta->theirs.file.mode)))
+		return 0;
 	
-	/* TODO: reject non-files */
-	/* TODO: reject name conflicts */
-	/* TODO: reject filemode conflicts */
+	/* Reject D/F conflicts */
+	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
+		return 0;
+
+	/* TODO: reject name conflicts? */
 	
 	git_repository_odb(&odb, repo);
 	
@@ -998,19 +1014,33 @@ done:
 	return error;
 }
 
-static int merge_conflict_write_side(git_repository *repo,
+static int merge_conflict_write_file(
+	git_repository *repo,
+	const git_diff_tree_entry *entry,
+	const char *path)
+{
+	git_checkout_opts opts;
+	
+	memset(&opts, 0x0, sizeof(git_checkout_opts));
+	opts.file_open_flags =  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL;
+	
+	if (path == NULL)
+		path = entry->file.path;
+
+	return git_checkout_blob(repo, &entry->file.oid, path, entry->file.mode, &opts);
+}
+
+static int merge_conflict_write_side(
+	git_repository *repo,
 	const git_merge_head *merge_head,
 	const git_diff_tree_entry *entry)
 {
 	git_buf path = GIT_BUF_INIT;
 	char oid_str[GIT_OID_HEXSZ];
-	git_checkout_opts opts;
 	int error = 0;
 	
 	assert(repo && merge_head && entry);
 	
-	memset(&opts, 0x0, sizeof(git_checkout_opts));
-
 	/* TODO: what if this file exists? */
 
 	git_buf_puts(&path, entry->file.path);
@@ -1023,17 +1053,15 @@ static int merge_conflict_write_side(git_repository *repo,
 		git_buf_put(&path, oid_str, GIT_OID_HEXSZ);
 	}
 	
-	opts.file_open_flags =  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL;
-	
-	error = git_checkout_blob(repo, &entry->file.oid, git_buf_cstr(&path),
-		entry->file.mode, &opts);
+	error = merge_conflict_write_file(repo, entry, git_buf_cstr(&path));
 
 	git_buf_free(&path);
 	
 	return error;
 }
 
-static int merge_conflict_write_sides(int *conflict_written,
+static int merge_conflict_write_sides(
+	int *conflict_written,
 	git_repository *repo,
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
@@ -1049,12 +1077,16 @@ static int merge_conflict_write_sides(int *conflict_written,
 	
 	*conflict_written = 0;
 	
-	/* TODO: handle trees */
-	
 	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
-		(error = merge_conflict_write_side(repo, our_head, &delta->ours)) >= 0 &&
-		GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
-		(error = merge_conflict_write_side(repo, their_head, &delta->theirs)) >= 0)
+		(error = merge_conflict_write_side(repo, our_head, &delta->ours)) < 0)
+		goto done;
+	
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
+		(error = merge_conflict_write_side(repo, their_head, &delta->theirs)) < 0)
+		goto done;
+
+done:
+	if (error >= 0)
 		*conflict_written = 1;
 
 	return error;
