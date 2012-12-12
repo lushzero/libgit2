@@ -994,11 +994,13 @@ static int merge_conflict_write_diff3(int *conflict_written,
 	
 	git_repository_odb(&odb, repo);
 	
+	/* TODO: mkpath2file mode */
 	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ours) || !GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) ||
 		(error = git_repository_odb(&odb, repo)) < 0 ||
 		(error = merge_filediff(&result, odb, merge_heads, delta, 0)) < 0 ||
 		result.path == NULL || result.mode == 0 ||
 		(error = git_buf_joinpath(&workdir_path, git_repository_workdir(repo), result.path)) < 0 ||
+		(error = git_futils_mkpath2file(workdir_path.ptr, 0755) < 0) ||
 		(error = git_filebuf_open(&output, workdir_path.ptr, GIT_FILEBUF_DO_NOT_BUFFER)) < 0 ||
 		(error = git_filebuf_write(&output, result.data, result.len)) < 0 ||
 		(error = git_filebuf_commit(&output, result.mode)) < 0)
@@ -1032,9 +1034,12 @@ static int merge_conflict_write_file(
 static int merge_conflict_write_side(
 	git_repository *repo,
 	const git_merge_head *merge_head,
-	const git_diff_tree_entry *entry)
+	const git_diff_tree_delta *delta,
+	const git_diff_tree_entry *entry,
+	unsigned int flags)
 {
-	git_buf path = GIT_BUF_INIT;
+	const char *path = entry->file.path;
+	git_buf path_with_branch = GIT_BUF_INIT;
 	char oid_str[GIT_OID_HEXSZ];
 	int error = 0;
 	
@@ -1042,19 +1047,28 @@ static int merge_conflict_write_side(
 	
 	/* TODO: what if this file exists? */
 
-	git_buf_puts(&path, entry->file.path);
-	git_buf_putc(&path, '~');
-	
-	if (merge_head->branch_name)
-		git_buf_puts(&path, merge_head->branch_name);
-	else {
-		git_oid_fmt(oid_str, &merge_head->oid);
-		git_buf_put(&path, oid_str, GIT_OID_HEXSZ);
+	/* 
+	 * Mutate the name if we're D/F conflicted or if we didn't write a diff3
+	 * file.
+	 */
+	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE ||
+		(flags & GIT_MERGE_CONFLICT_NO_DIFF3)) {
+		git_buf_puts(&path_with_branch, entry->file.path);
+		git_buf_putc(&path_with_branch, '~');
+		
+		if (merge_head->branch_name)
+			git_buf_puts(&path_with_branch, merge_head->branch_name);
+		else {
+			git_oid_fmt(oid_str, &merge_head->oid);
+			git_buf_put(&path_with_branch, oid_str, GIT_OID_HEXSZ);
+		}
+		
+		path = git_buf_cstr(&path_with_branch);
 	}
-	
-	error = merge_conflict_write_file(repo, entry, git_buf_cstr(&path));
 
-	git_buf_free(&path);
+	error = merge_conflict_write_file(repo, entry, path);
+
+	git_buf_free(&path_with_branch);
 	
 	return error;
 }
@@ -1077,11 +1091,11 @@ static int merge_conflict_write_sides(
 	*conflict_written = 0;
 	
 	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
-		(error = merge_conflict_write_side(repo, our_head, &delta->ours)) < 0)
+		(error = merge_conflict_write_side(repo, our_head, delta, &delta->ours, flags)) < 0)
 		goto done;
 	
 	if (GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
-		(error = merge_conflict_write_side(repo, their_head, &delta->theirs)) < 0)
+		(error = merge_conflict_write_side(repo, their_head, delta, &delta->theirs, flags)) < 0)
 		goto done;
 
 done:
@@ -1384,7 +1398,9 @@ int git_merge(
 	if (error < 0)
 		goto on_error;
 	
+	/* TODO: hack to workaround checkout dir/file stuff */
 	if ((error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0 ||
+		(error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0 ||
 		(error = git_index_write(index)) < 0)
 		goto on_error;
 	
@@ -1392,7 +1408,9 @@ int git_merge(
 		git_vector_foreach(&result->conflicts, i, delta) {
 			int conflict_written = 0;
 			
-			merge_conflict_write(&conflict_written, repo, ancestor_head, our_head, their_heads[0], delta, opts.conflict_flags);
+			if ((error = merge_conflict_write(&conflict_written, repo,
+				ancestor_head, our_head, their_heads[0], delta, opts.conflict_flags)) < 0)
+				goto on_error;
 		}
 	}
 	
