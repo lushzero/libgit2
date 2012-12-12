@@ -41,6 +41,9 @@ static git_merge_result *merge_fastforward_branch(int flags)
 
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
 
+	git_merge_head_free(their_heads[0]);
+	git_reference_free(their_ref);
+
 	return result;
 }
 
@@ -79,7 +82,7 @@ void test_merge_fastforward__no_fastforward(void)
 
     cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
 	cl_assert(git_index_reuc_entrycount(repo_index) == 0);
-    
+
 	git_merge_result_free(result);
 }
 
@@ -96,5 +99,6 @@ void test_merge_fastforward__uptodate(void)
 
 	cl_assert(git_merge_result_is_uptodate(result));
 
+	git_merge_head_free(their_heads[0]);
 	git_merge_result_free(result);
 }

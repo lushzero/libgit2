@@ -511,7 +511,7 @@ static char *merge_filediff_entry_name(const git_merge_head *merge_head,
 		git_buf_puts(&name, entry->file.path);
 	}
 	
-	return strdup(name.ptr);
+	return name.ptr;
 }
 
 static int merge_filediff_entry_names(char **our_path,
@@ -521,6 +521,9 @@ static int merge_filediff_entry_names(char **our_path,
 {
 	bool rename;
 
+	*our_path = NULL;
+	*their_path = NULL;
+
 	if (!merge_heads)
 		return 0;
 
@@ -528,9 +531,15 @@ static int merge_filediff_entry_names(char **our_path,
 	 * If all the paths are identical, decorate the diff3 file with the branch
 	 * names.  Otherwise, use branch_name:path
 	 */
-	rename = strcmp(delta->ours.file.path, delta->theirs.file.path) != 0;
-	
-	if ((*our_path = merge_filediff_entry_name(merge_heads[1], &delta->ours, rename)) == NULL ||
+	rename = GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
+		GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
+		strcmp(delta->ours.file.path, delta->theirs.file.path) != 0;
+
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
+		(*our_path = merge_filediff_entry_name(merge_heads[1], &delta->ours, rename)) == NULL)
+		return -1;
+
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) &&
 		(*their_path = merge_filediff_entry_name(merge_heads[2], &delta->theirs, rename)) == NULL)
 		return -1;
 
@@ -623,11 +632,8 @@ static int merge_filediff(
 	result->len = mmbuffer.size;
 	
 done:
-	if (our_name)
-		git__free(our_name);
-
-	if (their_name)
-		git__free(their_name);
+	git__free(our_name);
+	git__free(their_name);
 
 	git_odb_object_free(ancestor_odb);
 	git_odb_object_free(our_odb);
@@ -1257,7 +1263,7 @@ static int merge_ancestor_head(
 	if ((error = git_merge_base_many(&ancestor_oid, repo, oids, their_heads_len + 1)) < 0)
 		goto on_error;
 
-	return git_merge_head_from_oid(ancestor_head, repo, &ancestor_oid);
+	error = git_merge_head_from_oid(ancestor_head, repo, &ancestor_oid);
 
 on_error:
 	git__free(oids);

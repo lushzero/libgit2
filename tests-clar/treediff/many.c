@@ -85,7 +85,7 @@ static int treediff(
         cl_git_pass(git_tree_lookup(&trees[i], repo, &oids[i]));
     }
     
-    cl_git_pass(git_diff_tree_many(repo, trees, treediff_data->trees_len, flags, treediff_cb, treediff_data));
+    cl_git_pass(git_diff_tree_many(repo, (const git_tree **)trees, treediff_data->trees_len, flags, treediff_cb, treediff_data));
     
     cl_assert(treediff_data->seen == treediff_data->file_data_len);
 
