@@ -90,14 +90,6 @@ GIT_EXTERN(int) git_merge_base(git_oid *out, git_repository *repo, const git_oid
  */
 GIT_EXTERN(int) git_merge_base_many(git_oid *out, git_repository *repo, const git_oid input_array[], size_t length);
 
-typedef int (*git_merge_strategy)(int *success,
-	git_repository *repo,
-	const git_merge_head *ancestor_head,
-	const git_merge_head *our_head,
-	const git_merge_head *their_heads[],
-	size_t their_heads_len,
-	void *data);
-
 /**
  * Merges the given commits into HEAD, producing a new commit.
  *
