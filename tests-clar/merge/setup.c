@@ -61,6 +61,16 @@ static bool test_file_contents(const char *filename, const char *expected)
     return equals;
 }
 
+static void write_file_contents(const char *filename, const char *output)
+{
+	git_buf file_path_buf = GIT_BUF_INIT;
+
+    git_buf_printf(&file_path_buf, "%s/%s", git_repository_path(repo), filename);
+	cl_git_rewritefile(file_path_buf.ptr, output);
+
+	git_buf_free(&file_path_buf);
+}
+
 /* git merge --no-ff octo1 */
 void test_merge_setup__one_branch(void)
 {
@@ -448,4 +458,91 @@ void test_merge_setup__three_same_oids(void)
     git_merge_head_free(their_heads[0]);
     git_merge_head_free(their_heads[1]);
     git_merge_head_free(their_heads[2]);
+}
+
+struct merge_head_cb_data {
+	const char **oid_str;
+	unsigned int len;
+
+	unsigned int i;
+};
+
+int merge_head_foreach_cb(const git_oid *oid, void *payload)
+{
+	git_oid expected_oid;
+
+	struct merge_head_cb_data *cb_data = payload;
+
+	git_oid_fromstr(&expected_oid, cb_data->oid_str[cb_data->i]);
+
+	cl_assert(git_oid_cmp(&expected_oid, oid) == 0);
+
+	cb_data->i++;
+
+	return 0;
+}
+
+void test_merge_setup__head_notfound(void)
+{
+	int error;
+
+	cl_git_fail((error = git_repository_mergehead_foreach(repo,
+		merge_head_foreach_cb, NULL)));
+	cl_assert(error == GIT_ENOTFOUND);
+}
+
+void test_merge_setup__head_invalid_oid(void)
+{
+	int error;
+
+	write_file_contents(GIT_MERGE_HEAD_FILE, "invalid-oid\n");
+
+	cl_git_fail((error = git_repository_mergehead_foreach(repo,
+		merge_head_foreach_cb, NULL)));
+	cl_assert(error == -1);
+}
+
+void test_merge_setup__head_foreach_nonewline(void)
+{
+	int error;
+
+	write_file_contents(GIT_MERGE_HEAD_FILE, "e4d319912cae0abec30b467dd6cde278ed1d4a96");
+
+	cl_git_fail((error = git_repository_mergehead_foreach(repo,
+		merge_head_foreach_cb, NULL)));
+	cl_assert(error == -1);
+}
+
+void test_merge_setup__head_foreach_one(void)
+{
+	const char *expected = "e4d319912cae0abec30b467dd6cde278ed1d4a96";
+
+	struct merge_head_cb_data cb_data = { &expected, 1 };
+
+	write_file_contents(GIT_MERGE_HEAD_FILE,
+		"e4d319912cae0abec30b467dd6cde278ed1d4a96\n");
+
+	cl_git_pass(git_repository_mergehead_foreach(repo,
+		merge_head_foreach_cb, &cb_data));
+
+	cl_assert(cb_data.i == cb_data.len);
+}
+
+void test_merge_setup__head_foreach_octopus(void)
+{
+	const char *expected[] = { "1001001001001001001001001001001001001001",
+		"0011001100110011001100110011001100110011",
+		"beefbeefbeefbeefbeefbeefbeefbeefbeefbeef" };
+
+	struct merge_head_cb_data cb_data = { expected, 3 };
+
+	write_file_contents(GIT_MERGE_HEAD_FILE,
+		"1001001001001001001001001001001001001001\n"
+		"0011001100110011001100110011001100110011\n"
+		"beefbeefbeefbeefbeefbeefbeefbeefbeefbeef\n" );
+
+	cl_git_pass(git_repository_mergehead_foreach(repo,
+		merge_head_foreach_cb, &cb_data));
+
+	cl_assert(cb_data.i == cb_data.len);
 }

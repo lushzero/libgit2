@@ -266,8 +266,10 @@ static int write_merge_head(git_repository *repo, const git_merge_head *their_he
 
 	assert(repo && their_heads);
 
-	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository, GIT_MERGE_HEAD_FILE)) < 0 ||
-		(error = git_filebuf_open(&merge_head_file, merge_head_path.ptr, GIT_FILEBUF_FORCE)) < 0)
+	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository, GIT_MERGE_HEAD_FILE)) < 0)
+		return error;
+
+	if ((error = git_filebuf_open(&merge_head_file, merge_head_path.ptr, GIT_FILEBUF_FORCE)) < 0)
 		goto cleanup;
 
 	for (i = 0; i < their_heads_len; i++) {
@@ -420,6 +422,59 @@ int git_merge__setup(
 	}
 
 	return error;
+}
+
+int git_repository_mergehead_foreach(git_repository *repo,
+	git_repository_mergehead_foreach_cb cb,
+	void *payload)
+{
+	git_buf merge_head_path = GIT_BUF_INIT, merge_head_file = GIT_BUF_INIT;
+	char *buffer, *line;
+	size_t line_num = 1;
+	git_oid oid;
+	int error = 0;
+
+	assert(repo && cb);
+
+	if ((error = git_buf_joinpath(&merge_head_path, repo->path_repository,
+		GIT_MERGE_HEAD_FILE)) < 0)
+		return error;
+
+	if ((error = git_futils_readbuffer(&merge_head_file,
+		git_buf_cstr(&merge_head_path))) < 0)
+		goto cleanup;
+
+	buffer = merge_head_file.ptr;
+
+	while ((line = git__strsep(&buffer, "\n")) != NULL) {
+		if (strlen(line) != GIT_OID_HEXSZ) {
+			giterr_set(GITERR_INVALID, "Unable to parse OID - invalid length");
+			error = -1;
+			goto cleanup;
+		}
+
+		if ((error = git_oid_fromstr(&oid, line)) < 0)
+			goto cleanup;
+
+		if (cb(&oid, payload) < 0) {
+			error = GIT_EUSER;
+			goto cleanup;
+		}
+
+		++line_num;
+	}
+
+	if (*buffer) {
+		giterr_set(GITERR_MERGE, "No EOL at line %d", line_num);
+		error = -1;
+		goto cleanup;
+	}
+
+cleanup:
+    git_buf_free(&merge_head_path);
+	git_buf_free(&merge_head_file);
+
+    return error;
 }
 
 GIT_INLINE(int) merge_file_cmp(const git_diff_file *a, const git_diff_file *b)
