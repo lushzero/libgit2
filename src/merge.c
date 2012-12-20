@@ -1431,6 +1431,14 @@ int git_merge(
 		*out = result;
 		goto done;
 	}
+
+	/* If FASTFORWARD_ONLY is specified, fail. */
+	if ((opts.merge_flags & GIT_MERGE_FASTFORWARD_ONLY) ==
+		GIT_MERGE_FASTFORWARD_ONLY) {
+		giterr_set(GITERR_MERGE, "Not a fast-forward.");
+		error = GIT_ENONFASTFORWARD;
+		goto on_error;
+	}
 	
 	/* Write the merge files to the repository. */
 	if ((error = git_merge__setup(repo, our_head, their_heads, their_heads_len, opts.merge_flags)) < 0)

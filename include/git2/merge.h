@@ -29,6 +29,7 @@ GIT_BEGIN_DECL
  */
 enum {
 	GIT_MERGE_NO_FASTFORWARD      = (1 << 0),
+	GIT_MERGE_FASTFORWARD_ONLY    = (1 << 1),
 };
 
 /**
