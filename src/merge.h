@@ -44,7 +44,7 @@ int git_merge__setup(
 	const git_merge_head *their_heads[],
 	size_t their_heads_len,
 	unsigned int flags);
+
 int git_merge__bases_many(git_commit_list **out, git_revwalk *walk, git_commit_list_node *one, git_vector *twos);
-int git_merge__cleanup(git_repository *repo);
 
 #endif

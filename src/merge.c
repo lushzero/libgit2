@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "posix.h"
+#include "buffer.h"
 #include "repository.h"
 #include "revwalk.h"
 #include "commit_list.h"
@@ -33,6 +34,39 @@
 #include "git2/config.h"
 
 #include "xdiff/xdiff.h"
+
+int git_repository_merge_cleanup(git_repository *repo)
+{
+	int error = 0;
+	git_buf merge_head_path = GIT_BUF_INIT,
+		merge_mode_path = GIT_BUF_INIT,
+		merge_msg_path = GIT_BUF_INIT;
+
+	assert(repo);
+
+	if (git_buf_joinpath(&merge_head_path, repo->path_repository, GIT_MERGE_HEAD_FILE) < 0 ||
+		git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE) < 0 ||
+		git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE) < 0)
+		return -1;
+
+	if (git_path_isfile(merge_head_path.ptr)) {
+		if ((error = p_unlink(merge_head_path.ptr)) < 0)
+			goto cleanup;
+	}
+
+	if (git_path_isfile(merge_mode_path.ptr))
+		(void)p_unlink(merge_mode_path.ptr);
+
+	if (git_path_isfile(merge_msg_path.ptr))
+		(void)p_unlink(merge_msg_path.ptr);
+
+cleanup:
+	git_buf_free(&merge_msg_path);
+	git_buf_free(&merge_mode_path);
+	git_buf_free(&merge_head_path);
+
+	return error;
+}
 
 /* Merge base computation */
 
@@ -471,10 +505,10 @@ int git_repository_mergehead_foreach(git_repository *repo,
 	}
 
 cleanup:
-    git_buf_free(&merge_head_path);
+	git_buf_free(&merge_head_path);
 	git_buf_free(&merge_head_file);
 
-    return error;
+	return error;
 }
 
 GIT_INLINE(int) merge_file_cmp(const git_diff_file *a, const git_diff_file *b)
@@ -1503,39 +1537,6 @@ done:
 	
 	git_reference_free(our_ref);
 
-	return error;
-}
-
-int git_merge__cleanup(git_repository *repo)
-{
-	int error = 0;
-	git_buf merge_head_path = GIT_BUF_INIT,
-	merge_mode_path = GIT_BUF_INIT,
-	merge_msg_path = GIT_BUF_INIT;
-	
-	assert(repo);
-	
-	if (git_buf_joinpath(&merge_head_path, repo->path_repository, GIT_MERGE_HEAD_FILE) < 0 ||
-		git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE) < 0 ||
-		git_buf_joinpath(&merge_mode_path, repo->path_repository, GIT_MERGE_MODE_FILE) < 0)
-		return -1;
-	
-	if (git_path_isfile(merge_head_path.ptr)) {
-		if ((error = p_unlink(merge_head_path.ptr)) < 0)
-			goto cleanup;
-	}
-	
-	if (git_path_isfile(merge_mode_path.ptr))
-		(void)p_unlink(merge_mode_path.ptr);
-	
-	if (git_path_isfile(merge_msg_path.ptr))
-		(void)p_unlink(merge_msg_path.ptr);
-	
-cleanup:
-	git_buf_free(&merge_msg_path);
-	git_buf_free(&merge_mode_path);
-	git_buf_free(&merge_head_path);
-	
 	return error;
 }
 

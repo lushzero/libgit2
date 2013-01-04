@@ -71,22 +71,6 @@ typedef struct {
  */
 GIT_EXTERN(int) git_merge_inprogress(int *out, git_repository *repo);
 
-typedef int (*git_repository_mergehead_foreach_cb)(const git_oid *oid,
-	void *payload);
-
-/**
- * If a merge is in progress, call callback 'cb' for each commit ID
- * in the MERGE_HEAD file.
- *
- * @param repo A repository object
- * @param callback Callback function
- * @param payload Pointer to callback data (optional)
- * @return 0 on success, GIT_ENOTFOUND, GIT_EUSER or error
- */
-GIT_EXTERN(int) git_repository_mergehead_foreach(git_repository *repo,
-	git_repository_mergehead_foreach_cb callback,
-	void *payload);
-
 /**
  * Find a merge base between two commits
  *

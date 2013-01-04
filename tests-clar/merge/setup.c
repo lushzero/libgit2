@@ -65,7 +65,7 @@ static void write_file_contents(const char *filename, const char *output)
 {
 	git_buf file_path_buf = GIT_BUF_INIT;
 
-    git_buf_printf(&file_path_buf, "%s/%s", git_repository_path(repo), filename);
+	git_buf_printf(&file_path_buf, "%s/%s", git_repository_path(repo), filename);
 	cl_git_rewritefile(file_path_buf.ptr, output);
 
 	git_buf_free(&file_path_buf);
@@ -467,7 +467,7 @@ struct merge_head_cb_data {
 	unsigned int i;
 };
 
-int merge_head_foreach_cb(const git_oid *oid, void *payload)
+static int merge_head_foreach_cb(const git_oid *oid, void *payload)
 {
 	git_oid expected_oid;
 
@@ -506,7 +506,7 @@ void test_merge_setup__head_foreach_nonewline(void)
 {
 	int error;
 
-	write_file_contents(GIT_MERGE_HEAD_FILE, "e4d319912cae0abec30b467dd6cde278ed1d4a96");
+	write_file_contents(GIT_MERGE_HEAD_FILE, THEIRS_SIMPLE_OID);
 
 	cl_git_fail((error = git_repository_mergehead_foreach(repo,
 		merge_head_foreach_cb, NULL)));
@@ -515,12 +515,11 @@ void test_merge_setup__head_foreach_nonewline(void)
 
 void test_merge_setup__head_foreach_one(void)
 {
-	const char *expected = "e4d319912cae0abec30b467dd6cde278ed1d4a96";
+	const char *expected = THEIRS_SIMPLE_OID;
 
 	struct merge_head_cb_data cb_data = { &expected, 1 };
 
-	write_file_contents(GIT_MERGE_HEAD_FILE,
-		"e4d319912cae0abec30b467dd6cde278ed1d4a96\n");
+	write_file_contents(GIT_MERGE_HEAD_FILE, THEIRS_SIMPLE_OID "\n");
 
 	cl_git_pass(git_repository_mergehead_foreach(repo,
 		merge_head_foreach_cb, &cb_data));
@@ -530,16 +529,18 @@ void test_merge_setup__head_foreach_one(void)
 
 void test_merge_setup__head_foreach_octopus(void)
 {
-	const char *expected[] = { "1001001001001001001001001001001001001001",
-		"0011001100110011001100110011001100110011",
-		"beefbeefbeefbeefbeefbeefbeefbeefbeefbeef" };
+	const char *expected[] = { THEIRS_SIMPLE_OID,
+		OCTO1_OID, OCTO2_OID, OCTO3_OID, OCTO4_OID, OCTO5_OID };
 
-	struct merge_head_cb_data cb_data = { expected, 3 };
+	struct merge_head_cb_data cb_data = { expected, 6 };
 
 	write_file_contents(GIT_MERGE_HEAD_FILE,
-		"1001001001001001001001001001001001001001\n"
-		"0011001100110011001100110011001100110011\n"
-		"beefbeefbeefbeefbeefbeefbeefbeefbeefbeef\n" );
+		THEIRS_SIMPLE_OID "\n"
+		OCTO1_OID "\n"
+		OCTO2_OID "\n"
+		OCTO3_OID "\n"
+		OCTO4_OID "\n"
+		OCTO5_OID "\n");
 
 	cl_git_pass(git_repository_mergehead_foreach(repo,
 		merge_head_foreach_cb, &cb_data));
