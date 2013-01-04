@@ -1184,6 +1184,9 @@ static int merge_conflict_write_sides(
 	assert(conflict_written && repo && ancestor_head && our_head && their_head && delta);
 	
 	*conflict_written = 0;
+
+	if (flags & GIT_MERGE_CONFLICT_NO_SIDES)
+		return 0;
 	
 	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
 		(error = merge_conflict_write_side(repo, our_head, delta, &delta->ours, flags)) < 0)

@@ -44,6 +44,7 @@ enum {
 
 enum {
 	GIT_MERGE_CONFLICT_NO_DIFF3 = (1 << 0),
+	GIT_MERGE_CONFLICT_NO_SIDES = (1 << 1),
 };
 
 #define GIT_MERGE_TREES_OPTS_INIT {0}
