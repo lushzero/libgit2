@@ -1116,14 +1116,30 @@ static int merge_conflict_write_file(
 	const git_diff_tree_entry *entry,
 	const char *path)
 {
+	git_checkout_opts checkout_opts = GIT_CHECKOUT_OPTS_INIT;
+	git_checkout_data checkout_data;
+	struct stat st;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
-	
+	int error;
+
 	opts.file_open_flags =  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL;
 	
 	if (path == NULL)
 		path = entry->file.path;
 
-	return git_checkout_blob(repo, &entry->file.oid, path, entry->file.mode, &opts);
+	checkout_opts.checkout_strategy |= GIT_CHECKOUT_NO_REFRESH;
+
+	git_checkout_data_init(&checkout_data, repo, NULL, &checkout_opts);
+
+	git_buf_truncate(&checkout_data.path, checkout_data.workdir_len);
+	if (git_buf_puts(&checkout_data.path, path) < 0)
+		return -1;
+
+	error = git_checkout_blob(&st, &checkout_data, &entry->file.oid, git_buf_cstr(&checkout_data.path), entry->file.mode);
+
+	git_checkout_data_clear(&checkout_data);
+
+	return error;
 }
 
 static int merge_conflict_write_side(
@@ -1398,12 +1414,12 @@ static int merge_normalize_opts(
 	const git_merge_opts *given)
 {
 	int error = 0;
-	unsigned int default_checkout_strategy = GIT_CHECKOUT_SAFE |
-		GIT_CHECKOUT_UPDATE_MISSING |
-		GIT_CHECKOUT_UPDATE_MODIFIED |
-		GIT_CHECKOUT_UPDATE_UNMODIFIED |
+	unsigned int default_checkout_strategy = GIT_CHECKOUT_SAFE_CREATE |
+		GIT_CHECKOUT_FORCE |
 		GIT_CHECKOUT_REMOVE_UNTRACKED |
-		GIT_CHECKOUT_ALLOW_CONFLICTS;
+		GIT_CHECKOUT_ALLOW_CONFLICTS |
+		GIT_CHECKOUT_DONT_UPDATE_INDEX |
+		GIT_CHECKOUT_NO_REFRESH;
 
 	if (given != NULL) {
 		memcpy(opts, given, sizeof(git_merge_opts));
@@ -1506,7 +1522,6 @@ int git_merge(
 	
 	/* TODO: hack to workaround checkout dir/file stuff */
 	if ((error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0 ||
-		(error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0 ||
 		(error = git_index_write(index)) < 0)
 		goto on_error;
 	
