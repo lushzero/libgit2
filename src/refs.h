@@ -49,6 +49,7 @@
 struct git_reference {
 	unsigned int flags;
 	git_repository *owner;
+	git_refdb *db;
 	char *name;
 	time_t mtime;
 
