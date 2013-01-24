@@ -15,6 +15,10 @@ static git_index *repo_index;
 #define THEIRS_SIMPLE_BRANCH        "branch"
 #define THEIRS_SIMPLE_OID           "7cb63eed597130ba4abb87b3e544b85021905520"
 
+#define THEIRS_UNRELATED_BRANCH		"unrelated"
+#define THEIRS_UNRELATED_OID		"55b4e4687e7a0d9ca367016ed930f385d4022e6f"
+#define THEIRS_UNRELATED_PARENT		"d6cf6c7741b3316826af1314042550c97ded1d50"
+
 /* Non-conflicting files, index entries are common to every merge operation */
 #define ADDED_IN_MASTER_INDEX_ENTRY	\
 	{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, \
@@ -31,6 +35,14 @@ static git_index *repo_index;
 #define UNCHANGED_INDEX_ENTRY \
 	{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, \
 	  "unchanged.txt" }
+
+/* Unrelated files */
+#define UNRELATED_NEW1 \
+	{ 0100644, "ef58fdd8086c243bdc81f99e379acacfd21d32d6", 0, \
+	  "new-in-unrelated1.txt" }
+#define UNRELATED_NEW2 \
+	{ 0100644, "948ba6e701c1edab0c2d394fb7c5538334129793", 0, \
+	  "new-in-unrelated2.txt" }
 
 /* Expected REUC entries */
 #define AUTOMERGEABLE_REUC_ENTRY \
@@ -272,4 +284,68 @@ void test_merge_simple__favor_theirs(void)
 	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 4));
     
 	git_merge_result_free(result);
+}
+
+void test_merge_simple__unrelated(void)
+{
+	git_oid their_oids[1];
+    git_merge_head *their_heads[1];
+	git_merge_result *result;
+	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
+    
+    struct merge_index_entry merge_index_entries[] = {
+		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
+		{ 0100644, "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", 0, "automergeable.txt" },
+		{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-branch.txt" },
+		{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt" },
+		{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 0, "conflicting.txt" },
+		{ 0100644, "ef58fdd8086c243bdc81f99e379acacfd21d32d6", 0, "new-in-unrelated1.txt" },
+		{ 0100644, "948ba6e701c1edab0c2d394fb7c5538334129793", 0, "new-in-unrelated2.txt" },
+		{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt" },
+		{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt" },
+    };
+    
+	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_UNRELATED_PARENT));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
+    
+	opts.merge_trees_opts.resolve_flags = 0;
+	opts.conflict_flags = 0;
+	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
+
+    cl_assert(merge_test_index(repo_index, merge_index_entries, 9));
+
+	git_merge_head_free(their_heads[0]);
+}
+
+void test_merge_simple__unrelated_with_conflicts(void)
+{
+	git_oid their_oids[1];
+    git_merge_head *their_heads[1];
+	git_merge_result *result;
+	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
+    
+    struct merge_index_entry merge_index_entries[] = {
+		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
+		{ 0100644, "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", 2, "automergeable.txt" },
+		{ 0100644, "d07ec190c306ec690bac349e87d01c4358e49bb2", 3, "automergeable.txt" },
+		{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-branch.txt" },
+		{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt" },
+		{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 2, "conflicting.txt" },
+		{ 0100644, "4b253da36a0ae8bfce63aeabd8c5b58429925594", 3, "conflicting.txt" },
+		{ 0100644, "ef58fdd8086c243bdc81f99e379acacfd21d32d6", 0, "new-in-unrelated1.txt" },
+		{ 0100644, "948ba6e701c1edab0c2d394fb7c5538334129793", 0, "new-in-unrelated2.txt" },
+		{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt" },
+		{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt" },
+    };
+    
+	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_UNRELATED_OID));
+    cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
+    
+	opts.merge_trees_opts.resolve_flags = 0;
+	opts.conflict_flags = 0;
+	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
+	
+    cl_assert(merge_test_index(repo_index, merge_index_entries, 11));
+	
+	git_merge_head_free(their_heads[0]);
 }

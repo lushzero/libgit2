@@ -20,6 +20,7 @@
 #include "diff.h"
 #include "diff_tree.h"
 #include "checkout.h"
+#include "tree.h"
 
 #include "git2/diff_tree.h"
 #include "git2/types.h"
@@ -32,6 +33,7 @@
 #include "git2/checkout.h"
 #include "git2/signature.h"
 #include "git2/config.h"
+#include "git2/tree.h"
 
 #include "xdiff/xdiff.h"
 
@@ -1440,6 +1442,26 @@ static int merge_normalize_opts(
 	return error;
 }
 
+static int merge_fake_head(git_merge_head **_head, git_tree **_tree, git_repository *repo)
+{
+	git_merge_head *head;
+	git_tree *tree;
+	
+	head = git__calloc(1, sizeof(git_merge_head));
+	GITERR_CHECK_ALLOC(head);
+
+	tree = git__calloc(1, sizeof(git_tree));
+	GITERR_CHECK_ALLOC(tree);
+	
+	tree->object.type = GIT_OBJ_TREE;
+	tree->object.repo = repo;
+	
+	*_head = head;
+	*_tree = tree;
+
+	return 0;
+}
+
 int git_merge(
 	git_merge_result **out,
 	git_repository *repo,
@@ -1474,11 +1496,15 @@ int git_merge(
 		goto on_error;
 	
 	if ((error = git_reference_lookup(&our_ref, repo, GIT_HEAD_FILE)) < 0 ||
-		(error = git_merge_head_from_ref(&our_head, repo, our_ref)) < 0 ||
-		(error = merge_ancestor_head(&ancestor_head, repo, our_head, their_heads, their_heads_len)) < 0)
+		(error = git_merge_head_from_ref(&our_head, repo, our_ref)) < 0)
+		goto on_error;
+	
+	if ((error = merge_ancestor_head(&ancestor_head, repo, our_head, their_heads, their_heads_len)) < 0 &&
+		error != GIT_ENOTFOUND)
 		goto on_error;
 	
 	if (their_heads_len == 1 &&
+		ancestor_head != NULL &&
 		(merge_check_uptodate(result, ancestor_head, their_heads[0]) ||
 		merge_check_fastforward(result, ancestor_head, our_head, their_heads[0], opts.merge_flags))) {
 		*out = result;
@@ -1497,10 +1523,17 @@ int git_merge(
 	if ((error = git_merge__setup(repo, our_head, their_heads, their_heads_len, opts.merge_flags)) < 0)
 		goto on_error;
 	
-	if ((error = git_commit_tree(&ancestor_tree, ancestor_head->commit)) < 0 ||
-		(error = git_commit_tree(&our_tree, our_head->commit)) < 0)
+	if (ancestor_head == NULL) {
+		if ((error = merge_fake_head(&ancestor_head, &ancestor_tree, repo)) < 0)
+			goto on_error;
+	} else {
+		if ((error = git_commit_tree(&ancestor_tree, ancestor_head->commit)) < 0)
+			goto on_error;
+	}
+
+	if ((error = git_commit_tree(&our_tree, our_head->commit)) < 0)
 		goto on_error;
-	
+
 	for (i = 0; i < their_heads_len; i++) {
 		if ((error = git_commit_tree(&their_trees[i], their_heads[i]->commit)) < 0)
 			goto on_error;

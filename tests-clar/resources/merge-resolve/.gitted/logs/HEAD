@@ -210,3 +210,6 @@ a7dbfcbfc1a60709cb80b5ca24539008456531d0 9a301fbe6fada7dcb74fcd7c20269b5c743459a
 fc90237dc4891fa6c69827fc465632225e391618 a7dbfcbfc1a60709cb80b5ca24539008456531d0 Edward Thomson <ethomson@edwardthomson.com> 1355182111 -0600	checkout: moving from df_side2 to df_side1
 a7dbfcbfc1a60709cb80b5ca24539008456531d0 fc90237dc4891fa6c69827fc465632225e391618 Edward Thomson <ethomson@edwardthomson.com> 1355182115 -0600	checkout: moving from df_side1 to df_side2
 fc90237dc4891fa6c69827fc465632225e391618 bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1355182122 -0600	checkout: moving from df_side2 to master
+bd593285fc7fe4ca18ccdbabf027f5d689101452 d6cf6c7741b3316826af1314042550c97ded1d50 Edward Thomson <ethomson@edwardthomson.com> 1358997543 -0600	checkout: moving from master to unrelated
+d6cf6c7741b3316826af1314042550c97ded1d50 55b4e4687e7a0d9ca367016ed930f385d4022e6f Edward Thomson <ethomson@edwardthomson.com> 1358997664 -0600	commit: conflicting changes
+55b4e4687e7a0d9ca367016ed930f385d4022e6f bd593285fc7fe4ca18ccdbabf027f5d689101452 Edward Thomson <ethomson@edwardthomson.com> 1358997675 -0600	checkout: moving from unrelated to master
