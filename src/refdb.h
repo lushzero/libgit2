@@ -10,6 +10,7 @@
 #include "git2/refdb.h"
 
 struct git_refdb {
+	git_repository *repo;
 	git_refcount rc;
 	git_refdb_backend *backend;
 };

@@ -14,10 +14,16 @@
 
 #include "git2/refdb_backend.h"
 
-int git_refdb_new(git_refdb **out)
+int git_refdb_new(git_refdb **out, git_repository *repo)
 {
-	git_refdb *db = git__calloc(1, sizeof(*db));
+	git_refdb *db;
+
+	assert(out && repo);
+
+	db = git__calloc(1, sizeof(*db));
 	GITERR_CHECK_ALLOC(db);
+
+	db->repo = repo;
 
 	*out = db;
 	GIT_REFCOUNT_INC(db);
@@ -33,7 +39,7 @@ int git_refdb_open(git_refdb **out, git_repository *repo)
 
 	*out = NULL;
 
-	if (git_refdb_new(&db) < 0)
+	if (git_refdb_new(&db, repo) < 0)
 		return -1;
 
 	/* Add the default (filesystem) backend */
@@ -42,6 +48,7 @@ int git_refdb_open(git_refdb **out, git_repository *repo)
 		return -1;
 	}
 
+	db->repo = repo;
 	db->backend = dir;
 
 	*out = db;

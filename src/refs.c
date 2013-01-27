@@ -11,6 +11,7 @@
 #include "fileops.h"
 #include "pack.h"
 #include "reflog.h"
+#include "refdb.h"
 
 #include <git2/tag.h>
 #include <git2/object.h>
@@ -62,7 +63,6 @@ static int reference_alloc(
 	GITERR_CHECK_ALLOC(reference);
 
 	memset(reference, 0x0, sizeof(git_reference));
-	reference->owner = repo;
 
 	git_repository_refdb__weakptr(&reference->db, repo);
 
@@ -260,7 +260,6 @@ int git_reference_lookup_resolved(
 	scan->target.symbolic = git__strdup(scan->name);
 	GITERR_CHECK_ALLOC(scan->target.symbolic);
 
-	scan->owner = repo;
 	git_repository_refdb__weakptr(&scan->db, repo);
 	scan->flags = GIT_REF_SYMBOLIC;
 
@@ -319,7 +318,7 @@ const char *git_reference_name(const git_reference *ref)
 git_repository *git_reference_owner(const git_reference *ref)
 {
 	assert(ref);
-	return ref->owner;
+	return ref->db->repo;
 }
 
 const git_oid *git_reference_target(const git_reference *ref)
@@ -439,9 +438,9 @@ int git_reference_set_target(git_reference *ref, const git_oid *id)
 		return -1;
 	}
 
-	assert(ref->owner);
+	assert(ref->db->repo);
 
-	if (git_repository_odb__weakptr(&odb, ref->owner) < 0)
+	if (git_repository_odb__weakptr(&odb, ref->db->repo) < 0)
 		return -1;
 
 	/* Don't let the user create references to OIDs that
@@ -509,12 +508,14 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 		normalization_flags)) < 0)
 			return result;
 
-	if ((result = reference_can_write(ref->owner, normalized, ref->name, force)) < 0)
+	if ((result = reference_can_write(ref->db->repo, normalized,
+		ref->name, force)) < 0)
 		return result;
 
 	/* Initialize path now so we won't get an allocation failure once
 	 * we actually start removing things. */
-	if (git_buf_joinpath(&aux_path, ref->owner->path_repository, new_name) < 0)
+	if (git_buf_joinpath(&aux_path, ref->db->repo->path_repository,
+		new_name) < 0)
 		return -1;
 
 	/*
@@ -537,10 +538,10 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 	 */
 	if (ref->flags & GIT_REF_SYMBOLIC) {
 		result = git_reference_symbolic_create(
-			NULL, ref->owner, new_name, ref->target.symbolic, force);
+			NULL, ref->db->repo, new_name, ref->target.symbolic, force);
 	} else {
 		result = git_reference_create(
-			NULL, ref->owner, new_name, &ref->target.oid, force);
+			NULL, ref->db->repo, new_name, &ref->target.oid, force);
 	}
 
 	if (result < 0)
@@ -550,7 +551,7 @@ int git_reference_rename(git_reference *ref, const char *new_name, int force)
 	 * Update HEAD it was poiting to the reference being renamed.
 	 */
 	if (should_head_be_updated && 
-		git_repository_set_head(ref->owner, new_name) < 0) {
+		git_repository_set_head(ref->db->repo, new_name) < 0) {
 			giterr_set(GITERR_REFERENCE,
 				"Failed to update HEAD after renaming reference");
 			goto cleanup;
@@ -584,10 +585,10 @@ rollback:
 	 */
 	if (ref->flags & GIT_REF_SYMBOLIC)
 		git_reference_symbolic_create(
-			NULL, ref->owner, ref->name, ref->target.symbolic, 0);
+			NULL, ref->db->repo, ref->name, ref->target.symbolic, 0);
 	else
 		git_reference_create(
-			NULL, ref->owner, ref->name, &ref->target.oid, 0);
+			NULL, ref->db->repo, ref->name, &ref->target.oid, 0);
 
 	/* The reference is no longer packed */
 	ref->flags &= ~GIT_REF_PACKED;
@@ -599,9 +600,10 @@ rollback:
 int git_reference_resolve(git_reference **ref_out, const git_reference *ref)
 {
 	if (ref->flags & GIT_REF_OID)
-		return git_reference_lookup(ref_out, ref->owner, ref->name);
+		return git_reference_lookup(ref_out, ref->db->repo, ref->name);
 	else
-		return git_reference_lookup_resolved(ref_out, ref->owner, ref->target.symbolic, -1);
+		return git_reference_lookup_resolved(ref_out, ref->db->repo,
+			ref->target.symbolic, -1);
 }
 
 int git_reference_packall(git_repository *repo)
@@ -986,7 +988,8 @@ int git_reference_has_log(
 
 	assert(ref);
 
-	if (git_buf_join_n(&path, '/', 3, ref->owner->path_repository, GIT_REFLOG_DIR, ref->name) < 0)
+	if (git_buf_join_n(&path, '/', 3, ref->db->repo->path_repository,
+		GIT_REFLOG_DIR, ref->name) < 0)
 		return -1;
 
 	result = git_path_isfile(git_buf_cstr(&path));

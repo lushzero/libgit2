@@ -29,9 +29,10 @@ GIT_BEGIN_DECL
  *
  * @param out location to store the database pointer, if opened.
  *			Set to NULL if the open failed.
+ * @param repo the repository
  * @return 0 or an error code
  */
-GIT_EXTERN(int) git_refdb_new(git_refdb **out);
+GIT_EXTERN(int) git_refdb_new(git_refdb **out, git_repository *repo);
 
 /**
  * Create a new reference database and automatically add
@@ -42,7 +43,7 @@ GIT_EXTERN(int) git_refdb_new(git_refdb **out);
  *
  * @param out location to store the database pointer, if opened.
  *			Set to NULL if the open failed.
- * @param repo_dir path of the repository directory.
+ * @param repo the repository
  * @return 0 or an error code
  */
 GIT_EXTERN(int) git_refdb_open(git_refdb **out, git_repository *repo);

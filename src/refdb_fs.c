@@ -12,9 +12,11 @@
 #include "pack.h"
 #include "reflog.h"
 #include "config.h"
+#include "refdb.h"
 
 #include <git2/tag.h>
 #include <git2/object.h>
+#include <git2/refdb.h>
 #include <git2/refdb_backend.h>
 
 GIT__USE_STRMAP;
@@ -943,7 +945,8 @@ static int refdb_fs_backend__delete(
 		git_reference *ref_in_pack;
 		git_buf full_path = GIT_BUF_INIT;
 
-		if (git_buf_joinpath(&full_path, ref->owner->path_repository, ref->name) < 0)
+		if (git_buf_joinpath(&full_path, ref->db->repo->path_repository,
+			ref->name) < 0)
 			return -1;
 
 		result = p_unlink(full_path.ptr);
@@ -956,7 +959,7 @@ static int refdb_fs_backend__delete(
 
 		/* When deleting a loose reference, we have to ensure that an older
 		 * packed version of it doesn't exist */
-		if (git_reference_lookup(&ref_in_pack, ref->owner, ref->name) == 0) {
+		if (git_reference_lookup(&ref_in_pack, ref->db->repo, ref->name) == 0) {
 			assert((ref_in_pack->flags & GIT_REF_PACKED) != 0);
 			return git_reference_delete(ref_in_pack);
 		}

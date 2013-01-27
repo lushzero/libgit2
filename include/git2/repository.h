@@ -450,7 +450,7 @@ GIT_EXTERN(void) git_repository_set_odb(git_repository *repo, git_odb *odb);
 GIT_EXTERN(int) git_repository_refdb(git_refdb **out, git_repository *repo);
 
 /**
- * Set the Reference Database for this repository
+ * Set the Reference Database Backend for this repository
  *
  * The refdb will be used for all reference related operations
  * involving this repository.
@@ -461,23 +461,6 @@ GIT_EXTERN(int) git_repository_refdb(git_refdb **out, git_repository *repo);
  *
  * @param repo A repository object
  * @param refdb An refdb object
- */
-GIT_EXTERN(void) git_repository_set_refdb(
-	git_repository *repo,
-	git_refdb *refdb);
-
-/**
- * Set the Reference Database Backend for this repository
- *
- * The refs_backend will be used for all refs-related operations
- * involving this repository.
- *
- * The repository will keep a reference to the refs backend; the user
- * must still free the refs backend object after setting it to the
- * repository, or it will leak.
- *
- * @param repo A repository object
- * @param refdb A reference object
  */
 GIT_EXTERN(void) git_repository_set_refdb(
 	git_repository *repo,
