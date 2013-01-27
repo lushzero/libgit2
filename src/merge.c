@@ -201,7 +201,7 @@ int git_merge__bases_many(git_commit_list **out, git_revwalk *walk, git_commit_l
 		return -1;
 
 	if (git_commit_list_parse(walk, one) < 0)
-	    return -1;
+		return -1;
 
 	one->flags |= PARENT1;
 	if (git_pqueue_insert(&list, one) < 0)
@@ -366,65 +366,65 @@ static int write_merge_msg(git_repository *repo, const git_merge_head *their_hea
 	git_buf merge_msg_path = GIT_BUF_INIT;
 	char merge_oid_str[GIT_OID_HEXSZ + 1];
 	size_t i, j;
-    bool *wrote;
+	bool *wrote;
 	int error = 0;
 
 	assert(repo && their_heads);
 
-    if ((wrote = git__calloc(their_heads_len, sizeof(bool))) == NULL)
-        return -1;
-    
+	if ((wrote = git__calloc(their_heads_len, sizeof(bool))) == NULL)
+		return -1;
+
 	if ((error = git_buf_joinpath(&merge_msg_path, repo->path_repository, GIT_MERGE_MSG_FILE)) < 0 ||
 		(error = git_filebuf_open(&merge_msg_file, merge_msg_path.ptr, GIT_FILEBUF_FORCE)) < 0 ||
 		(error = git_filebuf_write(&merge_msg_file, "Merge", 5)) < 0)
 		goto cleanup;
 
-    /*
-     * This is to emulate the format of MERGE_MSG by core git.
-     *
-     * Yes.  Really.
-     */
-    for (i = 0; i < their_heads_len; i++) {
-        if (wrote[i])
-            continue;
-        
-        /* At the first branch, write all the branches */
-        if (their_heads[i]->branch_name != NULL) {
-            bool multiple_branches = 0;
-            size_t last_branch_idx = i;
-            
-            for (j = i+1; j < their_heads_len; j++) {
-                if (their_heads[j]->branch_name != NULL) {
-                    multiple_branches = 1;
-                    last_branch_idx = j;
-                }
-            }
-            
-            if ((error = git_filebuf_printf(&merge_msg_file, "%s %s", (i > 0) ? ";" : "", multiple_branches ? "branches" : "branch")) < 0)
-                goto cleanup;
-            
-            for (j = i; j < their_heads_len; j++) {
-                if (their_heads[j]->branch_name == NULL)
-                    continue;
-                
-                if (j > i) {
-                    if ((error = git_filebuf_printf(&merge_msg_file, "%s", (last_branch_idx == j) ? " and" : ",")) < 0)
-                        goto cleanup;
-                }
-                
-                if ((error = git_filebuf_printf(&merge_msg_file, " '%s'", their_heads[j]->branch_name)) < 0)
-                    goto cleanup;
-                
-                wrote[j] = 1;
-            }
-        } else {
-            git_oid_fmt(merge_oid_str, &their_heads[i]->oid);
-            merge_oid_str[GIT_OID_HEXSZ] = '\0';
-            
-            if ((error = git_filebuf_printf(&merge_msg_file, "%s commit '%s'", (i > 0) ? ";" : "", merge_oid_str)) < 0)
-                goto cleanup;
-        }
-    }
+	/*
+	 * This is to emulate the format of MERGE_MSG by core git.
+	 *
+	 * Yes.  Really.
+	 */
+	for (i = 0; i < their_heads_len; i++) {
+		if (wrote[i])
+			continue;
+
+		/* At the first branch, write all the branches */
+		if (their_heads[i]->branch_name != NULL) {
+			bool multiple_branches = 0;
+			size_t last_branch_idx = i;
+
+			for (j = i+1; j < their_heads_len; j++) {
+				if (their_heads[j]->branch_name != NULL) {
+					multiple_branches = 1;
+					last_branch_idx = j;
+				}
+			}
+
+			if ((error = git_filebuf_printf(&merge_msg_file, "%s %s", (i > 0) ? ";" : "", multiple_branches ? "branches" : "branch")) < 0)
+				goto cleanup;
+
+			for (j = i; j < their_heads_len; j++) {
+				if (their_heads[j]->branch_name == NULL)
+					continue;
+
+				if (j > i) {
+					if ((error = git_filebuf_printf(&merge_msg_file, "%s", (last_branch_idx == j) ? " and" : ",")) < 0)
+						goto cleanup;
+				}
+
+				if ((error = git_filebuf_printf(&merge_msg_file, " '%s'", their_heads[j]->branch_name)) < 0)
+					goto cleanup;
+
+				wrote[j] = 1;
+			}
+		} else {
+			git_oid_fmt(merge_oid_str, &their_heads[i]->oid);
+			merge_oid_str[GIT_OID_HEXSZ] = '\0';
+
+			if ((error = git_filebuf_printf(&merge_msg_file, "%s commit '%s'", (i > 0) ? ";" : "", merge_oid_str)) < 0)
+				goto cleanup;
+		}
+	}
 
 	if ((error = git_filebuf_printf(&merge_msg_file, "\n")) < 0 ||
 		(error = git_filebuf_commit(&merge_msg_file, MERGE_CONFIG_FILE_MODE)) < 0)
@@ -435,7 +435,7 @@ cleanup:
 		git_filebuf_cleanup(&merge_msg_file);
 
 	git_buf_free(&merge_msg_path);
-    git__free(wrote);
+	git__free(wrote);
 
 	return error;
 }
@@ -443,7 +443,7 @@ cleanup:
 int git_merge__setup(
 	git_repository *repo,
 	const git_merge_head *our_head,
-    const git_merge_head *their_heads[],
+	const git_merge_head *their_heads[],
 	size_t their_heads_len,
 	unsigned int flags)
 {
@@ -516,10 +516,10 @@ cleanup:
 GIT_INLINE(int) merge_file_cmp(const git_diff_file *a, const git_diff_file *b)
 {
 	int value = 0;
-    
-    if (a->path == NULL)
-        return (b->path == NULL) ? 0 : 1;
-    
+
+	if (a->path == NULL)
+		return (b->path == NULL) ? 0 : 1;
+
 	if ((value = a->mode - b->mode) == 0 &&
 		(value = git_oid_cmp(&a->oid, &b->oid)) == 0)
 		value = strcmp(a->path, b->path);
@@ -777,8 +777,8 @@ static int merge_file_apply(git_index *index,
 
 static int merge_mark_conflict_resolved(git_index *index, const git_diff_tree_delta *delta)
 {
-    const char *path;
-    assert(index && delta);
+	const char *path;
+	assert(index && delta);
 	
 	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor))
 		path = delta->ancestor.file.path;
@@ -796,10 +796,10 @@ static int merge_mark_conflict_resolved(git_index *index, const git_diff_tree_de
 static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_delta *delta)
 {
 	bool ancestor_exists = 0, ours_exists = 0, theirs_exists = 0;
-    git_index_entry ancestor_entry, our_entry, their_entry;
-    int error = 0;
+	git_index_entry ancestor_entry, our_entry, their_entry;
+	int error = 0;
 
-    assert(index && delta);
+	assert(index && delta);
 	
 	if ((ancestor_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor))) {
 		memset(&ancestor_entry, 0x0, sizeof(git_index_entry));
@@ -838,17 +838,17 @@ static int merge_conflict_resolve_trivial(
 	const git_diff_tree_delta *delta,
 	unsigned int resolve_flags)
 {
-    int ancestor_empty, ours_empty, theirs_empty;
-    int ours_changed, theirs_changed, ours_theirs_differ;
+	int ancestor_empty, ours_empty, theirs_empty;
+	int ours_changed, theirs_changed, ours_theirs_differ;
 	git_diff_tree_entry const *result = NULL;
-    int error = 0;
-    
+	int error = 0;
+
 	GIT_UNUSED(resolve_flags);
 
-    assert(resolved && repo && index && delta);
-    
-    *resolved = 0;
-    
+	assert(resolved && repo && index && delta);
+
+	*resolved = 0;
+
 	/* TODO: (optionally) reject children of d/f conflicts */
 	
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
@@ -862,57 +862,57 @@ static int merge_conflict_resolve_trivial(
 	theirs_changed = (delta->theirs.status != GIT_DELTA_UNMODIFIED);
 	ours_theirs_differ = ours_changed && theirs_changed &&
 		merge_file_cmp(&delta->ours.file, &delta->theirs.file);
-    
-    /*
-     * Note: with only one ancestor, some cases are not distinct:
-     *
-     * 16: ancest:anc1/anc2, head:anc1, remote:anc2 = result:no merge
-     * 3: ancest:(empty)^, head:head, remote:(empty) = result:no merge
-     * 2: ancest:(empty)^, head:(empty), remote:remote = result:no merge
-     *
-     * Note that the two cases that take D/F conflicts into account
-     * specifically do not need to be explicitly tested, as D/F conflicts
-     * would fail the *empty* test:
-     *
-     * 3ALT: ancest:(empty)+, head:head, remote:*empty* = result:head
-     * 2ALT: ancest:(empty)+, head:*empty*, remote:remote = result:remote
-     *
-     * Note that many of these cases need not be explicitly tested, as
-     * they simply degrade to "all different" cases (eg, 11):
-     *
-     * 4: ancest:(empty)^, head:head, remote:remote = result:no merge
-     * 7: ancest:ancest+, head:(empty), remote:remote = result:no merge
-     * 9: ancest:ancest+, head:head, remote:(empty) = result:no merge
-     * 11: ancest:ancest+, head:head, remote:remote = result:no merge
-     */
-    
-    /* 5ALT: ancest:*, head:head, remote:head = result:head */
-    if (ours_changed && !ours_empty && !ours_theirs_differ)
-		result = &delta->ours;
-    /* 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge */
-    else if (ours_changed && ours_empty && theirs_empty)
-        *resolved = 0;
-    /* 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge */
-    else if (ours_empty && !theirs_changed)
-        *resolved = 0;
-    /* 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge */
-    else if (!ours_changed && theirs_empty)
-        *resolved = 0;
-    /* 13: ancest:ancest+, head:head, remote:ancest = result:head */
-    else if (ours_changed && !theirs_changed)
-		result = &delta->ours;
-    /* 14: ancest:ancest+, head:ancest, remote:remote = result:remote */
-    else if (!ours_changed && theirs_changed)
-		result = &delta->theirs;
-    else
-        *resolved = 0;
 
-    if (result != NULL && (error = merge_file_apply(index, delta, result)) >= 0)
-        *resolved = 1;
-    
+	/*
+	 * Note: with only one ancestor, some cases are not distinct:
+	 *
+	 * 16: ancest:anc1/anc2, head:anc1, remote:anc2 = result:no merge
+	 * 3: ancest:(empty)^, head:head, remote:(empty) = result:no merge
+	 * 2: ancest:(empty)^, head:(empty), remote:remote = result:no merge
+	 *
+	 * Note that the two cases that take D/F conflicts into account
+	 * specifically do not need to be explicitly tested, as D/F conflicts
+	 * would fail the *empty* test:
+	 *
+	 * 3ALT: ancest:(empty)+, head:head, remote:*empty* = result:head
+	 * 2ALT: ancest:(empty)+, head:*empty*, remote:remote = result:remote
+	 *
+	 * Note that many of these cases need not be explicitly tested, as
+	 * they simply degrade to "all different" cases (eg, 11):
+	 *
+	 * 4: ancest:(empty)^, head:head, remote:remote = result:no merge
+	 * 7: ancest:ancest+, head:(empty), remote:remote = result:no merge
+	 * 9: ancest:ancest+, head:head, remote:(empty) = result:no merge
+	 * 11: ancest:ancest+, head:head, remote:remote = result:no merge
+	 */
+
+	/* 5ALT: ancest:*, head:head, remote:head = result:head */
+	if (ours_changed && !ours_empty && !ours_theirs_differ)
+		result = &delta->ours;
+	/* 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge */
+	else if (ours_changed && ours_empty && theirs_empty)
+		*resolved = 0;
+	/* 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge */
+	else if (ours_empty && !theirs_changed)
+		*resolved = 0;
+	/* 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge */
+	else if (!ours_changed && theirs_empty)
+		*resolved = 0;
+	/* 13: ancest:ancest+, head:head, remote:ancest = result:head */
+	else if (ours_changed && !theirs_changed)
+		result = &delta->ours;
+	/* 14: ancest:ancest+, head:ancest, remote:remote = result:remote */
+	else if (!ours_changed && theirs_changed)
+		result = &delta->theirs;
+	else
+		*resolved = 0;
+
+	if (result != NULL && (error = merge_file_apply(index, delta, result)) >= 0)
+		*resolved = 1;
+
 	/* Note: trivial resolution does not update the REUC. */
 	
-    return error;
+	return error;
 }
 
 static int merge_conflict_resolve_removed(
@@ -922,16 +922,16 @@ static int merge_conflict_resolve_removed(
 	const git_diff_tree_delta *delta,
 	unsigned int resolve_flags)
 {
-    int ours_empty, theirs_empty;
-    int ours_changed, theirs_changed;
+	int ours_empty, theirs_empty;
+	int ours_changed, theirs_changed;
 	git_diff_tree_entry const *result = NULL;
-    int error = 0;
+	int error = 0;
 
 	GIT_UNUSED(resolve_flags);
 
-    assert(resolved && repo && index && delta);
+	assert(resolved && repo && index && delta);
 
-    *resolved = 0;
+	*resolved = 0;
 	
 	if (resolve_flags & GIT_MERGE_RESOLVE_NO_REMOVED)
 		return 0;
@@ -946,25 +946,25 @@ static int merge_conflict_resolve_removed(
 
 	ours_changed = (delta->ours.status != GIT_DELTA_UNMODIFIED);
 	theirs_changed = (delta->theirs.status != GIT_DELTA_UNMODIFIED);
-    
-    /* Handle some cases that are not "trivial" but are, well, trivial. */
-    
+
+	/* Handle some cases that are not "trivial" but are, well, trivial. */
+
 	/* Removed in both */
-    if (ours_changed && ours_empty && theirs_empty)
+	if (ours_changed && ours_empty && theirs_empty)
 		result = &delta->ours;
 	/* Removed in ours */
-    else if (ours_empty && !theirs_changed)
+	else if (ours_empty && !theirs_changed)
 		result = &delta->ours;
 	/* Removed in theirs */
-    else if (!ours_changed && theirs_empty)
+	else if (!ours_changed && theirs_empty)
 		result = &delta->theirs;
-    
+
 	if (result != NULL &&
 		(error = merge_file_apply(index, delta, result)) >= 0 &&
 		(error = merge_mark_conflict_resolved(index, delta)) >= 0)
-        *resolved = 1;
+		*resolved = 1;
 
-    return error;
+	return error;
 }
 
 static int merge_conflict_resolve_automerge(
@@ -1269,12 +1269,12 @@ static int merge_trees(
 		return error;
 	
 	git_vector_foreach(&result->diff_tree->deltas, i, delta) {
-        int resolved = 0;
+		int resolved = 0;
 		
 		if ((error = merge_conflict_resolve(&resolved, repo, index, delta, opts->resolve_flags)) < 0)
 			return error;
 		
-        if (!resolved)
+		if (!resolved)
 			git_vector_insert(&result->conflicts, delta);
 	}
 
@@ -1674,75 +1674,75 @@ static int merge_head_init(git_merge_head **out,
 	const char *branch_name,
 	const git_oid *oid)
 {
-    git_merge_head *head;
+	git_merge_head *head;
 	int error = 0;
-    
-    assert(out && oid);
-    
-    *out = NULL;
 
-    head = git__calloc(1, sizeof(git_merge_head));
-    GITERR_CHECK_ALLOC(head);
+	assert(out && oid);
 
-    if (branch_name) {
-        head->branch_name = git__strdup(branch_name);
-        GITERR_CHECK_ALLOC(head->branch_name);
-    }
-    
-    git_oid_cpy(&head->oid, oid);
+	*out = NULL;
+
+	head = git__calloc(1, sizeof(git_merge_head));
+	GITERR_CHECK_ALLOC(head);
+
+	if (branch_name) {
+		head->branch_name = git__strdup(branch_name);
+		GITERR_CHECK_ALLOC(head->branch_name);
+	}
+
+	git_oid_cpy(&head->oid, oid);
 
 	if ((error = git_commit_lookup(&head->commit, repo, &head->oid)) < 0) {
 		git_merge_head_free(head);
 		return error;
 	}
-    
-    *out = head;
-    return error;
+
+	*out = head;
+	return error;
 }
 
 int git_merge_head_from_ref(git_merge_head **out,
 	git_repository *repo,
 	git_reference *ref)
 {
-    git_reference *resolved;
-    char const *ref_name = NULL;
-    int error = 0;
-    
-    assert(out && ref);
-    
-    *out = NULL;
-    
-    if ((error = git_reference_resolve(&resolved, ref)) < 0)
-        return error;
+	git_reference *resolved;
+	char const *ref_name = NULL;
+	int error = 0;
+
+	assert(out && ref);
+
+	*out = NULL;
+
+	if ((error = git_reference_resolve(&resolved, ref)) < 0)
+		return error;
 	
 	ref_name = git_reference_name(ref);
 	
 	if (git__prefixcmp(ref_name, GIT_REFS_HEADS_DIR) == 0)
-        ref_name += strlen(GIT_REFS_HEADS_DIR);
+		ref_name += strlen(GIT_REFS_HEADS_DIR);
 
-    error = merge_head_init(out, repo, ref_name, git_reference_target(resolved));
+	error = merge_head_init(out, repo, ref_name, git_reference_target(resolved));
 
-    git_reference_free(resolved);
-    return error;
+	git_reference_free(resolved);
+	return error;
 }
 
 int git_merge_head_from_oid(git_merge_head **out,
 	git_repository *repo,
 	const git_oid *oid)
 {
-    return merge_head_init(out, repo, NULL, oid);
+	return merge_head_init(out, repo, NULL, oid);
 }
 
 void git_merge_head_free(git_merge_head *head)
 {
-    if (head == NULL)
-        return;
+	if (head == NULL)
+		return;
 
 	if (head->commit != NULL)
 		git_object_free((git_object *)head->commit);
-    
-    if (head->branch_name != NULL)
-        git__free(head->branch_name);
-    
-    git__free(head);
+
+	if (head->branch_name != NULL)
+		git__free(head->branch_name);
+
+	git__free(head);
 }
