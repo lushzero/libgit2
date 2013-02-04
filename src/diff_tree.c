@@ -61,7 +61,7 @@ int git_diff_tree_many(
 	GITERR_CHECK_ALLOC(cur_items);
 	
 	for (i = 0; i < trees_length; i++) {
-		if ((error = git_iterator_for_tree(&iterators[i], trees[i])) < 0)
+		if ((error = git_iterator_for_tree(&iterators[i], (git_tree *)trees[i])) < 0)
 			return -1;
 	}
 	
@@ -328,21 +328,307 @@ static int diff_tree__create_delta(const git_index_entry **tree_items, void *pay
 	return 0;
 }
 
+static int diff_tree__normalize_opts(
+	git_repository *repo,
+	git_diff_tree_options *opts,
+	const git_diff_tree_options *given)
+{
+	git_config *cfg = NULL;
+	int error = 0;
+
+	assert(repo && opts);
+
+	if ((error = git_repository_config__weakptr(&cfg, repo)) < 0)
+		return error;
+
+	if (given != NULL)
+		memcpy(opts, given, sizeof(git_diff_tree_options));
+	else {
+		git_diff_tree_options init = GIT_DIFF_TREE_OPTIONS_INIT;
+		memcpy(opts, &init, sizeof(init));
+
+		opts->flags = GIT_DIFF_TREE_FIND_RENAMES;
+		opts->rename_threshold = GIT_DIFF_TREE_RENAME_THRESHOLD;
+	}
+
+	if (!opts->target_limit) {
+		int32_t limit = 0;
+
+		opts->target_limit = GIT_DIFF_TREE_TARGET_LIMIT;
+
+		if (git_config_get_int32(&limit, cfg, "merge.renameLimit") < 0) {
+			giterr_clear();
+
+			if (git_config_get_int32(&limit, cfg, "diff.renameLimit") < 0)
+				giterr_clear();
+		}
+
+		if (limit > 0)
+			opts->target_limit = limit;
+	}
+
+	return 0;
+}
+
+struct diff_tree_similarity {
+	unsigned char similarity;
+	size_t other_idx;
+};
+
+static unsigned char diff_tree__similarity_exact(
+	git_diff_tree_entry *a,
+	git_diff_tree_entry *b)
+{
+	if (git_oid_cmp(&a->file.oid, &b->file.oid) == 0)
+		return 100;
+
+	return 0;
+}
+
+static void diff_tree__mark_similarity(
+	git_diff_tree_list *diff_tree,
+	struct diff_tree_similarity *similarity_ours,
+	struct diff_tree_similarity *similarity_theirs,
+	unsigned char (*similarity_fn)(git_diff_tree_entry *, git_diff_tree_entry *))
+{
+	size_t i, j;
+	git_diff_tree_delta *delta_source, *delta_target;
+	unsigned char similarity;
+	
+	git_vector_foreach(&diff_tree->deltas, i, delta_source) {
+		/* Items can be the source of a rename iff they have an item in the
+		 * ancestor slot and lack an item in the ours or theirs slot. */
+		if (!GIT_DIFF_TREE_FILE_EXISTS(delta_source->ancestor) ||
+			(GIT_DIFF_TREE_FILE_EXISTS(delta_source->ours) &&
+			 GIT_DIFF_TREE_FILE_EXISTS(delta_source->theirs)))
+			continue;
+
+		git_vector_foreach(&diff_tree->deltas, j, delta_target) {
+			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->ancestor))
+				continue;
+			
+			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->ours)) {
+				similarity = similarity_fn(&delta_source->ancestor, &delta_target->ours);
+	
+				if (similarity > similarity_ours[i].similarity &&
+					similarity > similarity_ours[j].similarity) {
+					/* Clear previous best similarity */
+					if (similarity_ours[i].similarity > 0)
+						similarity_theirs[similarity_ours[i].other_idx].similarity = 0;
+
+					if (similarity_ours[j].similarity > 0)
+						similarity_theirs[similarity_ours[j].other_idx].similarity = 0;
+
+					similarity_ours[i].similarity = similarity;
+					similarity_ours[i].other_idx = j;
+					
+					similarity_ours[j].similarity = similarity;
+					similarity_ours[j].other_idx = i;
+				}
+			}
+			
+			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->theirs)) {
+				similarity = similarity_fn(&delta_source->ancestor, &delta_target->theirs);
+				
+				if (similarity > similarity_theirs[i].similarity &&
+					similarity > similarity_theirs[j].similarity) {
+					/* Clear previous best similarity */
+					if (similarity_theirs[i].similarity > 0)
+						similarity_ours[similarity_theirs[i].other_idx].similarity = 0;
+					
+					if (similarity_theirs[j].similarity > 0)
+						similarity_ours[similarity_theirs[j].other_idx].similarity = 0;
+
+					similarity_theirs[i].similarity = similarity;
+					similarity_theirs[i].other_idx = j;
+					
+					similarity_theirs[j].similarity = similarity;
+					similarity_theirs[j].other_idx = i;
+				}
+			}
+		}
+	}
+}
+
+static void diff_tree__mark_rename_conflict(
+	git_diff_tree_list *diff_tree,
+	struct diff_tree_similarity *similarity_ours,
+	bool ours_renamed,
+	size_t ours_source_idx,
+	struct diff_tree_similarity *similarity_theirs,
+	bool theirs_renamed,
+	size_t theirs_source_idx,
+	git_diff_tree_delta *target,
+	git_diff_tree_options *opts)
+{
+	git_diff_tree_delta *ours_source = NULL;
+	git_diff_tree_delta *theirs_source = NULL;
+
+	if (ours_renamed)
+		ours_source = diff_tree->deltas.contents[ours_source_idx];
+	
+	if (theirs_renamed)
+		theirs_source = diff_tree->deltas.contents[theirs_source_idx];
+
+	/* Detect 2->1 conflicts */
+	if (ours_renamed && theirs_renamed) {
+		/* Both renamed to the same target name. */
+		if (ours_source_idx == theirs_source_idx)
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME;
+		else {
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_2_TO_1;
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_2_TO_1;
+		}
+	} else if (ours_renamed) {
+		/* If our source was also renamed in theirs, this is a 1->2 */
+		if (similarity_theirs[ours_source_idx].similarity >= opts->rename_threshold)
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_1_TO_2;
+		
+		else if (GIT_DIFF_TREE_FILE_EXISTS(target->theirs)) {
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
+			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
+		}
+		
+		else if (!GIT_DIFF_TREE_FILE_EXISTS(ours_source->theirs))
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_DELETE;
+	} else if (theirs_renamed) {
+		/* If their source was also renamed in ours, this is a 1->2 */
+		if (similarity_ours[theirs_source_idx].similarity >= opts->rename_threshold)
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_1_TO_2;
+		
+		else if (GIT_DIFF_TREE_FILE_EXISTS(target->ours)) {
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
+			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
+		}
+		
+		else if (!GIT_DIFF_TREE_FILE_EXISTS(theirs_source->ours))
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_DELETE;
+	}	
+}
+
+GIT_INLINE(void) diff_tree__coalesce_rename(
+	git_diff_tree_entry *source_entry,
+	git_diff_tree_entry *target_entry)
+{
+	memcpy(source_entry, target_entry, sizeof(git_diff_tree_entry));
+	source_entry->status = GIT_DELTA_RENAMED;
+	
+	memset(target_entry, 0x0, sizeof(git_diff_tree_entry));
+}
+
+static void diff_tree__coalesce_renames(
+	git_diff_tree_list *diff_tree,
+	struct diff_tree_similarity *similarity_ours,
+	struct diff_tree_similarity *similarity_theirs,
+	git_diff_tree_options *opts)
+{
+	size_t i;
+	bool ours_renamed = 0, theirs_renamed = 0;
+	size_t ours_source_idx, theirs_source_idx;
+	git_diff_tree_delta *ours_source, *theirs_source, *target;
+
+	for (i = 0; i < diff_tree->deltas.length; i++) {		
+		target = diff_tree->deltas.contents[i];
+		
+		ours_renamed = 0;
+		theirs_renamed = 0;
+
+		if (GIT_DIFF_TREE_FILE_EXISTS(target->ours) &&
+			similarity_ours[i].similarity >= opts->rename_threshold) {
+			ours_source_idx = similarity_ours[i].other_idx;
+			
+			ours_source = diff_tree->deltas.contents[ours_source_idx];
+			
+			diff_tree__coalesce_rename(&ours_source->ours, &target->ours);
+
+			similarity_ours[ours_source_idx].similarity = 0;
+			similarity_ours[i].similarity = 0;
+
+			ours_renamed = 1;
+		}
+		
+		/* insufficient to determine direction */
+		if (GIT_DIFF_TREE_FILE_EXISTS(target->theirs) &&
+			similarity_theirs[i].similarity >= opts->rename_threshold) {
+			theirs_source_idx = similarity_theirs[i].other_idx;
+			
+			theirs_source = diff_tree->deltas.contents[theirs_source_idx];
+			
+			diff_tree__coalesce_rename(&theirs_source->theirs, &target->theirs);
+
+			similarity_theirs[theirs_source_idx].similarity = 0;
+			similarity_theirs[i].similarity = 0;
+
+			theirs_renamed = 1;
+		}
+		
+		diff_tree__mark_rename_conflict(diff_tree,
+			similarity_ours, ours_renamed, ours_source_idx,
+			similarity_theirs, theirs_renamed, theirs_source_idx,
+			target, opts);
+	}
+}
+
+static int diff_tree__is_empty(const git_vector *deltas, size_t idx)
+{
+	git_diff_tree_delta *delta = deltas->contents[idx];
+	
+	return (!GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor) &&
+		!GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
+		!GIT_DIFF_TREE_FILE_EXISTS(delta->theirs));
+}
+
+static int diff_tree__find_renames(
+	git_diff_tree_list *diff_tree,
+	git_diff_tree_options *opts)
+{
+	struct diff_tree_similarity *similarity_ours, *similarity_theirs;
+	int error = 0;
+
+	assert(diff_tree && opts);
+
+	if (!opts || (opts->flags & GIT_DIFF_TREE_FIND_RENAMES) == 0)
+		return 0;
+
+	similarity_ours = git__calloc(diff_tree->deltas.length, sizeof(struct diff_tree_similarity));
+	GITERR_CHECK_ALLOC(similarity_ours);
+
+	similarity_theirs = git__calloc(diff_tree->deltas.length, sizeof(struct diff_tree_similarity));
+	GITERR_CHECK_ALLOC(similarity_theirs);
+
+	/* Find exact renames (identical ids) */
+	diff_tree__mark_similarity(diff_tree, similarity_ours, similarity_theirs,
+		diff_tree__similarity_exact);
+	
+	diff_tree__coalesce_renames(diff_tree, similarity_ours, similarity_theirs, opts);
+
+	git_vector_remove_matching(&diff_tree->deltas, diff_tree__is_empty);
+
+	git__free(similarity_ours);
+	git__free(similarity_theirs);
+
+	return error;
+}
+
 int git_diff_tree(git_diff_tree_list **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
-	uint32_t flags)
+	const git_diff_tree_options *given_opts)
 {
 	struct diff_tree_threeway_data threeway_data;
 	git_diff_tree_list *diff_tree;
+	git_diff_tree_options opts;
 	git_tree const *trees[3];
 	int error = 0;
 	
 	assert(out && repo && ancestor_tree && our_tree && their_tree);
 	
 	*out = NULL;
+
+	if ((error = diff_tree__normalize_opts(repo, &opts, given_opts)) < 0)
+		return error;
 
 	diff_tree = diff_tree__list_alloc(repo);
 	GITERR_CHECK_ALLOC(diff_tree);
@@ -354,7 +640,8 @@ int git_diff_tree(git_diff_tree_list **out,
 	trees[INDEX_OURS] = our_tree;
 	trees[INDEX_THEIRS] = their_tree;
 	
-	if ((error = git_diff_tree_many(repo, trees, 3, flags, diff_tree__create_delta, &threeway_data)) < 0)
+	if ((error = git_diff_tree_many(repo, trees, 3, opts.flags, diff_tree__create_delta, &threeway_data)) < 0 ||
+		(error = diff_tree__find_renames(diff_tree, &opts)) < 0)
 		git_diff_tree_list_free(diff_tree);
 	
 	if (error >= 0)

@@ -1265,7 +1265,7 @@ static int merge_trees(
 	size_t i;
 	int error = 0;
 
-	if ((error = git_diff_tree(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, opts->diff_flags)) < 0)
+	if ((error = git_diff_tree(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, &opts->diff_opts)) < 0)
 		return error;
 	
 	git_vector_foreach(&result->diff_tree->deltas, i, delta) {

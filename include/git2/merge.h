@@ -47,10 +47,10 @@ enum {
 	GIT_MERGE_CONFLICT_NO_SIDES = (1 << 1),
 };
 
-#define GIT_MERGE_TREES_OPTS_INIT {0}
+#define GIT_MERGE_TREES_OPTS_INIT {GIT_DIFF_TREE_OPTIONS_INIT, 0}
 
 typedef struct {
-	unsigned int diff_flags;
+	git_diff_tree_options diff_opts;
 	unsigned int resolve_flags;
 } git_merge_trees_opts;
 

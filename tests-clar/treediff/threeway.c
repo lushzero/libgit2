@@ -347,52 +347,72 @@ void test_treediff_threeway__df_conflicts(void)
 	git_diff_tree_list_free(diff_tree);
 }
 
-/*
- * TODO: enable this when strict diff computation is enabled
- *
 void test_treediff_threeway__strict_renames(void)
 {
     git_diff_tree_list *diff_tree;
     
-    struct treediff_file_data treediff_file_data[] = {
-        { 0, "", "", GIT_DELTA_UNMODIFIED },
-        { 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
-        { 0, "", "", GIT_DELTA_UNMODIFIED },
+	struct treediff_delta_data treediff_delta_data[] = {
+		{
+			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
+			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
         
-        { 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
-        { 0100644, "automergeable.txt", "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", GIT_DELTA_MODIFIED },
-        { 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
-        
-        { 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
-        { 0100644, "changed-in-master.txt", "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", GIT_DELTA_MODIFIED },
-        { 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
-        
-        { 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
-        { 0100644, "conflicting.txt", "4e886e602529caa9ab11d71f86634bd1b6e0de10", GIT_DELTA_MODIFIED },
-        { 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
-        
-        { 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
-        { 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
-        { 0100644, "renamed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_RENAMED },
-        
-        { 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
-        { 0, "", "", GIT_DELTA_DELETED },
-        { 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
-        
-        { 0, "", "", GIT_DELTA_UNMODIFIED },
-        { 0, "", "", GIT_DELTA_UNMODIFIED },
-        { 0100644, "renamed.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_ADDED },
+		{
+			{ 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "automergeable.txt", "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", GIT_DELTA_MODIFIED },
+			{ 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
 
-        { 0100644, "unchanged.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_UNMODIFIED },
-        { 0100644, "unchanged.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_UNMODIFIED },
-        { 0100644, "copied.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_RENAMED }
+		{
+			{ 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "changed-in-master.txt", "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", GIT_DELTA_MODIFIED },
+			{ 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
+
+		{
+			{ 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "conflicting.txt", "4e886e602529caa9ab11d71f86634bd1b6e0de10", GIT_DELTA_MODIFIED },
+			{ 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
+
+		{
+			{ 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "renamed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_RENAMED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
+
+		{
+			{ 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
+			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
+
+		{
+			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "renamed.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_ADDED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
+
+		{
+			{ 0100644, "unchanged.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "unchanged.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "copied.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_RENAMED },
+			GIT_DIFF_TREE_CONFLICT_NONE,
+		},
     };
     
-    cl_assert(diff_tree = threeway(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES1, treediff_file_data, 8));
+    cl_assert(diff_tree = threeway(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES1, treediff_delta_data, 8));
     
     git_diff_tree_list_free(diff_tree);
 }
-*/
 
 /*
  * TODO: enable this when diff computation is implemented.

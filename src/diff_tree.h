@@ -13,6 +13,9 @@
 
 #define GIT_DIFF_TREE_FILE_EXISTS(X)	((X).file.mode != 0)
 
+#define GIT_DIFF_TREE_RENAME_THRESHOLD	50
+#define GIT_DIFF_TREE_TARGET_LIMIT		1000
+
 struct git_diff_tree_list {
 	git_repository *repo;
 	git_pool pool;
