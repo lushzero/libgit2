@@ -65,30 +65,30 @@ typedef enum {
 	GIT_DIFF_TREE_CONFLICT_BOTH_DELETED = (1 << 2),
 
 	/* Occurs when a file is modified in one branch and deleted in the other. */
-	GIT_DIFF_TREE_CONFLICT_MODIFY_DELETE = (1 << 3),
+	GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED = (1 << 3),
 	
 	/* Occurs when a file is renamed in one branch and modified in the other. */
-	GIT_DIFF_TREE_CONFLICT_RENAME_MODIFY = (1 << 4),
+	GIT_DIFF_TREE_CONFLICT_RENAMED_MODIFIED = (1 << 4),
 	
 	/* Occurs when a file is renamed in one branch and deleted in the other. */
-	GIT_DIFF_TREE_CONFLICT_RENAME_DELETE = (1 << 5),
+	GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED = (1 << 5),
 	
 	/* Occurs when a file is renamed in one branch and a file with the same
 	 * name is added in the other.  Eg, A->B and new file B.  Core git calls
 	 * this a "rename/delete". */
-	GIT_DIFF_TREE_CONFLICT_RENAME_ADD = (1 << 6),
+	GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED = (1 << 6),
 	
 	/* Occurs when both a file is renamed to the same name in the ours and
 	 * theirs branches.  Eg, A->B and A->B in both.  Automergeable. */
-	GIT_DIFF_TREE_CONFLICT_BOTH_RENAME = (1 << 7),
+	GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED = (1 << 7),
 	
 	/* Occurs when a file is renamed to different names in the ours and theirs
 	 * branches.  Eg, A->B and A->C. */
-	GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_1_TO_2 = (1 << 8),
+	GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2 = (1 << 8),
 
 	/* Occurs when two files are renamed to the same name in the ours and
 	 * theirs branches.  Eg, A->C and B->C. */
-	GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_2_TO_1 = (1 << 9),
+	GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_2_TO_1 = (1 << 9),
 } git_diff_tree_conflict_t;
 
 typedef enum {

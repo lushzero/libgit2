@@ -254,10 +254,10 @@ GIT_INLINE(int) diff_tree__compute_conflict(
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_DELETED;
 	else if (delta_tree->ours.status == GIT_DELTA_MODIFIED &&
 		delta_tree->theirs.status == GIT_DELTA_DELETED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFY_DELETE;
+		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED;
 	else if (delta_tree->ours.status == GIT_DELTA_DELETED &&
 		delta_tree->theirs.status == GIT_DELTA_MODIFIED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFY_DELETE;
+		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED;
 	else
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_NONE;
 
@@ -474,36 +474,42 @@ static void diff_tree__mark_rename_conflict(
 	if (ours_renamed && theirs_renamed) {
 		/* Both renamed to the same target name. */
 		if (ours_source_idx == theirs_source_idx)
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME;
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED;
 		else {
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_2_TO_1;
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_2_TO_1;
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_2_TO_1;
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_2_TO_1;
 		}
 	} else if (ours_renamed) {
 		/* If our source was also renamed in theirs, this is a 1->2 */
 		if (similarity_theirs[ours_source_idx].similarity >= opts->rename_threshold)
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_1_TO_2;
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
 		else if (GIT_DIFF_TREE_FILE_EXISTS(target->theirs)) {
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
-			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
+			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
 		}
 		
 		else if (!GIT_DIFF_TREE_FILE_EXISTS(ours_source->theirs))
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_DELETE;
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED;
+		
+		else if (ours_source->conflict == GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED)
+			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_MODIFIED;
 	} else if (theirs_renamed) {
 		/* If their source was also renamed in ours, this is a 1->2 */
 		if (similarity_ours[theirs_source_idx].similarity >= opts->rename_threshold)
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAME_1_TO_2;
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
 		else if (GIT_DIFF_TREE_FILE_EXISTS(target->ours)) {
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
-			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_ADD;
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
+			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
 		}
 		
 		else if (!GIT_DIFF_TREE_FILE_EXISTS(theirs_source->ours))
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAME_DELETE;
-	}	
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED;
+		
+		else if (theirs_source->conflict == GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED)
+			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_MODIFIED;
+	}
 }
 
 GIT_INLINE(void) diff_tree__coalesce_rename(
