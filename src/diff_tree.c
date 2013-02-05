@@ -450,6 +450,25 @@ static void diff_tree__mark_similarity(
 	}
 }
 
+/*
+ * Rename conflicts:
+ *
+ *      Ancestor   Ours   Theirs
+ *
+ * 0a   A          A      A        No rename
+ *  b   A          A*     A        No rename (ours was rewritten)
+ *  c   A          A      A*       No rename (theirs rewritten)
+ * 1a   A          A      B[A]     Rename or rename/edit
+ *  b   A          B[A]   A        (automergeable)
+ * 2    A          B[A]   B[A]     Both renamed (automergeable)
+ * 3a   A          B[A]            Rename/delete
+ *  b   A                 B[A]      (same)
+ * 4a   A          B[A]   B        Rename/add [B~ours B~theirs]
+ *  b   A          B      B[A]      (same)
+ * 5    A          B[A]   C[A]     Both renamed ("1 -> 2")
+ * 6    A          C[A]            Both renamed ("2 -> 1")
+ *      B                 C[B]     [C~ours C~theirs]    (automergeable)
+ */
 static void diff_tree__mark_rename_conflict(
 	git_diff_tree_list *diff_tree,
 	struct diff_tree_similarity *similarity_ours,
