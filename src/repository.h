@@ -21,6 +21,7 @@
 #include "object.h"
 #include "attr.h"
 #include "strmap.h"
+#include "refdb.h"
 
 #define DOT_GIT ".git"
 #define GIT_DIR DOT_GIT "/"

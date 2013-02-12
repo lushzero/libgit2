@@ -22,17 +22,79 @@ GIT_BEGIN_DECL
 
 /** An instance for a custom backend */
 struct git_refdb_backend {
-	/* implementers must provide these */
-	int (*exists)(int *exists, struct git_refdb_backend *backend, const char *ref_name);
+    unsigned int version;
+
+	/**
+	 * Queries the refdb backend to determine if the given ref_name
+	 * exists.  A refdb implementation must provide this function.
+	 */
+	int (*exists)(
+		int *exists,
+		struct git_refdb_backend *backend,
+		const char *ref_name);
+
+	/**
+	 * Queries the refdb backend for a given reference.  The given
+	 * git_reference will be populated with data from the refdb if the
+	 * reference exists.  A refdb implementation must provide this function.
+	 */
 	int (*lookup)(struct git_refdb_backend *backend, git_reference *);
-	int (*foreach)(struct git_refdb_backend *backend, unsigned int list_flags, git_reference_foreach_cb callback, void *payload);
-	int (*foreach_glob)(struct git_refdb_backend *backend, const char *glob, unsigned int list_flags, git_reference_foreach_cb callback, void *payload);
+
+	/*
+	 * Enumerates each reference in the refdb.  A refdb implementation must
+	 * provide this function.
+	 */
+	int (*foreach)(
+		struct git_refdb_backend *backend,
+		unsigned int list_flags,
+		git_reference_foreach_cb callback,
+		void *payload);
+
+	/**
+	 * Enumerates each reference in the refdb that matches the given
+	 * glob string.  A refdb implementation may provide this function;
+	 * if it is not provided, foreach will be used and the results filtered
+	 * against the glob.
+	 */
+	int (*foreach_glob)(
+		struct git_refdb_backend *backend,
+		const char *glob,
+		unsigned int list_flags,
+		git_reference_foreach_cb callback,
+		void *payload);
+
+	/*
+	 * Writes the given reference to the refdb.  A refdb implementation
+	 * must provide this function.
+	 */
 	int (*write)(struct git_refdb_backend *backend, git_reference *);
+
+	/*
+	 * Deletes the given reference from the refdb.  A refdb implementation
+	 * must provide this function.
+	 */
 	int (*delete)(struct git_refdb_backend *backend, git_reference *);
+
+	/*
+	 * Suggests that the given refdb "pack" its references.  This mechanism
+	 * is implementation specific.  A refdb implementation may provide
+	 * this function; if it is not provided, nothing will be done.
+	 */
 	int (*packall)(struct git_refdb_backend *backend);
+
+	/*
+	 * Frees any resources held by the refdb.  A refdb implementation may
+	 * provide this function; if it is not provided, nothing will be done.
+	 */
 	void (*free)(struct git_refdb_backend *backend);
 };
 
+#define GIT_ODB_BACKEND_VERSION 1
+#define GIT_ODB_BACKEND_INIT {GIT_ODB_BACKEND_VERSION}
+
+/**
+ * Constructors for default refdb backends.
+ */
 GIT_EXTERN(int) git_refdb_backend_fs(struct git_refdb_backend **backend_out, git_repository *repo);
 
 GIT_END_DECL

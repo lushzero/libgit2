@@ -58,22 +58,9 @@ GIT_EXTERN(int) git_refdb_open(git_refdb **out, git_repository *repo);
  * @param priority Value for ordering the backends queue
  * @return 0 on success; error code otherwise
  */
-GIT_EXTERN(int) git_refdb_set_backend(git_refdb *refdb, git_refdb_backend *backend);
-
-/**
- * Close an open reference database.
- *
- * @param db database pointer to close. If NULL no action is taken.
- */
-GIT_EXTERN(void) git_refdb_free(git_refdb *db);
-
-GIT_EXTERN(int) git_refdb_exists(int *exists, git_refdb *refdb, const char *ref_name);
-GIT_EXTERN(int) git_refdb_lookup(git_refdb *refdb, git_reference *);
-GIT_EXTERN(int) git_refdb_foreach(git_refdb *refdb, unsigned int list_flags, int (*callback)(const char *, void *), void *payload);
-GIT_EXTERN(int) git_refdb_foreach_glob(git_refdb *refdb, const char *glob, unsigned int list_flags, git_reference_foreach_cb callback, void *payload);
-GIT_EXTERN(int) git_refdb_write(git_refdb *refdb, git_reference *);
-GIT_EXTERN(int) git_refdb_delete(struct git_refdb *refdb, git_reference *);
-GIT_EXTERN(int) git_refdb_packall(struct git_refdb *refdb);
+GIT_EXTERN(int) git_refdb_set_backend(
+	git_refdb *refdb,
+	git_refdb_backend *backend);
 
 /** @} */
 GIT_END_DECL

@@ -8,6 +8,8 @@
 #include "common.h"
 #include "posix.h"
 #include "git2/object.h"
+#include "git2/refs.h"
+#include "git2/refdb.h"
 #include "hash.h"
 #include "refdb.h"
 #include "refs.h"
@@ -108,7 +110,7 @@ int git_refdb_foreach(
 
 struct glob_cb_data {
 	const char *glob;
-	int (*callback)(const char *, void *);
+	git_reference_foreach_cb callback;
 	void *payload;
 };
 
