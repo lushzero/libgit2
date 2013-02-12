@@ -1129,8 +1129,6 @@ static int merge_conflict_write_file(
 	if (path == NULL)
 		path = entry->file.path;
 
-	checkout_opts.checkout_strategy |= GIT_CHECKOUT_NO_REFRESH;
-
 	git_checkout_data_init(&checkout_data, repo, NULL, &checkout_opts);
 
 	git_buf_truncate(&checkout_data.path, checkout_data.workdir_len);
@@ -1197,8 +1195,6 @@ static int merge_conflict_write_sides(
 {
 	int error = 0;
 	
-	GIT_UNUSED(flags);
-
 	assert(conflict_written && repo && ancestor_head && our_head && their_head && delta);
 	
 	*conflict_written = 0;
@@ -1419,9 +1415,7 @@ static int merge_normalize_opts(
 	unsigned int default_checkout_strategy = GIT_CHECKOUT_SAFE_CREATE |
 		GIT_CHECKOUT_FORCE |
 		GIT_CHECKOUT_REMOVE_UNTRACKED |
-		GIT_CHECKOUT_ALLOW_CONFLICTS |
-		GIT_CHECKOUT_DONT_UPDATE_INDEX |
-		GIT_CHECKOUT_NO_REFRESH;
+		GIT_CHECKOUT_ALLOW_CONFLICTS;
 
 	if (given != NULL) {
 		memcpy(opts, given, sizeof(git_merge_opts));
@@ -1553,8 +1547,7 @@ int git_merge(
 	if (error < 0)
 		goto on_error;
 	
-	if ((error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0 ||
-		(error = git_index_write(index)) < 0)
+	if ((error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0)
 		goto on_error;
 	
 	if (their_heads_len == 1) {
