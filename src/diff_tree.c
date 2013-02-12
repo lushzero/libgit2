@@ -549,7 +549,7 @@ static void diff_tree__coalesce_renames(
 {
 	size_t i;
 	bool ours_renamed = 0, theirs_renamed = 0;
-	size_t ours_source_idx, theirs_source_idx;
+	size_t ours_source_idx = 0, theirs_source_idx = 0;
 	git_diff_tree_delta *ours_source, *theirs_source, *target;
 
 	for (i = 0; i < diff_tree->deltas.length; i++) {		

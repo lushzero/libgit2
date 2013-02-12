@@ -786,6 +786,10 @@ static int merge_mark_conflict_resolved(git_index *index, const git_diff_tree_de
 		path = delta->ours.file.path;
 	else if (GIT_DIFF_TREE_FILE_EXISTS(delta->theirs))
 		path = delta->theirs.file.path;
+	else {
+		giterr_set(GITERR_INVALID, "Given delta is not a conflict");
+		return -1;
+	}
 	
 	return git_index_reuc_add(index, path,
 		delta->ancestor.file.mode, &delta->ancestor.file.oid,
@@ -1447,6 +1451,7 @@ static int merge_fake_head(git_merge_head **_head, git_tree **_tree, git_reposit
 	tree = git__calloc(1, sizeof(git_tree));
 	GITERR_CHECK_ALLOC(tree);
 	
+	git_atomic_inc(&tree->object.cached.refcount);
 	tree->object.type = GIT_OBJ_TREE;
 	tree->object.repo = repo;
 	
