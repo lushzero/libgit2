@@ -1461,6 +1461,44 @@ static int merge_fake_head(git_merge_head **_head, git_tree **_tree, git_reposit
 	return 0;
 }
 
+static int merge_index(git_repository *repo, git_index *index_new)
+{
+	int error = 0;
+	size_t i;
+	git_index *index_repo = NULL;
+	const git_index_entry *e;
+	git_index_reuc_entry *reuc;
+
+	if ((error = git_repository_index(&index_repo, repo)) < 0)
+		return error;
+
+	git_index_clear(index_repo);
+
+	for (i = 0; i < git_index_entrycount(index_new); i++)
+	{
+		e = git_index_get_byindex(index_new, i);
+
+		if ((error = git_index_add(index_repo, e)) < 0)
+			goto on_error;
+	}
+
+	for (i = 0; i < git_index_reuc_entrycount(index_new); i++)
+	{
+		reuc = (git_index_reuc_entry *)git_index_reuc_get_byindex(index_new, i);
+
+		if ((error = git_index_reuc_add(index_repo, reuc->path,
+			reuc->mode[0], &reuc->oid[0],
+			reuc->mode[1], &reuc->oid[1],
+			reuc->mode[2], &reuc->oid[2])) < 0)
+			goto on_error;
+	}
+
+on_error:
+	git_index_free(index_repo);
+
+	return error;
+}
+
 int git_merge(
 	git_merge_result **out,
 	git_repository *repo,
@@ -1473,7 +1511,7 @@ int git_merge(
 	git_reference *our_ref = NULL;
 	git_merge_head *ancestor_head = NULL, *our_head = NULL;
 	git_tree *ancestor_tree = NULL, *our_tree = NULL, **their_trees = NULL;
-	git_index *index;
+	git_index *index_new = NULL, *index_repo = NULL;
 	git_diff_tree_delta *delta;
 	size_t i;
 	int error = 0;
@@ -1538,23 +1576,26 @@ int git_merge(
 			goto on_error;
 	}
 
-	if ((error = git_repository_index__weakptr(&index, repo)) < 0)
+	if ((error = git_index_new(&index_new)) < 0 ||
+		(error = git_index_read_tree(index_new, our_tree)) < 0)
 		goto on_error;
-	
+
 	/* TODO: recursive */
 	if (their_heads_len == 1)
-		error = merge_trees(result, repo, index, ancestor_tree, our_tree,
+		error = merge_trees(result, repo, index_new, ancestor_tree, our_tree,
 			their_trees[0], &opts.merge_trees_opts);
 	else
-		error = merge_trees_octopus(result, repo, index, ancestor_tree, our_tree,
+		error = merge_trees_octopus(result, repo, index_new, ancestor_tree, our_tree,
 			(const git_tree **)their_trees, their_heads_len, &opts.merge_trees_opts);
 	
 	if (error < 0)
 		goto on_error;
-	
-	if ((error = git_checkout_index(repo, index, &opts.checkout_opts)) < 0)
+
+	if ((error = merge_index(repo, index_new)) < 0 ||
+		(error = git_repository_index(&index_repo, repo)) < 0 ||
+		(error = git_checkout_index(repo, index_repo, &opts.checkout_opts)) < 0)
 		goto on_error;
-	
+
 	if (their_heads_len == 1) {
 		git_vector_foreach(&result->conflicts, i, delta) {
 			int conflict_written = 0;
@@ -1572,6 +1613,9 @@ on_error:
 	git__free(result);
 
 done:
+	git_index_free(index_new);
+	git_index_free(index_repo);
+
 	git_tree_free(ancestor_tree);
 	git_tree_free(our_tree);
 	

@@ -1064,7 +1064,10 @@ unsigned int git_index_reuc_entrycount(git_index *index)
 	return (unsigned int)index->reuc.length;
 }
 
-static int index_reuc_insert(git_index *index, git_index_reuc_entry *reuc, int replace)
+static int index_reuc_insert(
+	git_index *index,
+	git_index_reuc_entry *reuc,
+	int replace)
 {
 	git_index_reuc_entry **existing = NULL;
 	size_t position;
