@@ -21,7 +21,7 @@
 #include "diff_tree.h"
 #include "checkout.h"
 #include "tree.h"
-#include "filediff.h"
+#include "merge_file.h"
 
 #include "git2/diff_tree.h"
 #include "git2/types.h"
@@ -298,10 +298,10 @@ static int merge_conflict_write_diff3(
 	const git_diff_tree_delta *delta,
 	unsigned int flags)
 {
-	git_filediff_index_input ancestor = GIT_FILEDIFF_INPUT_INIT,
-		ours = GIT_FILEDIFF_INPUT_INIT,
-		theirs = GIT_FILEDIFF_INPUT_INIT;
-	git_filediff_result result = GIT_FILEDIFF_RESULT_INIT;
+	git_merge_file_input ancestor = GIT_MERGE_FILE_INPUT_INIT,
+		ours = GIT_MERGE_FILE_INPUT_INIT,
+		theirs = GIT_MERGE_FILE_INPUT_INIT;
+	git_merge_file_result result = GIT_MERGE_FILE_RESULT_INIT;
 	char *our_label = NULL, *their_label = NULL;
 	git_merge_head const *merge_heads[3] = { ancestor_head, our_head, their_head };
 	git_buf workdir_path = GIT_BUF_INIT;
@@ -329,17 +329,17 @@ static int merge_conflict_write_diff3(
 	/* TODO: mkpath2file mode */
 	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ours) ||
 		!GIT_DIFF_TREE_FILE_EXISTS(delta->theirs) ||
-		(error = git_filediff_input_from_diff_tree_entry(&ancestor, repo, &delta->ancestor)) < 0 ||
-		(error = git_filediff_input_from_diff_tree_entry(&ours, repo, &delta->ours)) < 0 ||
-		(error = git_filediff_input_from_diff_tree_entry(&theirs, repo, &delta->theirs)) < 0 ||
+		(error = git_merge_file_input_from_diff_tree_entry((git_merge_file_input *)&ancestor, repo, &delta->ancestor)) < 0 ||
+		(error = git_merge_file_input_from_diff_tree_entry((git_merge_file_input *)&ours, repo, &delta->ours)) < 0 ||
+		(error = git_merge_file_input_from_diff_tree_entry((git_merge_file_input *)&theirs, repo, &delta->theirs)) < 0 ||
 		(error = merge_filediff_entry_names(&our_label, &their_label, merge_heads, delta)) < 0)
 		goto done;
 
-	ancestor.base.label = NULL;
-	ours.base.label = our_label;
-	theirs.base.label = their_label;
+	ancestor.label = NULL;
+	ours.label = our_label;
+	theirs.label = their_label;
 	
-	if ((error = git_filediff(&result, (git_filediff_input *)&ancestor, (git_filediff_input *)&ours, (git_filediff_input *)&theirs, 0)) < 0 ||
+	if ((error = git_merge_files(&result, (git_merge_file_input *)&ancestor, (git_merge_file_input *)&ours, (git_merge_file_input *)&theirs, 0)) < 0 ||
 		result.path == NULL || result.mode == 0 ||
 		(error = git_buf_joinpath(&workdir_path, git_repository_workdir(repo), result.path)) < 0 ||
 		(error = git_futils_mkpath2file(workdir_path.ptr, 0755) < 0) ||
@@ -354,10 +354,10 @@ done:
 	git__free(our_label);
 	git__free(their_label);
 
-	git_filediff_input_free((git_filediff_input *)&ancestor);
-	git_filediff_input_free((git_filediff_input *)&ours);
-	git_filediff_input_free((git_filediff_input *)&theirs);
-	git_filediff_result_free(&result);
+	git_merge_file_input_free((git_merge_file_input *)&ancestor);
+	git_merge_file_input_free((git_merge_file_input *)&ours);
+	git_merge_file_input_free((git_merge_file_input *)&theirs);
+	git_merge_file_result_free(&result);
 	git_buf_free(&workdir_path);
 	
 	return error;

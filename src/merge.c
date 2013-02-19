@@ -21,7 +21,7 @@
 #include "diff_tree.h"
 #include "checkout.h"
 #include "tree.h"
-#include "filediff.h"
+#include "merge_file.h"
 
 #include "git2/diff_tree.h"
 #include "git2/types.h"
@@ -570,11 +570,11 @@ static int merge_conflict_resolve_automerge(
 	const git_diff_tree_delta *delta,
 	unsigned int resolve_flags)
 {
-	git_filediff_index_input ancestor = GIT_FILEDIFF_INPUT_INIT,
-		ours = GIT_FILEDIFF_INPUT_INIT,
-		theirs = GIT_FILEDIFF_INPUT_INIT;
-	git_filediff_result result = GIT_FILEDIFF_RESULT_INIT;
-	git_filediff_flags filediff_flags = 0;
+	git_merge_file_input ancestor = GIT_MERGE_FILE_INPUT_INIT,
+		ours = GIT_MERGE_FILE_INPUT_INIT,
+		theirs = GIT_MERGE_FILE_INPUT_INIT;
+	git_merge_file_result result = GIT_MERGE_FILE_RESULT_INIT;
+	git_merge_file_flags merge_file_flags = 0;
 	git_index_entry index_entry;
 	git_odb *odb = NULL;
 	git_oid automerge_oid;
@@ -588,10 +588,10 @@ static int merge_conflict_resolve_automerge(
 		return 0;
 	
 	if (resolve_flags & GIT_MERGE_RESOLVE_FAVOR_OURS)
-		filediff_flags |= GIT_FILEDIFF_FAVOR_OURS;
+		merge_file_flags |= GIT_MERGE_FILE_FAVOR_OURS;
 	
 	if (resolve_flags & GIT_MERGE_RESOLVE_FAVOR_THEIRS)
-		filediff_flags |= GIT_FILEDIFF_FAVOR_THEIRS;
+		merge_file_flags |= GIT_MERGE_FILE_FAVOR_THEIRS;
 
 	/* Reject D/F conflicts */
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
@@ -607,10 +607,10 @@ static int merge_conflict_resolve_automerge(
 	/* TODO: reject name conflicts */
 
 	if ((error = git_repository_odb(&odb, repo)) < 0 ||
-		(error = git_filediff_input_from_diff_tree_entry(&ancestor, repo, &delta->ancestor)) < 0 ||
-		(error = git_filediff_input_from_diff_tree_entry(&ours, repo, &delta->ours)) < 0 ||
-		(error = git_filediff_input_from_diff_tree_entry(&theirs, repo, &delta->theirs)) < 0 ||
-		(error = git_filediff(&result, (git_filediff_input *)&ancestor, (git_filediff_input *)&ours, (git_filediff_input *)&theirs, filediff_flags)) < 0 ||
+		(error = git_merge_file_input_from_diff_tree_entry(&ancestor, repo, &delta->ancestor)) < 0 ||
+		(error = git_merge_file_input_from_diff_tree_entry(&ours, repo, &delta->ours)) < 0 ||
+		(error = git_merge_file_input_from_diff_tree_entry(&theirs, repo, &delta->theirs)) < 0 ||
+		(error = git_merge_files(&result, &ancestor, &ours, &theirs, merge_file_flags)) < 0 ||
 		!result.automergeable ||
 		(error = git_odb_write(&automerge_oid, odb, result.data, result.len, GIT_OBJ_BLOB)) < 0)
 		goto done;
@@ -627,10 +627,10 @@ static int merge_conflict_resolve_automerge(
 		*resolved = 1;
 
 done:
-	git_filediff_input_free((git_filediff_input *)&ancestor);
-	git_filediff_input_free((git_filediff_input *)&ours);
-	git_filediff_input_free((git_filediff_input *)&theirs);
-	git_filediff_result_free(&result);
+	git_merge_file_input_free(&ancestor);
+	git_merge_file_input_free(&ours);
+	git_merge_file_input_free(&theirs);
+	git_merge_file_result_free(&result);
 	git_odb_free(odb);
 	
 	return error;
