@@ -128,34 +128,6 @@ typedef int (*git_diff_tree_many_cb)(const git_index_entry **tree_items, void *p
 /** Callback for the 3-way tree difference function */
 typedef int (*git_diff_tree_delta_cb)(const git_diff_tree_delta *delta, void *payload);
 
-/** @name Tree Diff Functions
- *
- * Functions that operate on an arbitrary number of trees.
- */
-/**@{*/
-
-/**
- * Iterate many trees and issue a callback for each entry that differs
- * in one (or more) of the trees.
- *
- * @param repo The repository containing the trees.
- * @param trees An array of git_tree objects to diff.
- * @param trees_length The number of trees to difference
- * @param flags A combination of git_diff_tree_option_t values above (default 0)
- * @param callback Callback function to make with each different tree entry.
- * @param payload Reference pointer that will be passed to your callback.
- * @return 0 on success, GIT_EUSER on non-zero callback, or error code
- */
-GIT_EXTERN(int) git_diff_tree_many(
-	git_repository *repo,
-	const git_tree **trees,
-	size_t trees_length,
-	uint32_t flags,
-	git_diff_tree_many_cb callback,
-	void *payload);
-
-/**@}*/
-
 /** @name Three-way Tree Diff Functions
  *
  * Functions that operate on three trees, a common ancestor, and two

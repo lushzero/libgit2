@@ -431,15 +431,12 @@ static int merge_conflict_resolve_trivial(
 	int *resolved,
 	git_repository *repo,
 	git_index *index,
-	const git_diff_tree_delta *delta,
-	unsigned int resolve_flags)
+	const git_diff_tree_delta *delta)
 {
 	int ancestor_empty, ours_empty, theirs_empty;
 	int ours_changed, theirs_changed, ours_theirs_differ;
 	git_diff_tree_entry const *result = NULL;
 	int error = 0;
-
-	GIT_UNUSED(resolve_flags);
 
 	assert(resolved && repo && index && delta);
 
@@ -515,22 +512,16 @@ static int merge_conflict_resolve_removed(
 	int *resolved,
 	git_repository *repo,
 	git_index *index,
-	const git_diff_tree_delta *delta,
-	unsigned int resolve_flags)
+	const git_diff_tree_delta *delta)
 {
 	int ours_empty, theirs_empty;
 	int ours_changed, theirs_changed;
 	git_diff_tree_entry const *result = NULL;
 	int error = 0;
 
-	GIT_UNUSED(resolve_flags);
-
 	assert(resolved && repo && index && delta);
 
 	*resolved = 0;
-	
-	if (resolve_flags & GIT_MERGE_RESOLVE_NO_REMOVED)
-		return 0;
 
 	/* TODO: (optionally) reject children of d/f conflicts */
 
@@ -568,13 +559,12 @@ static int merge_conflict_resolve_automerge(
 	git_repository *repo,
 	git_index *index,
 	const git_diff_tree_delta *delta,
-	unsigned int resolve_flags)
+	unsigned int automerge_flags)
 {
 	git_merge_file_input ancestor = GIT_MERGE_FILE_INPUT_INIT,
 		ours = GIT_MERGE_FILE_INPUT_INIT,
 		theirs = GIT_MERGE_FILE_INPUT_INIT;
 	git_merge_file_result result = GIT_MERGE_FILE_RESULT_INIT;
-	git_merge_file_flags merge_file_flags = 0;
 	git_index_entry index_entry;
 	git_odb *odb = NULL;
 	git_oid automerge_oid;
@@ -584,14 +574,8 @@ static int merge_conflict_resolve_automerge(
 	
 	*resolved = 0;
 	
-	if (resolve_flags & GIT_MERGE_RESOLVE_NO_AUTOMERGE)
+	if (automerge_flags & GIT_MERGE_AUTOMERGE_NONE)
 		return 0;
-	
-	if (resolve_flags & GIT_MERGE_RESOLVE_FAVOR_OURS)
-		merge_file_flags |= GIT_MERGE_FILE_FAVOR_OURS;
-	
-	if (resolve_flags & GIT_MERGE_RESOLVE_FAVOR_THEIRS)
-		merge_file_flags |= GIT_MERGE_FILE_FAVOR_THEIRS;
 
 	/* Reject D/F conflicts */
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
@@ -610,7 +594,7 @@ static int merge_conflict_resolve_automerge(
 		(error = git_merge_file_input_from_diff_tree_entry(&ancestor, repo, &delta->ancestor)) < 0 ||
 		(error = git_merge_file_input_from_diff_tree_entry(&ours, repo, &delta->ours)) < 0 ||
 		(error = git_merge_file_input_from_diff_tree_entry(&theirs, repo, &delta->theirs)) < 0 ||
-		(error = git_merge_files(&result, &ancestor, &ours, &theirs, merge_file_flags)) < 0 ||
+		(error = git_merge_files(&result, &ancestor, &ours, &theirs, automerge_flags)) < 0 ||
 		!result.automergeable ||
 		(error = git_odb_write(&automerge_oid, odb, result.data, result.len, GIT_OBJ_BLOB)) < 0)
 		goto done;
@@ -641,21 +625,23 @@ static int merge_conflict_resolve(
 	git_repository *repo,
 	git_index *index,
 	const git_diff_tree_delta *delta,
-	unsigned int resolve_flags)
+	unsigned int automerge_flags)
 {
 	int resolved = 0;
 	int error = 0;
 	
 	*out = 0;
 	
-	if ((error = merge_conflict_resolve_trivial(&resolved, repo, index, delta, resolve_flags)) < 0)
-		goto done;
-	
-	if (!resolved && (error = merge_conflict_resolve_removed(&resolved, repo, index, delta, resolve_flags)) < 0)
+	if ((error = merge_conflict_resolve_trivial(&resolved, repo, index, delta)) < 0)
 		goto done;
 
-	if (!resolved && (error = merge_conflict_resolve_automerge(&resolved, repo, index, delta, resolve_flags)) < 0)
-		goto done;
+	if ((automerge_flags & GIT_MERGE_AUTOMERGE_NONE) == 0) {
+		if (!resolved && (error = merge_conflict_resolve_removed(&resolved, repo, index, delta)) < 0)
+			goto done;
+
+		if (!resolved && (error = merge_conflict_resolve_automerge(&resolved, repo, index, delta, automerge_flags)) < 0)
+			goto done;
+	}
 
 	if (!resolved)
 		error = merge_mark_conflict_unresolved(index, delta);

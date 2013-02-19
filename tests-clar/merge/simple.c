@@ -1,6 +1,7 @@
 #include "clar_libgit2.h"
 #include "git2/repository.h"
 #include "git2/merge.h"
+#include "git2/merge_branches.h"
 #include "buffer.h"
 #include "merge.h"
 #include "merge_helpers.h"
@@ -334,7 +335,7 @@ void test_merge_simple__favor_ours(void)
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
     
-	cl_assert(result = merge_simple_branch(GIT_MERGE_RESOLVE_FAVOR_OURS, 0));
+	cl_assert(result = merge_simple_branch(GIT_MERGE_AUTOMERGE_FAVOR_OURS, 0));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
 	cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
@@ -363,7 +364,7 @@ void test_merge_simple__favor_theirs(void)
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
     
-	cl_assert(result = merge_simple_branch(GIT_MERGE_RESOLVE_FAVOR_THEIRS, 0));
+	cl_assert(result = merge_simple_branch(GIT_MERGE_AUTOMERGE_FAVOR_THEIRS, 0));
 	cl_assert(!git_merge_result_is_fastforward(result));
 
 	cl_assert(merge_test_index(repo_index, merge_index_entries, 6));

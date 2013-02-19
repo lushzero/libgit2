@@ -1,6 +1,9 @@
 #ifndef INCLUDE_cl_merge_helpers_h__
 #define INCLUDE_cl_merge_helpers_h__
 
+#include "git2/merge.h"
+#include "git2/merge_branches.h"
+
 struct merge_index_entry {
 	unsigned int mode;
 	char oid_str[41];

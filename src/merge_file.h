@@ -10,6 +10,7 @@
 #include "diff_tree.h"
 #include "xdiff/xdiff.h"
 
+#include "git2/merge.h"
 #include "git2/diff_tree.h"
 
 typedef struct {
@@ -35,13 +36,6 @@ typedef struct {
 
 #define GIT_MERGE_FILE_RESULT_INIT	{0}
 
-typedef enum {
-	GIT_MERGE_FILE_NORMAL = 0,
-	GIT_MERGE_FILE_FAVOR_OURS = (1 << 1),
-	GIT_MERGE_FILE_FAVOR_THEIRS = (1 << 2),
-} git_merge_file_flags;
-
-
 int git_merge_file_input_from_diff_tree_entry(
 	git_merge_file_input *input,
 	git_repository *repo,
@@ -52,7 +46,7 @@ int git_merge_files(
 	git_merge_file_input *ancestor,
 	git_merge_file_input *ours,
 	git_merge_file_input *theirs,
-	git_merge_file_flags flags);
+	git_merge_automerge_flags flags);
 
 GIT_INLINE(void) git_merge_file_input_free(git_merge_file_input *input)
 {

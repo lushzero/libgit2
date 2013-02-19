@@ -29,6 +29,7 @@
 #include "git2/object.h"
 #include "git2/commit.h"
 #include "git2/merge.h"
+#include "git2/merge_branches.h"
 #include "git2/refs.h"
 #include "git2/reset.h"
 #include "git2/checkout.h"

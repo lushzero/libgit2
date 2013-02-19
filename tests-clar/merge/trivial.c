@@ -1,6 +1,7 @@
 #include "clar_libgit2.h"
 #include "git2/repository.h"
 #include "git2/merge.h"
+#include "git2/merge_branches.h"
 #include "merge.h"
 #include "merge_helpers.h"
 #include "refs.h"
@@ -38,8 +39,7 @@ static int merge_trivial(const char *ours, const char *theirs, bool automerge)
 
 	checkout_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 
-	opts.merge_trees_opts.resolve_flags |= automerge ? 0 : GIT_MERGE_RESOLVE_NO_REMOVED;
-	opts.merge_trees_opts.resolve_flags |= automerge ? 0 : GIT_MERGE_RESOLVE_NO_AUTOMERGE;
+	opts.merge_trees_opts.resolve_flags |= automerge ? 0 : GIT_MERGE_AUTOMERGE_NONE;
 
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, ours);
 	cl_git_pass(git_reference_symbolic_create(&our_ref, repo, "HEAD", branch_buf.ptr, 1));
