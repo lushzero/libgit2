@@ -83,7 +83,7 @@ int git_merge_file_input_from_index_entry(
 		goto done;
 	
 	input->mode = entry->mode;
-	input->path = entry->path;
+	input->path = git__strdup(entry->path);
 	input->mmfile.size = git_odb_object_size(odb_object);
 	input->mmfile.ptr = (char *)git_odb_object_data(odb_object);
 	
@@ -96,31 +96,30 @@ done:
 	return error;
 }
 
-/* TODO: zap this */
-int git_merge_file_input_from_diff_tree_entry(
+int git_merge_file_input_from_diff_file(
 	git_merge_file_input *input,
 	git_repository *repo,
-	const git_diff_tree_entry *entry)
+	const git_diff_file *file)
 {
 	git_odb *odb = NULL;
 	int error = 0;
 	
-	assert(input && repo && entry);
+	assert(input && repo && file);
 	
-	if (entry->file.mode == 0)
+	if (file->mode == 0)
 		return 0;
 	
 	if ((error = git_repository_odb(&odb, repo)) < 0 ||
-		(error = git_odb_read(&input->odb_object, odb, &entry->file.oid)) < 0)
+		(error = git_odb_read(&input->odb_object, odb, &file->oid)) < 0)
 		goto done;
 	
-	input->mode = entry->file.mode;
-	input->path = entry->file.path;
+	input->mode = file->mode;
+	input->path = git__strdup(file->path);
 	input->mmfile.size = git_odb_object_size(input->odb_object);
 	input->mmfile.ptr = (char *)git_odb_object_data(input->odb_object);
 	
 	if (input->label == NULL)
-		input->label = entry->file.path;
+		input->label = file->path;
 	
 done:
 	git_odb_free(odb);

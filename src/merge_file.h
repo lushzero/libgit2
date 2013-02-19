@@ -15,7 +15,7 @@
 
 typedef struct {
 	const char *label;
-	const char *path;
+	char *path;
 	unsigned int mode;
 	mmfile_t mmfile;
 	
@@ -36,10 +36,10 @@ typedef struct {
 
 #define GIT_MERGE_FILE_RESULT_INIT	{0}
 
-int git_merge_file_input_from_diff_tree_entry(
+int git_merge_file_input_from_diff_file(
 	git_merge_file_input *input,
 	git_repository *repo,
-	const git_diff_tree_entry *entry);
+	const git_diff_file *file);
 
 int git_merge_files(
 	git_merge_file_result *out,
@@ -51,6 +51,7 @@ int git_merge_files(
 GIT_INLINE(void) git_merge_file_input_free(git_merge_file_input *input)
 {
 	assert(input);
+	git__free(input->path);
 	git_odb_object_free(input->odb_object);
 }
 

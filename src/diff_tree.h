@@ -11,7 +11,7 @@
 #include "pool.h"
 #include "vector.h"
 
-#define GIT_DIFF_TREE_FILE_EXISTS(X)	((X).file.mode != 0)
+#define GIT_DIFF_TREE_FILE_EXISTS(X)	((X).mode != 0)
 
 #define GIT_DIFF_TREE_RENAME_THRESHOLD	50
 #define GIT_DIFF_TREE_TARGET_LIMIT		1000

@@ -15,133 +15,6 @@
 #include "git2/config.h"
 
 /**
- * n-way tree differencing
- */
-
-static int index_entry_cmp(git_index_entry *a, git_index_entry *b)
-{
-	int diff;
-	
-	assert (a && b);
-
-	/* Ignore tree changes */
-	if (S_ISDIR(a->mode) && S_ISDIR(b->mode))
-		return 0;
-	
-	if ((diff = a->mode - b->mode) == 0)
-		diff = git_oid_cmp(&a->oid, &b->oid);
-	
-	return diff;
-}
-
-int git_diff_tree_many(
-	git_repository *repo,
-	const git_tree **trees,
-	size_t trees_length,
-	uint32_t flags,
-	git_diff_tree_many_cb callback,
-	void *payload)
-{
-	git_iterator **iterators;
-	git_index_entry **items = NULL, *best_cur_item, **cur_items;
-	git_vector_cmp entry_compare = git_index_entry__cmp;
-	int cur_item_modified;
-	size_t i;
-	int error = 0;
-	
-	assert(repo && trees && callback);
-	
-	iterators = git__calloc(trees_length, sizeof(git_iterator *));
-	GITERR_CHECK_ALLOC(iterators);
-	
-	items = git__calloc(trees_length, sizeof(git_index_entry *));
-	GITERR_CHECK_ALLOC(items);
-	
-	cur_items = git__calloc(trees_length, sizeof(git_index_entry *));
-	GITERR_CHECK_ALLOC(cur_items);
-	
-	for (i = 0; i < trees_length; i++) {
-		if ((error = git_iterator_for_tree(&iterators[i], (git_tree *)trees[i])) < 0)
-			return -1;
-	}
-	
-	/* Set up the iterators */
-	for (i = 0; i < trees_length; i++) {
-		if ((error = git_iterator_current(iterators[i],
-			(const git_index_entry **)&items[i])) < 0)
-			goto done;
-	}
-	
-	while (true) {
-		memset(cur_items, 0x0, sizeof(git_index_entry *) * trees_length);
-		best_cur_item = NULL;
-		cur_item_modified = 0;
-		
-		/* Find the next path(s) to consume from each iterator */
-		for (i = 0; i < trees_length; i++) {
-			if (items[i] == NULL) {
-				cur_item_modified = 1;
-				continue;
-			}
-			
-			if (best_cur_item == NULL) {
-				best_cur_item = items[i];
-				cur_items[i] = items[i];
-			} else {
-				int path_diff = entry_compare(items[i], best_cur_item);
-								
-				if (path_diff < 0) {
-					/*
-					 * Found an item that sorts before our current item, make
-					 * our current item this one.
-					 */
-					memset(cur_items, 0x0, sizeof(git_index_entry *) * trees_length);
-					cur_item_modified = 1;
-					best_cur_item = items[i];
-					cur_items[i] = items[i];
-				} else if (path_diff > 0) {
-					/* No entry for the current item, this is modified */
-					cur_item_modified = 1;
-				} else if (path_diff == 0) {
-					cur_items[i] = items[i];
-					
-					if (!cur_item_modified && !(flags & GIT_DIFF_TREE_RETURN_UNMODIFIED))
-						cur_item_modified = index_entry_cmp(best_cur_item, items[i]);
-				}
-			}
-		}
-		
-		if (best_cur_item == NULL)
-			break;
-		
-		if (cur_item_modified || (flags & GIT_DIFF_TREE_RETURN_UNMODIFIED)) {
-			if (callback((const git_index_entry **)cur_items, payload)) {
-				error = GIT_EUSER;
-				goto done;
-			}
-		}
-		
-		/* Advance each iterator that participated */
-		for (i = 0; i < trees_length; i++) {
-			if (cur_items[i] != NULL &&
-				(error = git_iterator_advance(iterators[i],
-				(const git_index_entry **)&items[i])) < 0)
-				goto done;
-		}
-	}
-	
-done:
-	for (i = 0; i < trees_length; i++)
-		git_iterator_free(iterators[i]);
-	
-	git__free(iterators);
-	git__free(items);
-	git__free(cur_items);
-	
-	return error;
-}
-
-/**
  * Three-way tree differencing
  */
 
@@ -178,12 +51,12 @@ static git_diff_tree_list *diff_tree__list_alloc(git_repository *repo)
 
 GIT_INLINE(const char *) diff_tree__path(const git_diff_tree_delta *delta_tree)
 {
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->ancestor))
-		return delta_tree->ancestor.file.path;
-	else if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->ours))
-		return delta_tree->ours.file.path;
-	else if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->theirs))
-		return delta_tree->theirs.file.path;
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->ancestor_file))
+		return delta_tree->ancestor_file.path;
+	else if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->our_file))
+		return delta_tree->our_file.path;
+	else if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->their_file))
+		return delta_tree->their_file.path;
 	
 	return NULL;
 }
@@ -191,10 +64,10 @@ GIT_INLINE(const char *) diff_tree__path(const git_diff_tree_delta *delta_tree)
 GIT_INLINE(bool) diff_tree__delta_added_or_modified(
 	const git_diff_tree_delta *delta_tree)
 {
-	if (delta_tree->ours.status == GIT_DELTA_ADDED ||
-		delta_tree->ours.status == GIT_DELTA_MODIFIED ||
-		delta_tree->theirs.status == GIT_DELTA_ADDED ||
-		delta_tree->theirs.status == GIT_DELTA_MODIFIED)
+	if (delta_tree->our_status == GIT_DELTA_ADDED ||
+		delta_tree->our_status == GIT_DELTA_MODIFIED ||
+		delta_tree->their_status == GIT_DELTA_ADDED ||
+		delta_tree->their_status == GIT_DELTA_MODIFIED)
 		return true;
 		
 	return false;
@@ -243,20 +116,20 @@ GIT_INLINE(int) diff_tree__compute_df_conflict(
 GIT_INLINE(int) diff_tree__compute_conflict(
 	git_diff_tree_delta *delta_tree)
 {
-	if (delta_tree->ours.status == GIT_DELTA_ADDED &&
-		delta_tree->theirs.status == GIT_DELTA_ADDED)
+	if (delta_tree->our_status == GIT_DELTA_ADDED &&
+		delta_tree->their_status == GIT_DELTA_ADDED)
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_ADDED;
-	else if (delta_tree->ours.status == GIT_DELTA_MODIFIED &&
-		delta_tree->theirs.status == GIT_DELTA_MODIFIED)
+	else if (delta_tree->our_status == GIT_DELTA_MODIFIED &&
+		delta_tree->their_status == GIT_DELTA_MODIFIED)
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_MODIFIED;
-	else if (delta_tree->ours.status == GIT_DELTA_DELETED &&
-		delta_tree->theirs.status == GIT_DELTA_DELETED)
+	else if (delta_tree->our_status == GIT_DELTA_DELETED &&
+		delta_tree->their_status == GIT_DELTA_DELETED)
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_DELETED;
-	else if (delta_tree->ours.status == GIT_DELTA_MODIFIED &&
-		delta_tree->theirs.status == GIT_DELTA_DELETED)
+	else if (delta_tree->our_status == GIT_DELTA_MODIFIED &&
+		delta_tree->their_status == GIT_DELTA_DELETED)
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED;
-	else if (delta_tree->ours.status == GIT_DELTA_DELETED &&
-		delta_tree->theirs.status == GIT_DELTA_MODIFIED)
+	else if (delta_tree->our_status == GIT_DELTA_DELETED &&
+		delta_tree->their_status == GIT_DELTA_MODIFIED)
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED;
 	else
 		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_NONE;
@@ -264,51 +137,64 @@ GIT_INLINE(int) diff_tree__compute_conflict(
 	return 0;
 }
 
+GIT_INLINE(int) diff_file_from_index_entry(
+	git_diff_file *out,
+	git_pool *pool,
+	const git_index_entry *index_entry)
+{
+	if (index_entry == NULL)
+		return 0;
+
+	if ((out->path = git_pool_strdup(pool, index_entry->path)) == NULL)
+		return -1;
+
+	git_oid_cpy(&out->oid, &index_entry->oid);
+	out->size = index_entry->file_size;
+	out->mode = index_entry->mode;
+	out->flags |= GIT_DIFF_FILE_VALID_OID;
+
+	return 0;
+}
+
+GIT_INLINE(int) diff_status_from_index_entries(
+	const git_index_entry *ancestor,
+	const git_index_entry *other)
+{
+	if (ancestor == NULL && other == NULL)
+		return GIT_DELTA_UNMODIFIED;
+	else if (ancestor == NULL && other != NULL)
+		return GIT_DELTA_ADDED;
+	else if (ancestor != NULL && other == NULL)
+		return GIT_DELTA_DELETED;
+	else if (S_ISDIR(ancestor->mode) ^ S_ISDIR(other->mode))
+		return GIT_DELTA_TYPECHANGE;
+	else if(S_ISLNK(ancestor->mode) ^ S_ISLNK(other->mode))
+		return GIT_DELTA_TYPECHANGE;
+	else if (git_oid_cmp(&ancestor->oid, &other->oid) ||
+		ancestor->mode != other->mode)
+		return GIT_DELTA_MODIFIED;
+	
+	return GIT_DELTA_UNMODIFIED;
+}
+
 static git_diff_tree_delta *diff_tree__delta_from_entries(
 	struct diff_tree_threeway_data *threeway_data,
 	const git_index_entry **entries)
 {
 	git_diff_tree_delta *delta_tree;
-	git_diff_tree_entry *tree_entries[3];
-	size_t i;
+	git_pool *pool = &threeway_data->diff_tree->pool;
 	
-	if ((delta_tree = git_pool_malloc(&threeway_data->diff_tree->pool, sizeof(git_diff_tree_delta))) == NULL)
+	if ((delta_tree = git_pool_malloc(pool, sizeof(git_diff_tree_delta))) == NULL)
 		return NULL;
-	
-	tree_entries[INDEX_ANCESTOR] = &delta_tree->ancestor;
-	tree_entries[INDEX_OURS] = &delta_tree->ours;
-	tree_entries[INDEX_THEIRS] = &delta_tree->theirs;
-	
-	for (i = 0; i < 3; i++) {
-		if (entries[i] == NULL)
-			continue;
 
-		if ((tree_entries[i]->file.path = git_pool_strdup(&threeway_data->diff_tree->pool, entries[i]->path)) == NULL)
-			return NULL;
-		
-		git_oid_cpy(&tree_entries[i]->file.oid, &entries[i]->oid);
-		tree_entries[i]->file.size = entries[i]->file_size;
-		tree_entries[i]->file.mode = entries[i]->mode;
-		tree_entries[i]->file.flags |= GIT_DIFF_FILE_VALID_OID;
-	}
-	
-	for (i = 1; i < 3; i++) {
-		if (entries[INDEX_ANCESTOR] == NULL && entries[i] == NULL)
-			continue;
-		
-		if (entries[INDEX_ANCESTOR] == NULL && entries[i] != NULL)
-			tree_entries[i]->status |= GIT_DELTA_ADDED;
-		else if (entries[INDEX_ANCESTOR] != NULL && entries[i] == NULL)
-			tree_entries[i]->status |= GIT_DELTA_DELETED;
-		else if (S_ISDIR(entries[INDEX_ANCESTOR]->mode) ^ S_ISDIR(entries[i]->mode))
-			tree_entries[i]->status |= GIT_DELTA_TYPECHANGE;
-		else if(S_ISLNK(entries[INDEX_ANCESTOR]->mode) ^ S_ISLNK(entries[i]->mode))
-			tree_entries[i]->status |= GIT_DELTA_TYPECHANGE;
-		else if (git_oid_cmp(&entries[INDEX_ANCESTOR]->oid, &entries[i]->oid) ||
-			entries[INDEX_ANCESTOR]->mode != entries[i]->mode)
-			tree_entries[i]->status |= GIT_DELTA_MODIFIED;
-	}
-	
+	if (diff_file_from_index_entry(&delta_tree->ancestor_file, pool, entries[INDEX_ANCESTOR]) < 0 ||
+		diff_file_from_index_entry(&delta_tree->our_file, pool, entries[INDEX_OURS]) < 0 ||
+		diff_file_from_index_entry(&delta_tree->their_file, pool, entries[INDEX_THEIRS]) < 0)
+		return NULL;
+
+	delta_tree->our_status = diff_status_from_index_entries(entries[INDEX_ANCESTOR], entries[INDEX_OURS]);
+	delta_tree->their_status = diff_status_from_index_entries(entries[INDEX_ANCESTOR], entries[INDEX_THEIRS]);
+
 	return delta_tree;
 }
 
@@ -376,10 +262,10 @@ struct diff_tree_similarity {
 };
 
 static unsigned char diff_tree__similarity_exact(
-	git_diff_tree_entry *a,
-	git_diff_tree_entry *b)
+	git_diff_file *a,
+	git_diff_file *b)
 {
-	if (git_oid_cmp(&a->file.oid, &b->file.oid) == 0)
+	if (git_oid_cmp(&a->oid, &b->oid) == 0)
 		return 100;
 
 	return 0;
@@ -389,7 +275,7 @@ static void diff_tree__mark_similarity(
 	git_diff_tree_list *diff_tree,
 	struct diff_tree_similarity *similarity_ours,
 	struct diff_tree_similarity *similarity_theirs,
-	unsigned char (*similarity_fn)(git_diff_tree_entry *, git_diff_tree_entry *))
+	unsigned char (*similarity_fn)(git_diff_file *, git_diff_file *))
 {
 	size_t i, j;
 	git_diff_tree_delta *delta_source, *delta_target;
@@ -398,17 +284,17 @@ static void diff_tree__mark_similarity(
 	git_vector_foreach(&diff_tree->deltas, i, delta_source) {
 		/* Items can be the source of a rename iff they have an item in the
 		 * ancestor slot and lack an item in the ours or theirs slot. */
-		if (!GIT_DIFF_TREE_FILE_EXISTS(delta_source->ancestor) ||
-			(GIT_DIFF_TREE_FILE_EXISTS(delta_source->ours) &&
-			 GIT_DIFF_TREE_FILE_EXISTS(delta_source->theirs)))
+		if (!GIT_DIFF_TREE_FILE_EXISTS(delta_source->ancestor_file) ||
+			(GIT_DIFF_TREE_FILE_EXISTS(delta_source->our_file) &&
+			 GIT_DIFF_TREE_FILE_EXISTS(delta_source->their_file)))
 			continue;
 
 		git_vector_foreach(&diff_tree->deltas, j, delta_target) {
-			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->ancestor))
+			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->ancestor_file))
 				continue;
 			
-			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->ours)) {
-				similarity = similarity_fn(&delta_source->ancestor, &delta_target->ours);
+			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->our_file)) {
+				similarity = similarity_fn(&delta_source->ancestor_file, &delta_target->our_file);
 	
 				if (similarity > similarity_ours[i].similarity &&
 					similarity > similarity_ours[j].similarity) {
@@ -427,8 +313,8 @@ static void diff_tree__mark_similarity(
 				}
 			}
 			
-			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->theirs)) {
-				similarity = similarity_fn(&delta_source->ancestor, &delta_target->theirs);
+			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->their_file)) {
+				similarity = similarity_fn(&delta_source->ancestor_file, &delta_target->their_file);
 				
 				if (similarity > similarity_theirs[i].similarity &&
 					similarity > similarity_theirs[j].similarity) {
@@ -503,12 +389,12 @@ static void diff_tree__mark_rename_conflict(
 		if (similarity_theirs[ours_source_idx].similarity >= opts->rename_threshold)
 			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
-		else if (GIT_DIFF_TREE_FILE_EXISTS(target->theirs)) {
+		else if (GIT_DIFF_TREE_FILE_EXISTS(target->their_file)) {
 			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
 			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
 		}
 		
-		else if (!GIT_DIFF_TREE_FILE_EXISTS(ours_source->theirs))
+		else if (!GIT_DIFF_TREE_FILE_EXISTS(ours_source->their_file))
 			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED;
 		
 		else if (ours_source->conflict == GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED)
@@ -518,12 +404,12 @@ static void diff_tree__mark_rename_conflict(
 		if (similarity_ours[theirs_source_idx].similarity >= opts->rename_threshold)
 			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
-		else if (GIT_DIFF_TREE_FILE_EXISTS(target->ours)) {
+		else if (GIT_DIFF_TREE_FILE_EXISTS(target->our_file)) {
 			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
 			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
 		}
 		
-		else if (!GIT_DIFF_TREE_FILE_EXISTS(theirs_source->ours))
+		else if (!GIT_DIFF_TREE_FILE_EXISTS(theirs_source->our_file))
 			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED;
 		
 		else if (theirs_source->conflict == GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED)
@@ -532,13 +418,17 @@ static void diff_tree__mark_rename_conflict(
 }
 
 GIT_INLINE(void) diff_tree__coalesce_rename(
-	git_diff_tree_entry *source_entry,
-	git_diff_tree_entry *target_entry)
+	git_diff_file *source_file,
+	git_delta_t *source_status,
+	git_diff_file *target_file,
+	git_delta_t *target_status)
 {
-	memcpy(source_entry, target_entry, sizeof(git_diff_tree_entry));
-	source_entry->status = GIT_DELTA_RENAMED;
+	/* Coalesce the rename target into the rename source. */
+	memcpy(source_file, target_file, sizeof(git_diff_file));
+	*source_status = GIT_DELTA_RENAMED;
 	
-	memset(target_entry, 0x0, sizeof(git_diff_tree_entry));
+	memset(target_file, 0x0, sizeof(git_diff_file));
+	*target_status = GIT_DELTA_UNMODIFIED;
 }
 
 static void diff_tree__coalesce_renames(
@@ -558,13 +448,17 @@ static void diff_tree__coalesce_renames(
 		ours_renamed = 0;
 		theirs_renamed = 0;
 
-		if (GIT_DIFF_TREE_FILE_EXISTS(target->ours) &&
+		if (GIT_DIFF_TREE_FILE_EXISTS(target->our_file) &&
 			similarity_ours[i].similarity >= opts->rename_threshold) {
 			ours_source_idx = similarity_ours[i].other_idx;
 			
 			ours_source = diff_tree->deltas.contents[ours_source_idx];
 			
-			diff_tree__coalesce_rename(&ours_source->ours, &target->ours);
+			diff_tree__coalesce_rename(
+				&ours_source->our_file,
+				&ours_source->our_status,
+				&target->our_file,
+				&target->our_status);
 
 			similarity_ours[ours_source_idx].similarity = 0;
 			similarity_ours[i].similarity = 0;
@@ -573,13 +467,17 @@ static void diff_tree__coalesce_renames(
 		}
 		
 		/* insufficient to determine direction */
-		if (GIT_DIFF_TREE_FILE_EXISTS(target->theirs) &&
+		if (GIT_DIFF_TREE_FILE_EXISTS(target->their_file) &&
 			similarity_theirs[i].similarity >= opts->rename_threshold) {
 			theirs_source_idx = similarity_theirs[i].other_idx;
 			
 			theirs_source = diff_tree->deltas.contents[theirs_source_idx];
-			
-			diff_tree__coalesce_rename(&theirs_source->theirs, &target->theirs);
+
+			diff_tree__coalesce_rename(
+				&theirs_source->their_file,
+				&theirs_source->their_status,
+				&target->their_file,
+				&target->their_status);
 
 			similarity_theirs[theirs_source_idx].similarity = 0;
 			similarity_theirs[i].similarity = 0;
@@ -598,9 +496,9 @@ static int diff_tree__is_empty(const git_vector *deltas, size_t idx)
 {
 	git_diff_tree_delta *delta = deltas->contents[idx];
 	
-	return (!GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor) &&
-		!GIT_DIFF_TREE_FILE_EXISTS(delta->ours) &&
-		!GIT_DIFF_TREE_FILE_EXISTS(delta->theirs));
+	return (!GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor_file) &&
+		!GIT_DIFF_TREE_FILE_EXISTS(delta->our_file) &&
+		!GIT_DIFF_TREE_FILE_EXISTS(delta->their_file));
 }
 
 static int diff_tree__find_renames(
@@ -635,7 +533,109 @@ static int diff_tree__find_renames(
 	return error;
 }
 
-int git_diff_tree(git_diff_tree_list **out,
+GIT_INLINE(int) index_entry_cmp(const git_index_entry *a, const git_index_entry *b)
+{
+	int diff;
+	
+	assert (a && b);
+	
+	/* Ignore tree changes */
+	if (S_ISDIR(a->mode) && S_ISDIR(b->mode))
+		return 0;
+	
+	if ((diff = a->mode - b->mode) == 0)
+		diff = git_oid_cmp(&a->oid, &b->oid);
+	
+	return diff;
+}
+
+static int diff_trees(
+	git_repository *repo,
+	const git_tree *trees[3],
+	git_diff_tree_many_cb callback,
+	void *payload)
+{
+	git_iterator *iterators[3] = {0};
+	git_index_entry const *items[3] = {0}, *best_cur_item, *cur_items[3];
+	git_vector_cmp entry_compare = git_index_entry__cmp;
+	int cur_item_modified;
+	size_t i;
+	int error = 0;
+	
+	assert(repo && trees && callback);
+	
+	/* Set up the iterators */
+	for (i = 0; i < 3; i++) {
+		if ((error = git_iterator_for_tree(&iterators[i], (git_tree *)trees[i])) < 0 ||
+			(error = git_iterator_current(iterators[i], &items[i])) < 0)
+			goto done;
+	}
+	
+	while (true) {
+		memset(cur_items, 0x0, sizeof(git_index_entry *) * 3);
+		best_cur_item = NULL;
+		cur_item_modified = 0;
+		
+		/* Find the next path(s) to consume from each iterator */
+		for (i = 0; i < 3; i++) {
+			if (items[i] == NULL) {
+				cur_item_modified = 1;
+				continue;
+			}
+			
+			if (best_cur_item == NULL) {
+				best_cur_item = items[i];
+				cur_items[i] = items[i];
+			} else {
+				int path_diff = entry_compare(items[i], best_cur_item);
+				
+				if (path_diff < 0) {
+					/*
+					 * Found an item that sorts before our current item, make
+					 * our current item this one.
+					 */
+					memset(cur_items, 0x0, sizeof(git_index_entry *) * 3);
+					cur_item_modified = 1;
+					best_cur_item = items[i];
+					cur_items[i] = items[i];
+				} else if (path_diff > 0) {
+					/* No entry for the current item, this is modified */
+					cur_item_modified = 1;
+				} else if (path_diff == 0) {
+					cur_items[i] = items[i];
+					
+					if (!cur_item_modified)
+						cur_item_modified = index_entry_cmp(best_cur_item, items[i]);
+				}
+			}
+		}
+		
+		if (best_cur_item == NULL)
+			break;
+		
+		if (cur_item_modified) {
+			if (callback((const git_index_entry **)cur_items, payload)) {
+				error = GIT_EUSER;
+				goto done;
+			}
+		}
+		
+		/* Advance each iterator that participated */
+		for (i = 0; i < 3; i++) {
+			if (cur_items[i] != NULL &&
+				(error = git_iterator_advance(iterators[i], &items[i])) < 0)
+				goto done;
+		}
+	}
+	
+done:
+	for (i = 0; i < 3; i++)
+		git_iterator_free(iterators[i]);
+	
+	return error;
+}
+
+int git_diff_trees(git_diff_tree_list **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
@@ -665,7 +665,7 @@ int git_diff_tree(git_diff_tree_list **out,
 	trees[INDEX_OURS] = our_tree;
 	trees[INDEX_THEIRS] = their_tree;
 	
-	if ((error = git_diff_tree_many(repo, trees, 3, opts.flags, diff_tree__create_delta, &threeway_data)) < 0 ||
+	if ((error = diff_trees(repo, trees, diff_tree__create_delta, &threeway_data)) < 0 ||
 		(error = diff_tree__find_renames(diff_tree, &opts)) < 0)
 		git_diff_tree_list_free(diff_tree);
 	

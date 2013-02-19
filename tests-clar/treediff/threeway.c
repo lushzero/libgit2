@@ -54,26 +54,27 @@ struct treediff_cb_data {
 };
 
 static bool treediff_cmp(
-	const git_diff_tree_entry *diff_tree_entry,
+	const git_diff_file *diff_file,
+	const git_delta_t diff_status,
 	const struct treediff_file_data *expected)
 {
 	git_oid oid;
 
 	if (expected->mode == 0) {
-		if (diff_tree_entry->file.path != NULL)
+		if (diff_file->path != NULL)
 			return 0;
 	} else {
-		if (diff_tree_entry->file.path == NULL)
+		if (diff_file->path == NULL)
 			return 0;
 		
 		cl_git_pass(git_oid_fromstr(&oid, expected->oid_str));
 
-		if (strcmp(expected->path, diff_tree_entry->file.path) != 0 ||
-			git_oid_cmp(&oid, &diff_tree_entry->file.oid) != 0)
+		if (strcmp(expected->path, diff_file->path) != 0 ||
+			git_oid_cmp(&oid, &diff_file->oid) != 0)
 			return 0;
 	}
 
-	if (expected->status != diff_tree_entry->status)
+	if (expected->status != diff_status)
 		return 0;
 	
 	return 1;
@@ -84,9 +85,9 @@ static int treediff_cb(const git_diff_tree_delta *delta, void *cb_data)
     struct treediff_cb_data *treediff_cb_data = cb_data;
 	struct treediff_delta_data *delta_data = &treediff_cb_data->delta_data[treediff_cb_data->idx];
     
-	cl_assert(treediff_cmp(&delta->ancestor, &delta_data->ancestor));
-	cl_assert(treediff_cmp(&delta->ours, &delta_data->ours));
-	cl_assert(treediff_cmp(&delta->theirs, &delta_data->theirs));
+	cl_assert(treediff_cmp(&delta->ancestor_file, 0, &delta_data->ancestor));
+	cl_assert(treediff_cmp(&delta->our_file, delta->our_status, &delta_data->ours));
+	cl_assert(treediff_cmp(&delta->their_file, delta->their_status, &delta_data->theirs));
 	
 	cl_assert(delta->conflict == delta_data->conflict);
 	cl_assert(delta->df_conflict == delta_data->df_conflict);
@@ -116,7 +117,7 @@ static git_diff_tree_list *threeway(
     cl_git_pass(git_tree_lookup(&ours_tree, repo, &ours_oid));
     cl_git_pass(git_tree_lookup(&theirs_tree, repo, &theirs_oid));
     
-	cl_git_pass(git_diff_tree(&diff_tree, repo, ancestor_tree, ours_tree, theirs_tree, 0));
+	cl_git_pass(git_diff_trees(&diff_tree, repo, ancestor_tree, ours_tree, theirs_tree, 0));
 
     cl_assert(treediff_delta_data_len == diff_tree->deltas.length);
     

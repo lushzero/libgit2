@@ -104,20 +104,17 @@ typedef enum {
 typedef struct git_diff_tree_list git_diff_tree_list;
 
 /**
- * Description of changes to one file in a tree.
- */
-typedef struct {
-    git_diff_file file;
-    git_delta_t status;
-} git_diff_tree_entry;
-
-/**
  * Description of changes to one file across three trees.
  */
 typedef struct {
-    git_diff_tree_entry ancestor;
-    git_diff_tree_entry ours;
-    git_diff_tree_entry theirs;
+	git_diff_file ancestor_file;
+
+	git_diff_file our_file;
+	git_delta_t our_status;
+
+	git_diff_file their_file;
+	git_delta_t their_status;
+	
 	git_diff_tree_conflict_t conflict;
 	git_diff_tree_df_conflict_t df_conflict;
 } git_diff_tree_delta;
@@ -143,7 +140,7 @@ typedef int (*git_diff_tree_delta_cb)(const git_diff_tree_delta *delta, void *pa
  */
 /**@{*/
 
-GIT_EXTERN(int) git_diff_tree(
+GIT_EXTERN(int) git_diff_trees(
 	git_diff_tree_list **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,

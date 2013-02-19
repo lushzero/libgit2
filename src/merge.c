@@ -336,30 +336,30 @@ GIT_INLINE(int) merge_file_cmp(const git_diff_file *a, const git_diff_file *b)
 
 static int merge_file_index_remove(git_index *index, const git_diff_tree_delta *delta)
 {
-	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->ours))
+	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->our_file))
 		return 0;
 
-	return git_index_remove(index, delta->ours.file.path, 0);
+	return git_index_remove(index, delta->our_file.path, 0);
 }
 
 static int merge_file_apply(git_index *index,
 	const git_diff_tree_delta *delta,
-	const git_diff_tree_entry *entry)
+	const git_diff_file *file)
 {
 	git_index_entry index_entry;
 	int error = 0;
 	
-	assert (index && entry);
+	assert (index && file);
 	
-	if (!GIT_DIFF_TREE_FILE_EXISTS(*entry))
+	if (!GIT_DIFF_TREE_FILE_EXISTS(*file))
 		error = merge_file_index_remove(index, delta);
 	else {
 		memset(&index_entry, 0x0, sizeof(git_index_entry));
 		
-		index_entry.path = (char *)entry->file.path;
-		index_entry.mode = entry->file.mode;
-		index_entry.file_size = entry->file.size;
-		git_oid_cpy(&index_entry.oid, &entry->file.oid);
+		index_entry.path = (char *)file->path;
+		index_entry.mode = file->mode;
+		index_entry.file_size = file->size;
+		git_oid_cpy(&index_entry.oid, &file->oid);
 
 		error = git_index_add(index, &index_entry);
 	}
@@ -372,21 +372,21 @@ static int merge_mark_conflict_resolved(git_index *index, const git_diff_tree_de
 	const char *path;
 	assert(index && delta);
 	
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor))
-		path = delta->ancestor.file.path;
-	else if (GIT_DIFF_TREE_FILE_EXISTS(delta->ours))
-		path = delta->ours.file.path;
-	else if (GIT_DIFF_TREE_FILE_EXISTS(delta->theirs))
-		path = delta->theirs.file.path;
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor_file))
+		path = delta->ancestor_file.path;
+	else if (GIT_DIFF_TREE_FILE_EXISTS(delta->our_file))
+		path = delta->our_file.path;
+	else if (GIT_DIFF_TREE_FILE_EXISTS(delta->their_file))
+		path = delta->their_file.path;
 	else {
 		giterr_set(GITERR_INVALID, "Given delta is not a conflict");
 		return -1;
 	}
 	
 	return git_index_reuc_add(index, path,
-		delta->ancestor.file.mode, &delta->ancestor.file.oid,
-		delta->ours.file.mode, &delta->ours.file.oid,
-		delta->theirs.file.mode, &delta->theirs.file.oid);
+		delta->ancestor_file.mode, &delta->ancestor_file.oid,
+		delta->our_file.mode, &delta->our_file.oid,
+		delta->their_file.mode, &delta->their_file.oid);
 }
 
 static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_delta *delta)
@@ -397,25 +397,25 @@ static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_
 
 	assert(index && delta);
 	
-	if ((ancestor_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor))) {
+	if ((ancestor_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor_file))) {
 		memset(&ancestor_entry, 0x0, sizeof(git_index_entry));
-		ancestor_entry.path = (char *)delta->ancestor.file.path;
-		ancestor_entry.mode = delta->ancestor.file.mode;
-		git_oid_cpy(&ancestor_entry.oid, &delta->ancestor.file.oid);
+		ancestor_entry.path = (char *)delta->ancestor_file.path;
+		ancestor_entry.mode = delta->ancestor_file.mode;
+		git_oid_cpy(&ancestor_entry.oid, &delta->ancestor_file.oid);
 	}
 	
-	if ((ours_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->ours))) {
+	if ((ours_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->our_file))) {
 		memset(&our_entry, 0x0, sizeof(git_index_entry));
-		our_entry.path = (char *)delta->ours.file.path;
-		our_entry.mode = delta->ours.file.mode;
-		git_oid_cpy(&our_entry.oid, &delta->ours.file.oid);
+		our_entry.path = (char *)delta->our_file.path;
+		our_entry.mode = delta->our_file.mode;
+		git_oid_cpy(&our_entry.oid, &delta->our_file.oid);
 	}
 	
-	if ((theirs_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->theirs))) {
+	if ((theirs_exists = GIT_DIFF_TREE_FILE_EXISTS(delta->their_file))) {
 		memset(&their_entry, 0x0, sizeof(git_index_entry));
-		their_entry.path = (char *)delta->theirs.file.path;
-		their_entry.mode = delta->theirs.file.mode;
-		git_oid_cpy(&their_entry.oid, &delta->theirs.file.oid);
+		their_entry.path = (char *)delta->their_file.path;
+		their_entry.mode = delta->their_file.mode;
+		git_oid_cpy(&their_entry.oid, &delta->their_file.oid);
 	}
 
 	if ((error = merge_file_index_remove(index, delta)) >= 0)
@@ -435,7 +435,7 @@ static int merge_conflict_resolve_trivial(
 {
 	int ancestor_empty, ours_empty, theirs_empty;
 	int ours_changed, theirs_changed, ours_theirs_differ;
-	git_diff_tree_entry const *result = NULL;
+	git_diff_file const *result = NULL;
 	int error = 0;
 
 	assert(resolved && repo && index && delta);
@@ -447,14 +447,14 @@ static int merge_conflict_resolve_trivial(
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
 		return 0;
 
-	ancestor_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor);
-	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ours);
-	theirs_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->theirs);
+	ancestor_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor_file);
+	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->our_file);
+	theirs_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->their_file);
 	
-	ours_changed = (delta->ours.status != GIT_DELTA_UNMODIFIED);
-	theirs_changed = (delta->theirs.status != GIT_DELTA_UNMODIFIED);
+	ours_changed = (delta->our_status != GIT_DELTA_UNMODIFIED);
+	theirs_changed = (delta->their_status != GIT_DELTA_UNMODIFIED);
 	ours_theirs_differ = ours_changed && theirs_changed &&
-		merge_file_cmp(&delta->ours.file, &delta->theirs.file);
+		merge_file_cmp(&delta->our_file, &delta->their_file);
 
 	/*
 	 * Note: with only one ancestor, some cases are not distinct:
@@ -481,7 +481,7 @@ static int merge_conflict_resolve_trivial(
 
 	/* 5ALT: ancest:*, head:head, remote:head = result:head */
 	if (ours_changed && !ours_empty && !ours_theirs_differ)
-		result = &delta->ours;
+		result = &delta->our_file;
 	/* 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge */
 	else if (ours_changed && ours_empty && theirs_empty)
 		*resolved = 0;
@@ -493,10 +493,10 @@ static int merge_conflict_resolve_trivial(
 		*resolved = 0;
 	/* 13: ancest:ancest+, head:head, remote:ancest = result:head */
 	else if (ours_changed && !theirs_changed)
-		result = &delta->ours;
+		result = &delta->our_file;
 	/* 14: ancest:ancest+, head:ancest, remote:remote = result:remote */
 	else if (!ours_changed && theirs_changed)
-		result = &delta->theirs;
+		result = &delta->their_file;
 	else
 		*resolved = 0;
 
@@ -516,7 +516,7 @@ static int merge_conflict_resolve_removed(
 {
 	int ours_empty, theirs_empty;
 	int ours_changed, theirs_changed;
-	git_diff_tree_entry const *result = NULL;
+	git_diff_file const *result = NULL;
 	int error = 0;
 
 	assert(resolved && repo && index && delta);
@@ -528,23 +528,23 @@ static int merge_conflict_resolve_removed(
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
 		return 0;
 
-	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ours);
-	theirs_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->theirs);
+	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->our_file);
+	theirs_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->their_file);
 
-	ours_changed = (delta->ours.status != GIT_DELTA_UNMODIFIED);
-	theirs_changed = (delta->theirs.status != GIT_DELTA_UNMODIFIED);
+	ours_changed = (delta->our_status != GIT_DELTA_UNMODIFIED);
+	theirs_changed = (delta->their_status != GIT_DELTA_UNMODIFIED);
 
 	/* Handle some cases that are not "trivial" but are, well, trivial. */
 
 	/* Removed in both */
 	if (ours_changed && ours_empty && theirs_empty)
-		result = &delta->ours;
+		result = &delta->our_file;
 	/* Removed in ours */
 	else if (ours_empty && !theirs_changed)
-		result = &delta->ours;
+		result = &delta->our_file;
 	/* Removed in theirs */
 	else if (!ours_changed && theirs_empty)
-		result = &delta->theirs;
+		result = &delta->their_file;
 
 	if (result != NULL &&
 		(error = merge_file_apply(index, delta, result)) >= 0 &&
@@ -582,8 +582,8 @@ static int merge_conflict_resolve_automerge(
 		return 0;
 
 	/* Reject link/file conflicts. */
-	if ((S_ISLNK(delta->ancestor.file.mode) ^ S_ISLNK(delta->ours.file.mode)) ||
-		(S_ISLNK(delta->ancestor.file.mode) ^ S_ISLNK(delta->theirs.file.mode)))
+	if ((S_ISLNK(delta->ancestor_file.mode) ^ S_ISLNK(delta->our_file.mode)) ||
+		(S_ISLNK(delta->ancestor_file.mode) ^ S_ISLNK(delta->their_file.mode)))
 		return 0;
 
 	/* TODO: reject children of d/f conflicts */
@@ -591,9 +591,9 @@ static int merge_conflict_resolve_automerge(
 	/* TODO: reject name conflicts */
 
 	if ((error = git_repository_odb(&odb, repo)) < 0 ||
-		(error = git_merge_file_input_from_diff_tree_entry(&ancestor, repo, &delta->ancestor)) < 0 ||
-		(error = git_merge_file_input_from_diff_tree_entry(&ours, repo, &delta->ours)) < 0 ||
-		(error = git_merge_file_input_from_diff_tree_entry(&theirs, repo, &delta->theirs)) < 0 ||
+		(error = git_merge_file_input_from_diff_file(&ancestor, repo, &delta->ancestor_file)) < 0 ||
+		(error = git_merge_file_input_from_diff_file(&ours, repo, &delta->our_file)) < 0 ||
+		(error = git_merge_file_input_from_diff_file(&theirs, repo, &delta->their_file)) < 0 ||
 		(error = git_merge_files(&result, &ancestor, &ours, &theirs, automerge_flags)) < 0 ||
 		!result.automergeable ||
 		(error = git_odb_write(&automerge_oid, odb, result.data, result.len, GIT_OBJ_BLOB)) < 0)
@@ -667,7 +667,7 @@ int merge_trees(
 	size_t i;
 	int error = 0;
 
-	if ((error = git_diff_tree(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, &opts->diff_opts)) < 0)
+	if ((error = git_diff_trees(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, &opts->diff_opts)) < 0)
 		return error;
 	
 	git_vector_foreach(&result->diff_tree->deltas, i, delta) {
