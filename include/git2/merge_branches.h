@@ -11,7 +11,6 @@
 #include "git2/common.h"
 #include "git2/types.h"
 #include "git2/oid.h"
-#include "git2/diff_tree.h"
 #include "git2/checkout.h"
 
 /**
@@ -86,12 +85,15 @@ GIT_EXTERN(int) git_merge_result_is_fastforward(git_merge_result *merge_result);
  */
 GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_result);
 
-GIT_EXTERN(int) git_merge_result_delta_foreach(git_merge_result *merge_result,
-	git_diff_tree_delta_cb delta_cb,
+/** Callback for conflict iterator */
+typedef int (*git_merge_conflict_foreach_cb)(
+	const git_diff_file *ancestor,
+	const git_diff_file *ours,
+	const git_diff_file *theirs,
 	void *payload);
 
 GIT_EXTERN(int) git_merge_result_conflict_foreach(git_merge_result *merge_result,
-	git_diff_tree_delta_cb conflict_cb,
+	git_merge_conflict_foreach_cb conflict_cb,
 	void *payload);
 
 GIT_EXTERN(int) git_merge_head_from_ref(git_merge_head **out, git_repository *repo, git_reference *ref);

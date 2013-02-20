@@ -23,7 +23,6 @@
 #include "tree.h"
 #include "merge_file.h"
 
-#include "git2/diff_tree.h"
 #include "git2/types.h"
 #include "git2/repository.h"
 #include "git2/object.h"
@@ -852,28 +851,8 @@ int git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_resul
 	return 0;
 }
 
-int git_merge_result_delta_foreach(git_merge_result *merge_result,
-	git_diff_tree_delta_cb delta_cb,
-	void *payload)
-{
-	git_diff_tree_delta *delta;
-	size_t i;
-	int error = 0;
-	
-	assert(merge_result && delta_cb);
-	
-	git_vector_foreach(&merge_result->conflicts, i, delta) {
-		if (delta_cb(delta, payload) != 0) {
-			error = GIT_EUSER;
-			break;
-		}
-	}
-	
-	return error;
-}
-
 int git_merge_result_conflict_foreach(git_merge_result *merge_result,
-	git_diff_tree_delta_cb conflict_cb,
+	git_merge_conflict_foreach_cb conflict_cb,
 	void *payload)
 {
 	git_diff_tree_delta *delta;
@@ -883,7 +862,7 @@ int git_merge_result_conflict_foreach(git_merge_result *merge_result,
 	assert(merge_result && conflict_cb);
 	
 	git_vector_foreach(&merge_result->conflicts, i, delta) {
-		if (conflict_cb(delta, payload) != 0) {
+		if (conflict_cb(&delta->ancestor_file, &delta->our_file, &delta->their_file, payload) != 0) {
 			error = GIT_EUSER;
 			break;
 		}

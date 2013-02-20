@@ -11,7 +11,6 @@
 #include "xdiff/xdiff.h"
 
 #include "git2/merge.h"
-#include "git2/diff_tree.h"
 
 typedef struct {
 	const char *label;

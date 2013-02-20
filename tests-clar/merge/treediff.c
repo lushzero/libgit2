@@ -1,5 +1,4 @@
 #include "clar_libgit2.h"
-#include "git2/diff_tree.h"
 #include "git2/tree.h"
 #include "diff_tree.h"
 
@@ -93,6 +92,29 @@ static int treediff_cb(const git_diff_tree_delta *delta, void *cb_data)
     treediff_cb_data->idx++;
     
     return 0;
+}
+
+typedef int (*git_diff_tree_delta_cb)(const git_diff_tree_delta *delta, void *payload);
+
+static int git_diff_tree_foreach(
+	git_diff_tree_list *diff_tree,
+	git_diff_tree_delta_cb callback,
+	void *payload)
+{
+	git_diff_tree_delta *delta;
+	size_t i;
+	int error = 0;
+
+	assert (diff_tree && callback);
+
+	git_vector_foreach(&diff_tree->deltas, i, delta) {
+		if (callback(delta, payload) != 0) {
+			error = GIT_EUSER;
+			break;
+		}
+	}
+
+	return error;
 }
 
 static git_diff_tree_list *threeway(

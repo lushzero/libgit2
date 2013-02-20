@@ -12,7 +12,6 @@
 #include "git2/repository.h"
 #include "git2/object.h"
 #include "git2/index.h"
-#include "git2/diff_tree.h"
 
 #include "xdiff/xdiff.h"
 

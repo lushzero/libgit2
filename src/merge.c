@@ -23,7 +23,6 @@
 #include "tree.h"
 #include "merge_file.h"
 
-#include "git2/diff_tree.h"
 #include "git2/types.h"
 #include "git2/repository.h"
 #include "git2/object.h"

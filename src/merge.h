@@ -12,7 +12,6 @@
 #include "diff_tree.h"
 
 #include "git2/types.h"
-#include "git2/diff_tree.h"
 
 #define GIT_MERGE_MSG_FILE		"MERGE_MSG"
 #define GIT_MERGE_MODE_FILE		"MERGE_MODE"

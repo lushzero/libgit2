@@ -10,7 +10,6 @@
 #include "diff.h"
 #include "diff_tree.h"
 
-#include "git2/diff_tree.h"
 #include "git2/oid.h"
 #include "git2/config.h"
 
@@ -510,8 +509,7 @@ GIT_INLINE(int) index_entry_cmp(const git_index_entry *a, const git_index_entry 
 static int diff_trees(
 	git_repository *repo,
 	const git_tree *trees[3],
-	git_diff_tree_many_cb callback,
-	void *payload)
+	struct diff_tree_threeway_data *threeway_data)
 {
 	git_iterator *iterators[3] = {0};
 	git_index_entry const *items[3] = {0}, *best_cur_item, *cur_items[3];
@@ -520,7 +518,7 @@ static int diff_trees(
 	size_t i;
 	int error = 0;
 	
-	assert(repo && trees && callback);
+	assert(repo && trees);
 	
 	/* Set up the iterators */
 	for (i = 0; i < 3; i++) {
@@ -572,7 +570,7 @@ static int diff_trees(
 			break;
 		
 		if (cur_item_modified) {
-			if (callback((const git_index_entry **)cur_items, payload)) {
+			if (diff_tree__create_delta(cur_items, threeway_data)) {
 				error = GIT_EUSER;
 				goto done;
 			}
@@ -619,34 +617,13 @@ int git_diff_trees(git_diff_tree_list **out,
 	trees[INDEX_OURS] = our_tree;
 	trees[INDEX_THEIRS] = their_tree;
 	
-	if ((error = diff_trees(repo, trees, diff_tree__create_delta, &threeway_data)) < 0 ||
+	if ((error = diff_trees(repo, trees, &threeway_data)) < 0 ||
 		(error = diff_tree__find_renames(diff_tree, opts)) < 0)
 		git_diff_tree_list_free(diff_tree);
 	
 	if (error >= 0)
 		*out = diff_tree;
 
-	return error;
-}
-
-int git_diff_tree_foreach(
-	git_diff_tree_list *diff_tree,
-	git_diff_tree_delta_cb callback,
-	void *payload)
-{
-	git_diff_tree_delta *delta;
-	size_t i;
-	int error = 0;
-	
-	assert (diff_tree && callback);
-	
-	git_vector_foreach(&diff_tree->deltas, i, delta) {
-		if (callback(delta, payload) != 0) {
-			error = GIT_EUSER;
-			break;
-		}
-	}
-	
 	return error;
 }
 
