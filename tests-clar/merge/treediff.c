@@ -21,12 +21,12 @@ static git_repository *repo;
 #define TREE_OID_RENAME_CONFLICT_OURS		"c4efe31e9decccc8b2b4d3df9aac2cdfe2995618"
 #define TREE_OID_RENAME_CONFLICT_THEIRS		"9e7f4359c469f309b6057febf4c6e80742cbed5b"
 
-void test_treediff_threeway__initialize(void)
+void test_merge_treediff__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
 }
 
-void test_treediff_threeway__cleanup(void)
+void test_merge_treediff__cleanup(void)
 {
 	cl_git_sandbox_cleanup();
 }
@@ -43,7 +43,6 @@ struct treediff_delta_data {
 	struct treediff_file_data ours;
 	struct treediff_file_data theirs;
 	git_merge_conflict_t conflict;
-	git_diff_tree_df_conflict_t df_conflict;
 };
 
 struct treediff_cb_data {
@@ -90,7 +89,6 @@ static int treediff_cb(const git_diff_tree_delta *delta, void *cb_data)
 	cl_assert(treediff_cmp(&delta->their_file, delta->their_status, &delta_data->theirs));
 	
 	cl_assert(delta->conflict == delta_data->conflict);
-	cl_assert(delta->df_conflict == delta_data->df_conflict);
 
     treediff_cb_data->idx++;
     
@@ -137,7 +135,7 @@ static git_diff_tree_list *threeway(
     return diff_tree;
 }
 
-void test_treediff_threeway__simple(void)
+void test_merge_treediff__simple(void)
 {
     git_diff_tree_list *diff_tree;
     
@@ -197,7 +195,7 @@ void test_treediff_threeway__simple(void)
     git_diff_tree_list_free(diff_tree);
 }
 
-void test_treediff_threeway__df_conflicts(void)
+void test_merge_treediff__df_conflicts(void)
 {
 	git_diff_tree_list *diff_tree;
 	
@@ -234,16 +232,14 @@ void test_treediff_threeway__df_conflicts(void)
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "dir-7", "a031a28ae70e33a641ce4b8a8f6317f1ab79dee4", GIT_DELTA_ADDED },
-			GIT_MERGE_CONFLICT_NONE,
-			GIT_DIFF_TREE_DF_DIRECTORY_FILE,
+			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 
 		{
 			{ 0100644, "dir-7/file.txt", "5012fd565b1393bdfda1805d4ec38ce6619e1fd1", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "dir-7/file.txt", "a5563304ddf6caba25cb50323a2ea6f7dbfcadca", GIT_DELTA_MODIFIED },
 			{ 0, "", "", GIT_DELTA_DELETED },
-			GIT_MERGE_CONFLICT_MODIFIED_DELETED,
-			GIT_DIFF_TREE_DF_CHILD,
+			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 		
 		{
@@ -264,16 +260,14 @@ void test_treediff_threeway__df_conflicts(void)
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "dir-9", "3ef4d30382ca33fdeba9fda895a99e0891ba37aa", GIT_DELTA_ADDED },
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			GIT_MERGE_CONFLICT_NONE,
-			GIT_DIFF_TREE_DF_DIRECTORY_FILE,
+			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 
 		{
 			{ 0100644, "dir-9/file.txt", "fc4c636d6515e9e261f9260dbcf3cc6eca97ea08", GIT_DELTA_UNMODIFIED },
 			{ 0, "", "", GIT_DELTA_DELETED },
 			{ 0100644, "dir-9/file.txt", "76ab0e2868197ec158ddd6c78d8a0d2fd73d38f9", GIT_DELTA_MODIFIED },
-			GIT_MERGE_CONFLICT_MODIFIED_DELETED,
-			GIT_DIFF_TREE_DF_CHILD,
+			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 
 		{
@@ -294,16 +288,14 @@ void test_treediff_threeway__df_conflicts(void)
 			{ 0100644, "file-2", "a39a620dae5bc8b4e771cd4d251b7d080401a21e", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "file-2", "d963979c237d08b6ba39062ee7bf64c7d34a27f8", GIT_DELTA_MODIFIED },
 			{ 0, "", "", GIT_DELTA_DELETED },
-			GIT_MERGE_CONFLICT_MODIFIED_DELETED,
-			GIT_DIFF_TREE_DF_DIRECTORY_FILE,
+			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 		
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "file-2/new", "5c341ead2ba6f2af98ce5ec3fe84f6b6d2899c0d", GIT_DELTA_ADDED },
-			GIT_MERGE_CONFLICT_NONE,
-			GIT_DIFF_TREE_DF_CHILD,
+			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 
 		{
@@ -324,16 +316,14 @@ void test_treediff_threeway__df_conflicts(void)
 			{ 0100644, "file-4", "bacac9b3493509aa15e1730e1545fc0919d1dae0", GIT_DELTA_UNMODIFIED },
 			{ 0, "", "", GIT_DELTA_DELETED },
 			{ 0100644, "file-4", "7663fce0130db092936b137cabd693ec234eb060", GIT_DELTA_MODIFIED },
-			GIT_MERGE_CONFLICT_MODIFIED_DELETED,
-			GIT_DIFF_TREE_DF_DIRECTORY_FILE,
+			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "file-4/new", "e49f917b448d1340b31d76e54ba388268fd4c922", GIT_DELTA_ADDED },
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			GIT_MERGE_CONFLICT_NONE,
-			GIT_DIFF_TREE_DF_CHILD,
+			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 
 		{
@@ -356,7 +346,7 @@ void test_treediff_threeway__df_conflicts(void)
 	git_diff_tree_list_free(diff_tree);
 }
 
-void test_treediff_threeway__strict_renames(void)
+void test_merge_treediff__strict_renames(void)
 {
     git_diff_tree_list *diff_tree;
     
@@ -423,7 +413,7 @@ void test_treediff_threeway__strict_renames(void)
     git_diff_tree_list_free(diff_tree);
 }
 
-void test_treediff_threeway__rename_conflicts(void)
+void test_merge_treediff__rename_conflicts(void)
 {
     git_diff_tree_list *diff_tree;
     
@@ -564,7 +554,7 @@ void test_treediff_threeway__rename_conflicts(void)
 /*
  * TODO: enable this when diff computation is implemented.
  *
-void test_treediff_threeway__best_renames(void)
+void test_merge_treediff__best_renames(void)
 {
     git_diff_tree_list *diff_tree;
     

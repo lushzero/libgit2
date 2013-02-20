@@ -25,12 +25,6 @@
 GIT_BEGIN_DECL
 
 
-typedef enum {
-	GIT_DIFF_TREE_DF_NONE = 0,
-	GIT_DIFF_TREE_DF_DIRECTORY_FILE = (1 << 0),
-	GIT_DIFF_TREE_DF_CHILD = (1 << 1),
-} git_diff_tree_df_conflict_t;
-
 /**
  * The git_diff_tree_list list object that contains all individual
  * object deltas.
@@ -50,7 +44,6 @@ typedef struct {
 	git_delta_t their_status;
 	
 	git_merge_conflict_t conflict;
-	git_diff_tree_df_conflict_t df_conflict;
 } git_diff_tree_delta;
 
 /** Callback for the tree difference function. */

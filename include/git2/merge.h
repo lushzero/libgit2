@@ -102,6 +102,13 @@ typedef enum {
 	/* Occurs when two files are renamed to the same name in the ours and
 	 * theirs branches.  Eg, A->C and B->C. */
 	GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1 = (1 << 9),
+	
+	/* Occurs when an item at a path in one branch is a directory, and an
+	 * item at the same path in a different branch is a file. */
+	GIT_MERGE_CONFLICT_DIRECTORY_FILE = (1 << 10),
+
+	/* The child of a folder that is in a directory/file conflict. */
+	GIT_MERGE_CONFLICT_DF_CHILD = (1 << 11),
 } git_merge_conflict_t;
 
 

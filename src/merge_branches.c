@@ -322,7 +322,7 @@ static int merge_conflict_write_diff3(
 		return 0;
 	
 	/* Reject D/F conflicts */
-	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
+	if (delta->conflict == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
 		return 0;
 
 	/* TODO: reject name conflicts? */
@@ -413,7 +413,7 @@ static int merge_conflict_write_side(
 	 * Mutate the name if we're D/F conflicted or if we didn't write a diff3
 	 * file.
 	 */
-	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE ||
+	if (delta->conflict == GIT_MERGE_CONFLICT_DIRECTORY_FILE ||
 		(flags & GIT_MERGE_CONFLICT_NO_DIFF3)) {
 		git_buf_puts(&path_with_branch, file->path);
 		git_buf_putc(&path_with_branch, '~');

@@ -94,16 +94,16 @@ GIT_INLINE(int) diff_tree__compute_df_conflict(
 	/* Determine if this is a D/F conflict or the child of one */
 	if (threeway_data->df_path &&
 		path_is_prefixed(threeway_data->df_path, cur_path))
-		delta_tree->df_conflict = GIT_DIFF_TREE_DF_CHILD;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
 	else if(threeway_data->df_path)
 		threeway_data->df_path = NULL;
 	else if (threeway_data->prev_path &&
 		diff_tree__delta_added_or_modified(threeway_data->prev_delta_tree) &&
 		diff_tree__delta_added_or_modified(delta_tree) &&
 		path_is_prefixed(threeway_data->prev_path, cur_path)) {
-		delta_tree->df_conflict = GIT_DIFF_TREE_DF_CHILD;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
 		
-		threeway_data->prev_delta_tree->df_conflict = GIT_DIFF_TREE_DF_DIRECTORY_FILE;
+		threeway_data->prev_delta_tree->conflict = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
 		threeway_data->df_path = threeway_data->prev_path;
 	}
 
