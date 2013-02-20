@@ -125,6 +125,7 @@ void test_merge_fastforward__uptodate(void)
 	cl_assert(git_merge_result_is_uptodate(result));
 
 	git_merge_head_free(their_heads[0]);
+	git_reference_free(their_ref);
 	git_merge_result_free(result);
 }
 

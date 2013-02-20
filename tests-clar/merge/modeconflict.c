@@ -60,4 +60,5 @@ void test_merge_modeconflict__df_conflict(void)
 
 	cl_assert(merge_test_index(repo_index, merge_index_entries, 20));
 
+	git_merge_result_free(result);
 }
