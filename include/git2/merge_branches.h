@@ -7,6 +7,7 @@
 #ifndef INCLUDE_git_merge_branches_h__
 #define INCLUDE_git_merge_branches_h__
 
+#include "git2/merge.h"
 #include "git2/common.h"
 #include "git2/types.h"
 #include "git2/oid.h"
@@ -27,10 +28,10 @@ GIT_BEGIN_DECL
  *
  * GIT_MERGE_NO_FASTFORWARD - Do not fast-forward.
  */
-enum {
-	GIT_MERGE_NO_FASTFORWARD      = (1 << 0),
-	GIT_MERGE_FASTFORWARD_ONLY    = (1 << 1),
-};
+typedef enum {
+	GIT_MERGE_NO_FASTFORWARD      = 1,
+	GIT_MERGE_FASTFORWARD_ONLY    = 2,
+} git_merge_flags_t;
 
 enum {
 	GIT_MERGE_CONFLICT_NO_DIFF3 = (1 << 0),
@@ -38,14 +39,17 @@ enum {
 };
 
 typedef struct {
-	unsigned int merge_flags;
-	git_merge_trees_opts merge_trees_opts;
+	unsigned int version;
+
+	git_merge_flags_t merge_flags;
+	git_merge_tree_opts merge_tree_opts;
 	unsigned int conflict_flags;
 	
 	git_checkout_opts checkout_opts;
 } git_merge_opts;
 
-#define GIT_MERGE_OPTS_INIT {0, GIT_MERGE_TREES_OPTS_INIT, 0, GIT_CHECKOUT_OPTS_INIT}
+#define GIT_MERGE_OPTS_VERSION 1
+#define GIT_MERGE_OPTS_INIT {GIT_MERGE_OPTS_VERSION, 0, GIT_MERGE_TREE_OPTS_INIT, 0, GIT_CHECKOUT_OPTS_INIT}
 
 /**
  * Merges the given commits into HEAD, producing a new commit.

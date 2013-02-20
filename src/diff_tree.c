@@ -118,21 +118,21 @@ GIT_INLINE(int) diff_tree__compute_conflict(
 {
 	if (delta_tree->our_status == GIT_DELTA_ADDED &&
 		delta_tree->their_status == GIT_DELTA_ADDED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_ADDED;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_BOTH_ADDED;
 	else if (delta_tree->our_status == GIT_DELTA_MODIFIED &&
 		delta_tree->their_status == GIT_DELTA_MODIFIED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_MODIFIED;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_BOTH_MODIFIED;
 	else if (delta_tree->our_status == GIT_DELTA_DELETED &&
 		delta_tree->their_status == GIT_DELTA_DELETED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_DELETED;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_BOTH_DELETED;
 	else if (delta_tree->our_status == GIT_DELTA_MODIFIED &&
 		delta_tree->their_status == GIT_DELTA_DELETED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
 	else if (delta_tree->our_status == GIT_DELTA_DELETED &&
 		delta_tree->their_status == GIT_DELTA_MODIFIED)
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
 	else
-		delta_tree->conflict = GIT_DIFF_TREE_CONFLICT_NONE;
+		delta_tree->conflict = GIT_MERGE_CONFLICT_NONE;
 
 	return 0;
 }
@@ -211,48 +211,6 @@ static int diff_tree__create_delta(const git_index_entry **tree_items, void *pay
 		git_vector_insert(&threeway_data->diff_tree->deltas, delta_tree) < 0)
 		return -1;
 	
-	return 0;
-}
-
-static int diff_tree__normalize_opts(
-	git_repository *repo,
-	git_diff_tree_options *opts,
-	const git_diff_tree_options *given)
-{
-	git_config *cfg = NULL;
-	int error = 0;
-
-	assert(repo && opts);
-
-	if ((error = git_repository_config__weakptr(&cfg, repo)) < 0)
-		return error;
-
-	if (given != NULL)
-		memcpy(opts, given, sizeof(git_diff_tree_options));
-	else {
-		git_diff_tree_options init = GIT_DIFF_TREE_OPTIONS_INIT;
-		memcpy(opts, &init, sizeof(init));
-
-		opts->flags = GIT_DIFF_TREE_FIND_RENAMES;
-		opts->rename_threshold = GIT_DIFF_TREE_RENAME_THRESHOLD;
-	}
-
-	if (!opts->target_limit) {
-		int32_t limit = 0;
-
-		opts->target_limit = GIT_DIFF_TREE_TARGET_LIMIT;
-
-		if (git_config_get_int32(&limit, cfg, "merge.renameLimit") < 0) {
-			giterr_clear();
-
-			if (git_config_get_int32(&limit, cfg, "diff.renameLimit") < 0)
-				giterr_clear();
-		}
-
-		if (limit > 0)
-			opts->target_limit = limit;
-	}
-
 	return 0;
 }
 
@@ -364,7 +322,7 @@ static void diff_tree__mark_rename_conflict(
 	bool theirs_renamed,
 	size_t theirs_source_idx,
 	git_diff_tree_delta *target,
-	git_diff_tree_options *opts)
+	const git_merge_tree_opts *opts)
 {
 	git_diff_tree_delta *ours_source = NULL;
 	git_diff_tree_delta *theirs_source = NULL;
@@ -379,41 +337,41 @@ static void diff_tree__mark_rename_conflict(
 	if (ours_renamed && theirs_renamed) {
 		/* Both renamed to the same target name. */
 		if (ours_source_idx == theirs_source_idx)
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED;
+			ours_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED;
 		else {
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_2_TO_1;
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_2_TO_1;
+			ours_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1;
+			theirs_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1;
 		}
 	} else if (ours_renamed) {
 		/* If our source was also renamed in theirs, this is a 1->2 */
 		if (similarity_theirs[ours_source_idx].similarity >= opts->rename_threshold)
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2;
+			ours_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
 		else if (GIT_DIFF_TREE_FILE_EXISTS(target->their_file)) {
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
-			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
+			ours_source->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
+			target->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
 		}
 		
 		else if (!GIT_DIFF_TREE_FILE_EXISTS(ours_source->their_file))
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED;
+			ours_source->conflict = GIT_MERGE_CONFLICT_RENAMED_DELETED;
 		
-		else if (ours_source->conflict == GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED)
-			ours_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_MODIFIED;
+		else if (ours_source->conflict == GIT_MERGE_CONFLICT_MODIFIED_DELETED)
+			ours_source->conflict = GIT_MERGE_CONFLICT_RENAMED_MODIFIED;
 	} else if (theirs_renamed) {
 		/* If their source was also renamed in ours, this is a 1->2 */
 		if (similarity_ours[theirs_source_idx].similarity >= opts->rename_threshold)
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_BOTH_RENAMED_1_TO_2;
+			theirs_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
 		else if (GIT_DIFF_TREE_FILE_EXISTS(target->our_file)) {
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
-			target->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_ADDED;
+			theirs_source->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
+			target->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
 		}
 		
 		else if (!GIT_DIFF_TREE_FILE_EXISTS(theirs_source->our_file))
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_DELETED;
+			theirs_source->conflict = GIT_MERGE_CONFLICT_RENAMED_DELETED;
 		
-		else if (theirs_source->conflict == GIT_DIFF_TREE_CONFLICT_MODIFIED_DELETED)
-			theirs_source->conflict = GIT_DIFF_TREE_CONFLICT_RENAMED_MODIFIED;
+		else if (theirs_source->conflict == GIT_MERGE_CONFLICT_MODIFIED_DELETED)
+			theirs_source->conflict = GIT_MERGE_CONFLICT_RENAMED_MODIFIED;
 	}
 }
 
@@ -435,7 +393,7 @@ static void diff_tree__coalesce_renames(
 	git_diff_tree_list *diff_tree,
 	struct diff_tree_similarity *similarity_ours,
 	struct diff_tree_similarity *similarity_theirs,
-	git_diff_tree_options *opts)
+	const git_merge_tree_opts *opts)
 {
 	size_t i;
 	bool ours_renamed = 0, theirs_renamed = 0;
@@ -503,14 +461,14 @@ static int diff_tree__is_empty(const git_vector *deltas, size_t idx)
 
 static int diff_tree__find_renames(
 	git_diff_tree_list *diff_tree,
-	git_diff_tree_options *opts)
+	const git_merge_tree_opts *opts)
 {
 	struct diff_tree_similarity *similarity_ours, *similarity_theirs;
 	int error = 0;
 
 	assert(diff_tree && opts);
 
-	if (!opts || (opts->flags & GIT_DIFF_TREE_FIND_RENAMES) == 0)
+	if (!opts || (opts->flags & GIT_MERGE_TREE_FIND_RENAMES) == 0)
 		return 0;
 
 	similarity_ours = git__calloc(diff_tree->deltas.length, sizeof(struct diff_tree_similarity));
@@ -640,20 +598,16 @@ int git_diff_trees(git_diff_tree_list **out,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
-	const git_diff_tree_options *given_opts)
+	const git_merge_tree_opts *opts)
 {
 	struct diff_tree_threeway_data threeway_data;
 	git_diff_tree_list *diff_tree;
-	git_diff_tree_options opts;
 	git_tree const *trees[3];
 	int error = 0;
 	
-	assert(out && repo && ancestor_tree && our_tree && their_tree);
+	assert(out && repo && ancestor_tree && our_tree && their_tree && opts);
 	
 	*out = NULL;
-
-	if ((error = diff_tree__normalize_opts(repo, &opts, given_opts)) < 0)
-		return error;
 
 	diff_tree = diff_tree__list_alloc(repo);
 	GITERR_CHECK_ALLOC(diff_tree);
@@ -666,7 +620,7 @@ int git_diff_trees(git_diff_tree_list **out,
 	trees[INDEX_THEIRS] = their_tree;
 	
 	if ((error = diff_trees(repo, trees, diff_tree__create_delta, &threeway_data)) < 0 ||
-		(error = diff_tree__find_renames(diff_tree, &opts)) < 0)
+		(error = diff_tree__find_renames(diff_tree, opts)) < 0)
 		git_diff_tree_list_free(diff_tree);
 	
 	if (error >= 0)

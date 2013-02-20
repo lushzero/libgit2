@@ -561,11 +561,13 @@ GIT_INLINE(bool) merge_check_fastforward(
 	return false;
 }
 
-int merge_trees_normalize_opts(
-	git_merge_trees_opts *opts,
-	const git_merge_trees_opts *given);
+int merge_tree_normalize_opts(
+	git_repository *repo,
+	git_merge_tree_opts *opts,
+	const git_merge_tree_opts *given);
 
 static int merge_normalize_opts(
+	git_repository *repo,
 	git_merge_opts *opts,
 	const git_merge_opts *given)
 {
@@ -581,14 +583,14 @@ static int merge_normalize_opts(
 		if (!opts->checkout_opts.checkout_strategy)
 			opts->checkout_opts.checkout_strategy = default_checkout_strategy;
 
-		error = merge_trees_normalize_opts(&opts->merge_trees_opts, &given->merge_trees_opts);
+		error = merge_tree_normalize_opts(repo, &opts->merge_tree_opts, &given->merge_tree_opts);
 	} else {
 		git_merge_opts default_opts = GIT_MERGE_OPTS_INIT;
 		memcpy(opts, &default_opts, sizeof(git_merge_opts));
 		
 		opts->checkout_opts.checkout_strategy = default_checkout_strategy;
 
-		error = merge_trees_normalize_opts(&opts->merge_trees_opts, NULL);
+		error = merge_tree_normalize_opts(repo, &opts->merge_tree_opts, NULL);
 	}
 
 	return error;
@@ -668,7 +670,7 @@ int merge_trees(
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
-	const git_merge_trees_opts *opts);
+	const git_merge_tree_opts *opts);
 
 static int merge_trees_octopus(
 	git_merge_result *result,
@@ -678,7 +680,7 @@ static int merge_trees_octopus(
 	const git_tree *our_tree,
 	const git_tree **their_trees,
 	size_t their_trees_len,
-	const git_merge_trees_opts *opts)
+	const git_merge_tree_opts *opts)
 {
 	GIT_UNUSED(result);
 	GIT_UNUSED(repo);
@@ -720,7 +722,7 @@ int git_merge(
 	their_trees = git__calloc(their_heads_len, sizeof(git_tree *));
 	GITERR_CHECK_ALLOC(their_trees);
 	
-	if (merge_normalize_opts(&opts, given_opts) < 0)
+	if (merge_normalize_opts(repo, &opts, given_opts) < 0)
 		goto on_error;
 	
 	if ((error = git_repository__ensure_not_bare(repo, "merge")) < 0)
@@ -777,10 +779,10 @@ int git_merge(
 	/* TODO: recursive */
 	if (their_heads_len == 1)
 		error = merge_trees(result, repo, index_new, ancestor_tree, our_tree,
-			their_trees[0], &opts.merge_trees_opts);
+			their_trees[0], &opts.merge_tree_opts);
 	else
 		error = merge_trees_octopus(result, repo, index_new, ancestor_tree, our_tree,
-			(const git_tree **)their_trees, their_heads_len, &opts.merge_trees_opts);
+			(const git_tree **)their_trees, their_heads_len, &opts.merge_tree_opts);
 	
 	if (error < 0)
 		goto on_error;

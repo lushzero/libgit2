@@ -109,7 +109,7 @@ void test_merge_simple__cleanup(void)
 	cl_git_sandbox_cleanup();
 }
 
-static git_merge_result *merge_simple_branch(int resolve_flags, int conflict_flags)
+static git_merge_result *merge_simple_branch(int automerge_flags, int conflict_flags)
 {
 	git_oid their_oids[1];
     git_merge_head *their_heads[1];
@@ -119,7 +119,7 @@ static git_merge_result *merge_simple_branch(int resolve_flags, int conflict_fla
 	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_SIMPLE_OID));
 	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
     
-	opts.merge_trees_opts.resolve_flags = resolve_flags;
+	opts.merge_tree_opts.automerge_flags = automerge_flags;
 	opts.conflict_flags = conflict_flags;
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
 
@@ -395,7 +395,7 @@ void test_merge_simple__unrelated(void)
 	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_UNRELATED_PARENT));
 	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
     
-	opts.merge_trees_opts.resolve_flags = 0;
+	opts.merge_tree_opts.automerge_flags = 0;
 	opts.conflict_flags = 0;
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
 
@@ -428,7 +428,7 @@ void test_merge_simple__unrelated_with_conflicts(void)
 	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_UNRELATED_OID));
 	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
     
-	opts.merge_trees_opts.resolve_flags = 0;
+	opts.merge_tree_opts.automerge_flags = 0;
 	opts.conflict_flags = 0;
 	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
 	

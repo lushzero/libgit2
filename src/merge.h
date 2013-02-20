@@ -19,6 +19,9 @@
 
 #define MERGE_CONFIG_FILE_MODE	0666
 
+#define GIT_MERGE_TREE_RENAME_THRESHOLD	50
+#define GIT_MERGE_TREE_TARGET_LIMIT		1000
+
 /** Internal structure for merge inputs */
 struct git_merge_head {
 	char *branch_name;

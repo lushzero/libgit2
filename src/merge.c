@@ -442,8 +442,6 @@ static int merge_conflict_resolve_trivial(
 
 	*resolved = 0;
 
-	/* TODO: (optionally) reject children of d/f conflicts */
-	
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
 		return 0;
 
@@ -508,7 +506,7 @@ static int merge_conflict_resolve_trivial(
 	return error;
 }
 
-static int merge_conflict_resolve_removed(
+static int merge_conflict_resolve_one_removed(
 	int *resolved,
 	git_repository *repo,
 	git_index *index,
@@ -522,8 +520,6 @@ static int merge_conflict_resolve_removed(
 	assert(resolved && repo && index && delta);
 
 	*resolved = 0;
-
-	/* TODO: (optionally) reject children of d/f conflicts */
 
 	if (delta->df_conflict == GIT_DIFF_TREE_DF_DIRECTORY_FILE)
 		return 0;
@@ -574,7 +570,7 @@ static int merge_conflict_resolve_automerge(
 	
 	*resolved = 0;
 	
-	if (automerge_flags & GIT_MERGE_AUTOMERGE_NONE)
+	if (automerge_flags == GIT_MERGE_AUTOMERGE_NONE)
 		return 0;
 
 	/* Reject D/F conflicts */
@@ -586,9 +582,13 @@ static int merge_conflict_resolve_automerge(
 		(S_ISLNK(delta->ancestor_file.mode) ^ S_ISLNK(delta->their_file.mode)))
 		return 0;
 
-	/* TODO: reject children of d/f conflicts */
-
-	/* TODO: reject name conflicts */
+	/* Reject name conflicts */
+	if (GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor_file) &&
+		((GIT_DIFF_TREE_FILE_EXISTS(delta->our_file) &&
+		strcmp(delta->ancestor_file.path, delta->our_file.path) != 0) ||
+		(GIT_DIFF_TREE_FILE_EXISTS(delta->their_file) &&
+		strcmp(delta->ancestor_file.path, delta->their_file.path) != 0)))
+		return 0;
 
 	if ((error = git_repository_odb(&odb, repo)) < 0 ||
 		(error = git_merge_file_input_from_diff_file(&ancestor, repo, &delta->ancestor_file)) < 0 ||
@@ -635,8 +635,8 @@ static int merge_conflict_resolve(
 	if ((error = merge_conflict_resolve_trivial(&resolved, repo, index, delta)) < 0)
 		goto done;
 
-	if ((automerge_flags & GIT_MERGE_AUTOMERGE_NONE) == 0) {
-		if (!resolved && (error = merge_conflict_resolve_removed(&resolved, repo, index, delta)) < 0)
+	if (automerge_flags != GIT_MERGE_AUTOMERGE_NONE) {
+		if (!resolved && (error = merge_conflict_resolve_one_removed(&resolved, repo, index, delta)) < 0)
 			goto done;
 
 		if (!resolved && (error = merge_conflict_resolve_automerge(&resolved, repo, index, delta, automerge_flags)) < 0)
@@ -654,6 +654,7 @@ done:
 
 /* Merge trees */
 
+/* TODO: staticify */
 int merge_trees(
 	git_merge_result *result,
 	git_repository *repo,
@@ -661,19 +662,19 @@ int merge_trees(
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
-	const git_merge_trees_opts *opts)
+	const git_merge_tree_opts *opts)
 {
 	git_diff_tree_delta *delta;
 	size_t i;
 	int error = 0;
 
-	if ((error = git_diff_trees(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, &opts->diff_opts)) < 0)
+	if ((error = git_diff_trees(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, opts)) < 0)
 		return error;
 	
 	git_vector_foreach(&result->diff_tree->deltas, i, delta) {
 		int resolved = 0;
 		
-		if ((error = merge_conflict_resolve(&resolved, repo, index, delta, opts->resolve_flags)) < 0)
+		if ((error = merge_conflict_resolve(&resolved, repo, index, delta, opts->automerge_flags)) < 0)
 			return error;
 		
 		if (!resolved)
@@ -683,15 +684,46 @@ int merge_trees(
 	return 0;
 }
 
-int merge_trees_normalize_opts(
-	git_merge_trees_opts *opts,
-	const git_merge_trees_opts *given)
+/* TODO: staticify */
+int merge_tree_normalize_opts(
+	git_repository *repo,
+	git_merge_tree_opts *opts,
+	const git_merge_tree_opts *given)
 {
+	git_config *cfg = NULL;
+	int error = 0;
+	
+	assert(repo && opts);
+	
+	if ((error = git_repository_config__weakptr(&cfg, repo)) < 0)
+		return error;
+	
 	if (given != NULL)
-		memcpy(opts, given, sizeof(git_merge_trees_opts));
-	else
-		memset(opts, 0x0, sizeof(git_merge_trees_opts));
-
+		memcpy(opts, given, sizeof(git_merge_tree_opts));
+	else {
+		git_merge_tree_opts init = GIT_MERGE_TREE_OPTS_INIT;
+		memcpy(opts, &init, sizeof(init));
+		
+		opts->flags = GIT_MERGE_TREE_FIND_RENAMES;
+		opts->rename_threshold = GIT_MERGE_TREE_RENAME_THRESHOLD;
+	}
+	
+	if (!opts->target_limit) {
+		int32_t limit = 0;
+		
+		opts->target_limit = GIT_MERGE_TREE_TARGET_LIMIT;
+		
+		if (git_config_get_int32(&limit, cfg, "merge.renameLimit") < 0) {
+			giterr_clear();
+			
+			if (git_config_get_int32(&limit, cfg, "diff.renameLimit") < 0)
+				giterr_clear();
+		}
+		
+		if (limit > 0)
+			opts->target_limit = limit;
+	}
+	
 	return 0;
 }
 
@@ -702,9 +734,9 @@ int git_merge_trees(
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
-	const git_merge_trees_opts *given_opts)
+	const git_merge_tree_opts *given_opts)
 {
-	git_merge_trees_opts opts;
+	git_merge_tree_opts opts;
 	git_merge_result *result;
 	int error = 0;
 
@@ -712,7 +744,7 @@ int git_merge_trees(
 	
 	*out = NULL;
 	
-	if ((error = merge_trees_normalize_opts(&opts, given_opts)) < 0)
+	if ((error = merge_tree_normalize_opts(repo, &opts, given_opts)) < 0)
 		return error;
 	
 	result = git__calloc(1, sizeof(git_merge_result));

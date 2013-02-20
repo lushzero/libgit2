@@ -154,10 +154,10 @@ int git_merge_files(
 	out->path = merge_file_best_path(ancestor, ours, theirs);
 	out->mode = merge_file_best_mode(ancestor, ours, theirs);
 
-	if (flags & GIT_MERGE_AUTOMERGE_FAVOR_OURS)
+	if (flags == GIT_MERGE_AUTOMERGE_FAVOR_OURS)
 		xmparam.favor = XDL_MERGE_FAVOR_OURS;
 		
-	if (flags & GIT_MERGE_AUTOMERGE_FAVOR_THEIRS)
+	if (flags == GIT_MERGE_AUTOMERGE_FAVOR_THEIRS)
 		xmparam.favor = XDL_MERGE_FAVOR_THEIRS;
 
 	if ((xdl_result = xdl_merge(&ancestor->mmfile, &ours->mmfile,
