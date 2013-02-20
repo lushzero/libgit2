@@ -59,7 +59,7 @@ typedef struct {
  */
 /**@{*/
 
-GIT_EXTERN(int) git_diff_trees(
+int git_diff_trees(
 	git_diff_tree_list **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
@@ -70,6 +70,6 @@ GIT_EXTERN(int) git_diff_trees(
 /**
  * Deallocate a diff_tree list.
  */
-GIT_EXTERN(void) git_diff_tree_list_free(git_diff_tree_list *diff_tree);
+void git_diff_tree_list_free(git_diff_tree_list *diff_tree);
 
 #endif
