@@ -87,9 +87,9 @@ GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result 
 
 /** Callback for conflict iterator */
 typedef int (*git_merge_conflict_foreach_cb)(
-	const git_diff_file *ancestor,
-	const git_diff_file *ours,
-	const git_diff_file *theirs,
+	const git_index_entry *ancestor,
+	const git_index_entry *ours,
+	const git_index_entry *theirs,
 	void *payload);
 
 GIT_EXTERN(int) git_merge_result_conflict_foreach(git_merge_result *merge_result,

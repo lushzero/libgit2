@@ -33,12 +33,12 @@ typedef struct git_diff_tree_list git_diff_tree_list;
  * Description of changes to one file across three trees.
  */
 typedef struct {
-	git_diff_file ancestor_file;
+	git_index_entry ancestor_entry;
 	
-	git_diff_file our_file;
+	git_index_entry our_entry;
 	git_delta_t our_status;
 	
-	git_diff_file their_file;
+	git_index_entry their_entry;
 	git_delta_t their_status;
 	
 	git_merge_conflict_t conflict;

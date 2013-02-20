@@ -52,7 +52,7 @@ struct treediff_cb_data {
 };
 
 static bool treediff_cmp(
-	const git_diff_file *diff_file,
+	const git_index_entry *diff_file,
 	const git_delta_t diff_status,
 	const struct treediff_file_data *expected)
 {
@@ -83,9 +83,9 @@ static int treediff_cb(const git_diff_tree_delta *delta, void *cb_data)
     struct treediff_cb_data *treediff_cb_data = cb_data;
 	struct treediff_delta_data *delta_data = &treediff_cb_data->delta_data[treediff_cb_data->idx];
     
-	cl_assert(treediff_cmp(&delta->ancestor_file, 0, &delta_data->ancestor));
-	cl_assert(treediff_cmp(&delta->our_file, delta->our_status, &delta_data->ours));
-	cl_assert(treediff_cmp(&delta->their_file, delta->their_status, &delta_data->theirs));
+	cl_assert(treediff_cmp(&delta->ancestor_entry, 0, &delta_data->ancestor));
+	cl_assert(treediff_cmp(&delta->our_entry, delta->our_status, &delta_data->ours));
+	cl_assert(treediff_cmp(&delta->their_entry, delta->their_status, &delta_data->theirs));
 	
 	cl_assert(delta->conflict == delta_data->conflict);
 

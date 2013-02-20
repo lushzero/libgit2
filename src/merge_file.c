@@ -69,7 +69,6 @@ int git_merge_file_input_from_index_entry(
 	const git_index_entry *entry)
 {
 	git_odb *odb = NULL;
-	git_odb_object *odb_object = NULL;
 	int error = 0;
 	
 	assert(input && repo && entry);
@@ -83,8 +82,8 @@ int git_merge_file_input_from_index_entry(
 	
 	input->mode = entry->mode;
 	input->path = git__strdup(entry->path);
-	input->mmfile.size = git_odb_object_size(odb_object);
-	input->mmfile.ptr = (char *)git_odb_object_data(odb_object);
+	input->mmfile.size = git_odb_object_size(input->odb_object);
+	input->mmfile.ptr = (char *)git_odb_object_data(input->odb_object);
 	
 	if (input->label == NULL)
 		input->label = entry->path;

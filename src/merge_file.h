@@ -35,6 +35,11 @@ typedef struct {
 
 #define GIT_MERGE_FILE_RESULT_INIT	{0}
 
+int git_merge_file_input_from_index_entry(
+	git_merge_file_input *input,
+	git_repository *repo,
+	const git_index_entry *entry);
+
 int git_merge_file_input_from_diff_file(
 	git_merge_file_input *input,
 	git_repository *repo,
