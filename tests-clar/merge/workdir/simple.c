@@ -3,6 +3,7 @@
 #include "git2/merge.h"
 #include "buffer.h"
 #include "merge.h"
+#include "merge_branches.h"
 #include "../merge_helpers.h"
 #include "fileops.h"
 
@@ -21,6 +22,7 @@ static git_index *repo_index;
 
 #define OURS_DIRECTORY_FILE			"df_side1"
 #define THEIRS_DIRECTORY_FILE		"fc90237dc4891fa6c69827fc465632225e391618"
+
 
 /* Non-conflicting files, index entries are common to every merge operation */
 #define ADDED_IN_MASTER_INDEX_ENTRY	\
@@ -99,13 +101,13 @@ static git_index *repo_index;
 	">>>>>>> 7cb63eed597130ba4abb87b3e544b85021905520\n"
 
 // Fixture setup and teardown
-void test_merge_simple__initialize(void)
+void test_merge_workdir_simple__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
 	git_repository_index(&repo_index, repo);
 }
 
-void test_merge_simple__cleanup(void)
+void test_merge_workdir_simple__cleanup(void)
 {
 	git_index_free(repo_index);
 	cl_git_sandbox_cleanup();
@@ -140,11 +142,10 @@ static void set_core_autocrlf_to(git_repository *repo, bool value)
 	git_config_free(cfg);
 }
 
-void test_merge_simple__automerge(void)
+void test_merge_workdir_simple__automerge(void)
 {
 	git_index *index;
 	const git_index_entry *entry;
-
 	git_merge_result *result;
 	git_buf automergeable_buf = GIT_BUF_INIT;
     
@@ -191,7 +192,7 @@ void test_merge_simple__automerge(void)
 	git_index_free(index);
 }
 
-void test_merge_simple__automerge_crlf(void)
+void test_merge_workdir_simple__automerge_crlf(void)
 {
 #ifdef GIT_WIN32
 	git_index *index;
@@ -243,7 +244,7 @@ void test_merge_simple__automerge_crlf(void)
 #endif /* GIT_WIN32 */
 }
 
-void test_merge_simple__diff3(void)
+void test_merge_workdir_simple__diff3(void)
 {
 	git_merge_result *result;
 	git_buf conflicting_buf = GIT_BUF_INIT;
@@ -281,7 +282,7 @@ void test_merge_simple__diff3(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__no_diff3(void)
+void test_merge_workdir_simple__no_diff3(void)
 {
 	git_merge_result *result;
     
@@ -317,7 +318,7 @@ void test_merge_simple__no_diff3(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__favor_ours(void)
+void test_merge_workdir_simple__favor_ours(void)
 {
 	git_merge_result *result;
     
@@ -346,7 +347,7 @@ void test_merge_simple__favor_ours(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__favor_theirs(void)
+void test_merge_workdir_simple__favor_theirs(void)
 {
 	git_merge_result *result;
     
@@ -375,7 +376,7 @@ void test_merge_simple__favor_theirs(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__directory_file(void)
+void test_merge_workdir_simple__directory_file(void)
 {
 	git_reference *head;
 	git_oid their_oids[1], head_commit_id;
@@ -428,7 +429,7 @@ void test_merge_simple__directory_file(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__unrelated(void)
+void test_merge_workdir_simple__unrelated(void)
 {
 	git_oid their_oids[1];
 	git_merge_head *their_heads[1];
@@ -460,7 +461,7 @@ void test_merge_simple__unrelated(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_simple__unrelated_with_conflicts(void)
+void test_merge_workdir_simple__unrelated_with_conflicts(void)
 {
 	git_oid their_oids[1];
 	git_merge_head *their_heads[1];

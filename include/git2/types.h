@@ -143,11 +143,8 @@ typedef struct git_note git_note;
 /** Representation of a git packbuilder */
 typedef struct git_packbuilder git_packbuilder;
 
-/** Representation of a git merge input */
-typedef struct git_merge_head git_merge_head;
-
-/** Representation of a git merge result */
-typedef struct git_merge_result git_merge_result;
+/** Representation of the result of merging trees */
+typedef struct git_merge_tree_result git_merge_tree_result;
 
 /** Time in a signature */
 typedef struct git_time {

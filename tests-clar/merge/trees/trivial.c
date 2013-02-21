@@ -31,7 +31,7 @@ static int merge_trivial(git_index **index, const char *ours, const char *theirs
 	git_oid our_oid, their_oid, ancestor_oid;
 	git_buf branch_buf = GIT_BUF_INIT;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
-	git_merge_result *result;
+	git_merge_tree_result *result;
 
 	opts.automerge_flags |= automerge ? 0 : GIT_MERGE_AUTOMERGE_NONE;
 	
@@ -63,7 +63,7 @@ static int merge_trivial(git_index **index, const char *ours, const char *theirs
 	git_commit_free(our_commit);
 	git_commit_free(their_commit);
 	git_commit_free(ancestor_commit);
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 
 	return 0;
 }

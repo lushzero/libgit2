@@ -3,6 +3,7 @@
 #include "git2/merge.h"
 #include "git2/merge_branches.h"
 #include "merge.h"
+#include "merge_branches.h"
 #include "../merge_helpers.h"
 #include "refs.h"
 

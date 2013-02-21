@@ -22,7 +22,7 @@ struct merge_reuc_entry {
 };
 
 int merge_trees_from_branches(
-	git_merge_result **result, git_index **index, git_repository *repo,
+	git_merge_tree_result **result, git_index **index, git_repository *repo,
 	const char *ours_name, const char *theirs_name,
 	git_merge_tree_opts *opts);
 

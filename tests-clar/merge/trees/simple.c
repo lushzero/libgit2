@@ -106,8 +106,7 @@ void test_merge_trees_simple__automerge(void)
 	const git_index_entry *entry;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
 	git_blob *blob;
-
-	git_merge_result *result;
+	git_merge_tree_result *result;
     
 	struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -133,7 +132,7 @@ void test_merge_trees_simple__automerge(void)
 	cl_assert(merge_test_index(index, merge_index_entries, 8));
 	cl_assert(merge_test_reuc(index, merge_reuc_entries, 3));
 
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 
 	cl_assert((entry = git_index_get_bypath(index, "automergeable.txt", 0)) != NULL);
 	cl_assert(entry->file_size == strlen(AUTOMERGEABLE_MERGED_FILE));
@@ -148,7 +147,7 @@ void test_merge_trees_simple__automerge(void)
 void test_merge_trees_simple__no_diff3(void)
 {
 	git_index *index;
-	git_merge_result *result;
+	git_merge_tree_result *result;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
     
 	struct merge_index_entry merge_index_entries[] = {
@@ -176,13 +175,13 @@ void test_merge_trees_simple__no_diff3(void)
 	cl_assert(merge_test_reuc(index, merge_reuc_entries, 3));
 
 	git_index_free(index);
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 }
 
 void test_merge_trees_simple__favor_ours(void)
 {
 	git_index *index;
-	git_merge_result *result;
+	git_merge_tree_result *result;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
 	
 	opts.automerge_flags = GIT_MERGE_AUTOMERGE_FAVOR_OURS;
@@ -209,13 +208,13 @@ void test_merge_trees_simple__favor_ours(void)
 	cl_assert(merge_test_reuc(index, merge_reuc_entries, 4));
 
 	git_index_free(index);
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 }
 
 void test_merge_trees_simple__favor_theirs(void)
 {
 	git_index *index;
-	git_merge_result *result;
+	git_merge_tree_result *result;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
 	
 	opts.automerge_flags = GIT_MERGE_AUTOMERGE_FAVOR_THEIRS;
@@ -242,13 +241,13 @@ void test_merge_trees_simple__favor_theirs(void)
 	cl_assert(merge_test_reuc(index, merge_reuc_entries, 4));
     
 	git_index_free(index);
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 }
 
 void test_merge_trees_simple__directory_file(void)
 {
 	git_index *index;
-	git_merge_result *result;
+	git_merge_tree_result *result;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
 	
 	opts.automerge_flags = GIT_MERGE_AUTOMERGE_NORMAL;
@@ -281,13 +280,13 @@ void test_merge_trees_simple__directory_file(void)
 	cl_assert(merge_test_index(index, merge_index_entries, 20));
 
 	git_index_free(index);
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 }
 
 void test_merge_trees_simple__unrelated(void)
 {
 	git_index *index;
-	git_merge_result *result;
+	git_merge_tree_result *result;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
     
 	struct merge_index_entry merge_index_entries[] = {
@@ -309,5 +308,5 @@ void test_merge_trees_simple__unrelated(void)
 	cl_assert(merge_test_index(index, merge_index_entries, 11));
 	
 	git_index_free(index);
-	git_merge_result_free(result);
+	git_merge_tree_result_free(result);
 }

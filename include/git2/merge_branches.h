@@ -22,6 +22,14 @@
  */
 GIT_BEGIN_DECL
 
+
+/** Representation of a git merge input */
+typedef struct git_merge_head git_merge_head;
+
+/** Representation of a git merge result */
+typedef struct git_merge_result git_merge_result;
+
+
 /**
  * Option flags for `git_merge`.
  *
@@ -96,10 +104,11 @@ GIT_EXTERN(int) git_merge_result_conflict_foreach(git_merge_result *merge_result
 	git_merge_conflict_foreach_cb conflict_cb,
 	void *payload);
 
+GIT_EXTERN(void) git_merge_result_free(git_merge_result *merge_result);
+
 GIT_EXTERN(int) git_merge_head_from_ref(git_merge_head **out, git_repository *repo, git_reference *ref);
 GIT_EXTERN(int) git_merge_head_from_oid(git_merge_head **out, git_repository *repo, const git_oid *oid);
 GIT_EXTERN(void) git_merge_head_free(git_merge_head *head);
-
 
 /** @} */
 GIT_END_DECL
