@@ -25,7 +25,7 @@ int merge_trees_from_branches(
 	const char *ours_name, const char *theirs_name,
 	git_merge_tree_opts *opts)
 {
-	git_commit *our_commit, *their_commit, *ancestor_commit;
+	git_commit *our_commit, *their_commit, *ancestor_commit = NULL;
 	git_tree *our_tree, *their_tree, *ancestor_tree;
 	git_oid our_oid, their_oid, ancestor_oid;
 	git_buf branch_buf = GIT_BUF_INIT;

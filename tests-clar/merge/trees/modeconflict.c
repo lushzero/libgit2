@@ -57,5 +57,6 @@ void test_merge_trees_modeconflict__df_conflict(void)
 
 	cl_assert(merge_test_index(index, merge_index_entries, 20));
 
+	git_index_free(index);
 	git_merge_result_free(result);
 }
