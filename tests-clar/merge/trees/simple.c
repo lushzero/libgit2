@@ -8,20 +8,18 @@
 #include "fileops.h"
 
 static git_repository *repo;
-static git_index *repo_index;
 
 #define TEST_REPO_PATH "merge-resolve"
 #define TEST_INDEX_PATH TEST_REPO_PATH "/.git/index"
 
 #define THEIRS_SIMPLE_BRANCH        "branch"
-#define THEIRS_SIMPLE_OID           "7cb63eed597130ba4abb87b3e544b85021905520"
 
 #define THEIRS_UNRELATED_BRANCH		"unrelated"
 #define THEIRS_UNRELATED_OID		"55b4e4687e7a0d9ca367016ed930f385d4022e6f"
 #define THEIRS_UNRELATED_PARENT		"d6cf6c7741b3316826af1314042550c97ded1d50"
 
 #define OURS_DIRECTORY_FILE			"df_side1"
-#define THEIRS_DIRECTORY_FILE		"fc90237dc4891fa6c69827fc465632225e391618"
+#define THEIRS_DIRECTORY_FILE		"df_side2"
 
 /* Non-conflicting files, index entries are common to every merge operation */
 #define ADDED_IN_MASTER_INDEX_ENTRY	\
@@ -92,62 +90,25 @@ static git_index *repo_index;
 	"this file is automergeable\r\n" \
 	"this file is changed in branch\r\n"
 
-#define CONFLICTING_DIFF3_FILE \
-	"<<<<<<< HEAD\n" \
-	"this file is changed in master and branch\n" \
-	"=======\n" \
-	"this file is changed in branch and master\n" \
-	">>>>>>> 7cb63eed597130ba4abb87b3e544b85021905520\n"
-
 // Fixture setup and teardown
 void test_merge_trees_simple__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
-	git_repository_index(&repo_index, repo);
 }
 
 void test_merge_trees_simple__cleanup(void)
 {
-	git_index_free(repo_index);
 	cl_git_sandbox_cleanup();
-}
-
-static git_merge_result *merge_simple_branch(int automerge_flags, int conflict_flags)
-{
-	git_oid their_oids[1];
-    git_merge_head *their_heads[1];
-	git_merge_result *result;
-	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
-    
-	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_SIMPLE_OID));
-	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
-    
-	opts.merge_tree_opts.automerge_flags = automerge_flags;
-	opts.conflict_flags = conflict_flags;
-	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
-
-	git_merge_head_free(their_heads[0]);
-    
-	return result;
-}
-
-static void set_core_autocrlf_to(git_repository *repo, bool value)
-{
-	git_config *cfg;
-
-	cl_git_pass(git_repository_config(&cfg, repo));
-	cl_git_pass(git_config_set_bool(cfg, "core.autocrlf", value));
-
-	git_config_free(cfg);
 }
 
 void test_merge_trees_simple__automerge(void)
 {
 	git_index *index;
 	const git_index_entry *entry;
+	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
+	git_blob *blob;
 
 	git_merge_result *result;
-	git_buf automergeable_buf = GIT_BUF_INIT;
     
 	struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -168,123 +129,28 @@ void test_merge_trees_simple__automerge(void)
 		REMOVED_IN_MASTER_REUC_ENTRY
 	};
 
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, "master", THEIRS_SIMPLE_BRANCH, &opts));
 
-	set_core_autocrlf_to(repo, false);
-
-	cl_assert(result = merge_simple_branch(0, 0));
-	cl_assert(!git_merge_result_is_fastforward(result));
-
-	cl_git_pass(git_futils_readbuffer(&automergeable_buf,
-		TEST_REPO_PATH "/automergeable.txt"));
-	cl_assert(strcmp(automergeable_buf.ptr, AUTOMERGEABLE_MERGED_FILE) == 0);
-	git_buf_free(&automergeable_buf);
-
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
-	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 3));
+	cl_assert(merge_test_index(index, merge_index_entries, 8));
+	cl_assert(merge_test_reuc(index, merge_reuc_entries, 3));
 
 	git_merge_result_free(result);
-
-	git_repository_index(&index, repo);
 
 	cl_assert((entry = git_index_get_bypath(index, "automergeable.txt", 0)) != NULL);
 	cl_assert(entry->file_size == strlen(AUTOMERGEABLE_MERGED_FILE));
+	
+	cl_git_pass(git_object_lookup((git_object **)&blob, repo, &entry->oid, GIT_OBJ_BLOB));
+	cl_assert(memcmp(git_blob_rawcontent(blob), AUTOMERGEABLE_MERGED_FILE, entry->file_size) == 0);
     
 	git_index_free(index);
-}
-
-void test_merge_trees_simple__automerge_crlf(void)
-{
-#ifdef GIT_WIN32
-	git_index *index;
-	const git_index_entry *entry;
-
-	git_merge_result *result;
-	git_buf automergeable_buf = GIT_BUF_INIT;
-    
-	struct merge_index_entry merge_index_entries[] = {
-		ADDED_IN_MASTER_INDEX_ENTRY,
-		AUTOMERGEABLE_INDEX_ENTRY,
-		CHANGED_IN_BRANCH_INDEX_ENTRY,
-		CHANGED_IN_MASTER_INDEX_ENTRY,
-
-		{ 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", 1, "conflicting.txt" },
-		{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 2, "conflicting.txt" },
-		{ 0100644, "2bd0a343aeef7a2cf0d158478966a6e587ff3863", 3, "conflicting.txt" },
-
-		UNCHANGED_INDEX_ENTRY,
-	};
-
-	struct merge_reuc_entry merge_reuc_entries[] = {
-		AUTOMERGEABLE_REUC_ENTRY,
-		REMOVED_IN_BRANCH_REUC_ENTRY,
-		REMOVED_IN_MASTER_REUC_ENTRY
-	};
-
-	set_core_autocrlf_to(repo, true);
-
-	cl_assert(result = merge_simple_branch(0, 0));
-	cl_assert(!git_merge_result_is_fastforward(result));
-
-	cl_git_pass(git_futils_readbuffer(&automergeable_buf,
-		TEST_REPO_PATH "/automergeable.txt"));
-	cl_assert(strcmp(automergeable_buf.ptr, AUTOMERGEABLE_MERGED_FILE_CRLF) == 0);
-	git_buf_free(&automergeable_buf);
-
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
-	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 3));
-
-	git_merge_result_free(result);
-
-	git_repository_index(&index, repo);
-
-	cl_assert((entry = git_index_get_bypath(index, "automergeable.txt", 0)) != NULL);
-	cl_assert(entry->file_size == strlen(AUTOMERGEABLE_MERGED_FILE_CRLF));
-    
-	git_index_free(index);
-#endif /* GIT_WIN32 */
-}
-
-void test_merge_trees_simple__diff3(void)
-{
-	git_merge_result *result;
-	git_buf conflicting_buf = GIT_BUF_INIT;
-    
-	struct merge_index_entry merge_index_entries[] = {
-		ADDED_IN_MASTER_INDEX_ENTRY,
-		AUTOMERGEABLE_INDEX_ENTRY,
-		CHANGED_IN_BRANCH_INDEX_ENTRY,
-		CHANGED_IN_MASTER_INDEX_ENTRY,
-
-		{ 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", 1, "conflicting.txt" },
-		{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 2, "conflicting.txt" },
-		{ 0100644, "2bd0a343aeef7a2cf0d158478966a6e587ff3863", 3, "conflicting.txt" },
-
-		UNCHANGED_INDEX_ENTRY,
-	};
-
-	struct merge_reuc_entry merge_reuc_entries[] = {
-		AUTOMERGEABLE_REUC_ENTRY,
-		REMOVED_IN_BRANCH_REUC_ENTRY,
-		REMOVED_IN_MASTER_REUC_ENTRY
-	};
-    
-	cl_assert(result = merge_simple_branch(0, 0));
-	cl_assert(!git_merge_result_is_fastforward(result));
-
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_DIFF3_FILE) == 0);
-	git_buf_free(&conflicting_buf);
-
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
-	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 3));
-
-	git_merge_result_free(result);
+	git_blob_free(blob);
 }
 
 void test_merge_trees_simple__no_diff3(void)
 {
+	git_index *index;
 	git_merge_result *result;
+	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
     
 	struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -305,22 +171,22 @@ void test_merge_trees_simple__no_diff3(void)
 		REMOVED_IN_MASTER_REUC_ENTRY
 	};
     
-	cl_assert(result = merge_simple_branch(0, GIT_MERGE_CONFLICT_NO_DIFF3));
-	cl_assert(!git_merge_result_is_fastforward(result));
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, "master", THEIRS_SIMPLE_BRANCH, &opts));
 
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 8));
-	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 3));
+	cl_assert(merge_test_index(index, merge_index_entries, 8));
+	cl_assert(merge_test_reuc(index, merge_reuc_entries, 3));
 
-	cl_assert(!git_path_exists(TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(git_path_exists(TEST_REPO_PATH "/conflicting.txt~7cb63eed597130ba4abb87b3e544b85021905520"));
-	cl_assert(git_path_exists(TEST_REPO_PATH "/conflicting.txt~HEAD"));
-    
+	git_index_free(index);
 	git_merge_result_free(result);
 }
 
 void test_merge_trees_simple__favor_ours(void)
 {
+	git_index *index;
 	git_merge_result *result;
+	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
+	
+	opts.automerge_flags = GIT_MERGE_AUTOMERGE_FAVOR_OURS;
     
 	struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -338,18 +204,22 @@ void test_merge_trees_simple__favor_ours(void)
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
     
-	cl_assert(result = merge_simple_branch(GIT_MERGE_AUTOMERGE_FAVOR_OURS, 0));
-	cl_assert(!git_merge_result_is_fastforward(result));
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, "master", THEIRS_SIMPLE_BRANCH, &opts));
 
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
-	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 4));
-    
+	cl_assert(merge_test_index(index, merge_index_entries, 6));
+	cl_assert(merge_test_reuc(index, merge_reuc_entries, 4));
+
+	git_index_free(index);
 	git_merge_result_free(result);
 }
 
 void test_merge_trees_simple__favor_theirs(void)
 {
+	git_index *index;
 	git_merge_result *result;
+	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
+	
+	opts.automerge_flags = GIT_MERGE_AUTOMERGE_FAVOR_THEIRS;
     
 	struct merge_index_entry merge_index_entries[] = {
 		ADDED_IN_MASTER_INDEX_ENTRY,
@@ -367,23 +237,22 @@ void test_merge_trees_simple__favor_theirs(void)
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
     
-	cl_assert(result = merge_simple_branch(GIT_MERGE_AUTOMERGE_FAVOR_THEIRS, 0));
-	cl_assert(!git_merge_result_is_fastforward(result));
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, "master", THEIRS_SIMPLE_BRANCH, &opts));
 
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 6));
-	cl_assert(merge_test_reuc(repo_index, merge_reuc_entries, 4));
+	cl_assert(merge_test_index(index, merge_index_entries, 6));
+	cl_assert(merge_test_reuc(index, merge_reuc_entries, 4));
     
+	git_index_free(index);
 	git_merge_result_free(result);
 }
 
 void test_merge_trees_simple__directory_file(void)
 {
-	git_reference *head;
-	git_oid their_oids[1], head_commit_id;
-	git_merge_head *their_heads[1];
+	git_index *index;
 	git_merge_result *result;
-	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
-	git_commit *head_commit;
+	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
+	
+	opts.automerge_flags = GIT_MERGE_AUTOMERGE_NORMAL;
     
 	struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "49130a28ef567af9a6a6104c38773fedfa5f9742", 2, "dir-10" },
@@ -408,65 +277,19 @@ void test_merge_trees_simple__directory_file(void)
 		{ 0100644, "f5504f36e6f4eb797a56fc5bac6c6c7f32969bf2", 3, "file-5/new" },
 	};
 
-	cl_git_pass(git_reference_lookup(&head, repo, GIT_HEAD_FILE));
-	cl_git_pass(git_reference_symbolic_set_target(head, GIT_REFS_HEADS_DIR OURS_DIRECTORY_FILE));
-	cl_git_pass(git_reference_name_to_id(&head_commit_id, repo, GIT_HEAD_FILE));
-	cl_git_pass(git_commit_lookup(&head_commit, repo, &head_commit_id));
-	cl_git_pass(git_reset(repo, (git_object *)head_commit, GIT_RESET_HARD));
-    
-	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_DIRECTORY_FILE));
-	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
-    
-	opts.merge_tree_opts.automerge_flags = 0;
-	opts.conflict_flags = 0;
-	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, OURS_DIRECTORY_FILE, THEIRS_DIRECTORY_FILE, &opts));
 
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 20));
+	cl_assert(merge_test_index(index, merge_index_entries, 20));
 
-	git_reference_free(head);
-	git_commit_free(head_commit);
-	git_merge_head_free(their_heads[0]);
+	git_index_free(index);
 	git_merge_result_free(result);
 }
 
 void test_merge_trees_simple__unrelated(void)
 {
-	git_oid their_oids[1];
-	git_merge_head *their_heads[1];
+	git_index *index;
 	git_merge_result *result;
-	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
-    
-	struct merge_index_entry merge_index_entries[] = {
-		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
-		{ 0100644, "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", 0, "automergeable.txt" },
-		{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-branch.txt" },
-		{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt" },
-		{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 0, "conflicting.txt" },
-		{ 0100644, "ef58fdd8086c243bdc81f99e379acacfd21d32d6", 0, "new-in-unrelated1.txt" },
-		{ 0100644, "948ba6e701c1edab0c2d394fb7c5538334129793", 0, "new-in-unrelated2.txt" },
-		{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt" },
-		{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt" },
-	};
-    
-	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_UNRELATED_PARENT));
-	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
-    
-	opts.merge_tree_opts.automerge_flags = 0;
-	opts.conflict_flags = 0;
-	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
-
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 9));
-
-	git_merge_head_free(their_heads[0]);
-	git_merge_result_free(result);
-}
-
-void test_merge_trees_simple__unrelated_with_conflicts(void)
-{
-	git_oid their_oids[1];
-	git_merge_head *their_heads[1];
-	git_merge_result *result;
-	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
+	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
     
 	struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt" },
@@ -482,15 +305,10 @@ void test_merge_trees_simple__unrelated_with_conflicts(void)
 		{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt" },
 	};
     
-	cl_git_pass(git_oid_fromstr(&their_oids[0], THEIRS_UNRELATED_OID));
-	cl_git_pass(git_merge_head_from_oid(&their_heads[0], repo, &their_oids[0]));
-    
-	opts.merge_tree_opts.automerge_flags = 0;
-	opts.conflict_flags = 0;
-	cl_git_pass(git_merge(&result, repo, (const git_merge_head **)their_heads, 1, &opts));
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, "master", THEIRS_UNRELATED_BRANCH, &opts));
 	
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 11));
+	cl_assert(merge_test_index(index, merge_index_entries, 11));
 	
-	git_merge_head_free(their_heads[0]);
+	git_index_free(index);
 	git_merge_result_free(result);
 }

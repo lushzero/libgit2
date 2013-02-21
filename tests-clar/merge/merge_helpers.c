@@ -1,17 +1,35 @@
 #include "clar_libgit2.h"
 #include "buffer.h"
 #include "refs.h"
+#include "tree.h"
 #include "merge_helpers.h"
+
+static int merge_fake_tree(git_tree **_tree, git_repository *repo)
+{
+	git_tree *tree;
+	
+	tree = git__calloc(1, sizeof(git_tree));
+	GITERR_CHECK_ALLOC(tree);
+	
+	git_atomic_inc(&tree->object.cached.refcount);
+	tree->object.type = GIT_OBJ_TREE;
+	tree->object.repo = repo;
+	
+	*_tree = tree;
+
+	return 0;
+}
 
 int merge_trees_from_branches(
 	git_merge_result **result, git_index **index, git_repository *repo,
 	const char *ours_name, const char *theirs_name,
-	git_merge_opts *opts)
+	git_merge_tree_opts *opts)
 {
 	git_commit *our_commit, *their_commit, *ancestor_commit;
 	git_tree *our_tree, *their_tree, *ancestor_tree;
 	git_oid our_oid, their_oid, ancestor_oid;
 	git_buf branch_buf = GIT_BUF_INIT;
+	int error;
 
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, ours_name);
 	cl_git_pass(git_reference_name_to_id(&our_oid, repo, branch_buf.ptr));
@@ -22,10 +40,17 @@ int merge_trees_from_branches(
 	cl_git_pass(git_reference_name_to_id(&their_oid, repo, branch_buf.ptr));
 	cl_git_pass(git_commit_lookup(&their_commit, repo, &their_oid));
 
-	cl_git_pass(git_merge_base(&ancestor_oid, repo, git_commit_id(our_commit), git_commit_id(their_commit)));
-	cl_git_pass(git_commit_lookup(&ancestor_commit, repo, &ancestor_oid));
-	
-	cl_git_pass(git_commit_tree(&ancestor_tree, ancestor_commit));
+	error = git_merge_base(&ancestor_oid, repo, git_commit_id(our_commit), git_commit_id(their_commit));
+
+	if (error == GIT_ENOTFOUND)
+		cl_git_pass(merge_fake_tree(&ancestor_tree, repo));
+	else {
+		cl_git_pass(error);
+
+		cl_git_pass(git_commit_lookup(&ancestor_commit, repo, &ancestor_oid));
+		cl_git_pass(git_commit_tree(&ancestor_tree, ancestor_commit));
+	}
+
 	cl_git_pass(git_commit_tree(&our_tree, our_commit));
 	cl_git_pass(git_commit_tree(&their_tree, their_commit));
 
@@ -74,7 +99,7 @@ int merge_test_index(git_index *index, const struct merge_index_entry expected[]
     const git_index_entry *index_entry;
     bool test_oid;
     git_oid expected_oid;
-
+	
     if (git_index_entrycount(index) != expected_len)
         return 0;
     

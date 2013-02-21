@@ -871,19 +871,6 @@ int git_merge_result_conflict_foreach(git_merge_result *merge_result,
 	return error;
 }
 
-void git_merge_result_free(git_merge_result *merge_result)
-{
-	if (merge_result == NULL)
-		return;
-	
-	git_vector_free(&merge_result->conflicts);
-	
-	git_diff_tree_list_free(merge_result->diff_tree);
-	merge_result->diff_tree = NULL;
-
-	git__free(merge_result);
-}
-
 /* git_merge_head functions */
 
 static int merge_head_init(git_merge_head **out,

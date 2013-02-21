@@ -1,7 +1,6 @@
 #include "clar_libgit2.h"
 #include "git2/repository.h"
 #include "git2/merge.h"
-#include "git2/merge_branches.h"
 #include "merge.h"
 #include "../merge_helpers.h"
 #include "refs.h"
