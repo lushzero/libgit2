@@ -4,11 +4,10 @@
 #include "git2/merge_branches.h"
 #include "buffer.h"
 #include "merge.h"
-#include "merge_helpers.h"
+#include "../merge_helpers.h"
 #include "fileops.h"
 
 static git_repository *repo;
-static git_index *repo_index;
 
 #define TEST_REPO_PATH "merge-resolve"
 
@@ -17,21 +16,20 @@ static git_index *repo_index;
 
 
 // Fixture setup and teardown
-void test_merge_modeconflict__initialize(void)
+void test_merge_trees_modeconflict__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
-    git_repository_index(&repo_index, repo);
 }
 
-void test_merge_modeconflict__cleanup(void)
+void test_merge_trees_modeconflict__cleanup(void)
 {
-    git_index_free(repo_index);
 	cl_git_sandbox_cleanup();
 }
 
-void test_merge_modeconflict__df_conflict(void)
+void test_merge_trees_modeconflict__df_conflict(void)
 {
 	git_merge_result *result;
+	git_index *index;
 	
 	struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "49130a28ef567af9a6a6104c38773fedfa5f9742", 2, "dir-10" },
@@ -55,10 +53,10 @@ void test_merge_modeconflict__df_conflict(void)
 		{ 0100644, "cab2cf23998b40f1af2d9d9a756dc9e285a8df4b", 2, "file-5/new" },
 		{ 0100644, "f5504f36e6f4eb797a56fc5bac6c6c7f32969bf2", 3, "file-5/new" },
     };
-	
-	cl_git_pass(merge_branches(&result, repo, GIT_REFS_HEADS_DIR DF_SIDE1_BRANCH, GIT_REFS_HEADS_DIR DF_SIDE2_BRANCH, NULL));
 
-	cl_assert(merge_test_index(repo_index, merge_index_entries, 20));
+	cl_git_pass(merge_trees_from_branches(&result, &index, repo, DF_SIDE1_BRANCH, DF_SIDE2_BRANCH, NULL));
+
+	cl_assert(merge_test_index(index, merge_index_entries, 20));
 
 	git_merge_result_free(result);
 }

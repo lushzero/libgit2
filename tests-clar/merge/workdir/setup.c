@@ -3,7 +3,7 @@
 #include "git2/merge.h"
 #include "git2/merge_branches.h"
 #include "merge.h"
-#include "merge_helpers.h"
+#include "../merge_helpers.h"
 #include "refs.h"
 #include "fileops.h"
 
@@ -34,13 +34,13 @@ static git_index *repo_index;
 #define OCTO5_OID                   "e4f618a2c3ed0669308735727df5ebf2447f022f"
 
 // Fixture setup and teardown
-void test_merge_setup__initialize(void)
+void test_merge_workdir_setup__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
     git_repository_index(&repo_index, repo);
 }
 
-void test_merge_setup__cleanup(void)
+void test_merge_workdir_setup__cleanup(void)
 {
     git_index_free(repo_index);
 	cl_git_sandbox_cleanup();
@@ -73,7 +73,7 @@ static void write_file_contents(const char *filename, const char *output)
 }
 
 /* git merge --no-ff octo1 */
-void test_merge_setup__one_branch(void)
+void test_merge_workdir_setup__one_branch(void)
 {
 	git_oid our_oid;
     git_reference *octo1_ref;
@@ -99,7 +99,7 @@ void test_merge_setup__one_branch(void)
 }
 
 /* git merge --no-ff 16f825815cfd20a07a75c71554e82d8eede0b061 */
-void test_merge_setup__one_oid(void)
+void test_merge_workdir_setup__one_oid(void)
 {
 	git_oid our_oid;
     git_oid octo1_oid;
@@ -123,7 +123,7 @@ void test_merge_setup__one_oid(void)
 }
 
 /* git merge octo1 octo2 */
-void test_merge_setup__two_branches(void)
+void test_merge_workdir_setup__two_branches(void)
 {
 	git_oid our_oid;
     git_reference *octo1_ref;
@@ -155,7 +155,7 @@ void test_merge_setup__two_branches(void)
 }
 
 /* git merge octo1 octo2 octo3 */
-void test_merge_setup__three_branches(void)
+void test_merge_workdir_setup__three_branches(void)
 {
 	git_oid our_oid;
     git_reference *octo1_ref;
@@ -193,7 +193,7 @@ void test_merge_setup__three_branches(void)
 }
 
 /* git merge 16f825815cfd20a07a75c71554e82d8eede0b061 158dc7bedb202f5b26502bf3574faa7f4238d56c 50ce7d7d01217679e26c55939eef119e0c93e272 */
-void test_merge_setup__three_oids(void)
+void test_merge_workdir_setup__three_oids(void)
 {
 	git_oid our_oid;
     git_oid octo1_oid;
@@ -227,7 +227,7 @@ void test_merge_setup__three_oids(void)
 }
 
 /* git merge octo1 158dc7bedb202f5b26502bf3574faa7f4238d56c */
-void test_merge_setup__branches_and_oids_1(void)
+void test_merge_workdir_setup__branches_and_oids_1(void)
 {
 	git_oid our_oid;
     git_reference *octo1_ref;
@@ -258,7 +258,7 @@ void test_merge_setup__branches_and_oids_1(void)
 }
 
 /* git merge octo1 158dc7bedb202f5b26502bf3574faa7f4238d56c octo3 54269b3f6ec3d7d4ede24dd350dd5d605495c3ae */
-void test_merge_setup__branches_and_oids_2(void)
+void test_merge_workdir_setup__branches_and_oids_2(void)
 {
 	git_oid our_oid;
     git_reference *octo1_ref;
@@ -300,7 +300,7 @@ void test_merge_setup__branches_and_oids_2(void)
 }
 
 /* git merge 16f825815cfd20a07a75c71554e82d8eede0b061 octo2 50ce7d7d01217679e26c55939eef119e0c93e272 octo4 */
-void test_merge_setup__branches_and_oids_3(void)
+void test_merge_workdir_setup__branches_and_oids_3(void)
 {
 	git_oid our_oid;
     git_oid octo1_oid;
@@ -342,7 +342,7 @@ void test_merge_setup__branches_and_oids_3(void)
 }
 
 /* git merge 16f825815cfd20a07a75c71554e82d8eede0b061 octo2 50ce7d7d01217679e26c55939eef119e0c93e272 octo4 octo5 */
-void test_merge_setup__branches_and_oids_4(void)
+void test_merge_workdir_setup__branches_and_oids_4(void)
 {
 	git_oid our_oid;
     git_oid octo1_oid;
@@ -390,7 +390,7 @@ void test_merge_setup__branches_and_oids_4(void)
 }
 
 /* git merge octo1 octo1 octo1 */
-void test_merge_setup__three_same_branches(void)
+void test_merge_workdir_setup__three_same_branches(void)
 {
 	git_oid our_oid;
     git_reference *octo1_1_ref;
@@ -428,7 +428,7 @@ void test_merge_setup__three_same_branches(void)
 }
 
 /* git merge 16f825815cfd20a07a75c71554e82d8eede0b061 16f825815cfd20a07a75c71554e82d8eede0b061 16f825815cfd20a07a75c71554e82d8eede0b061 */
-void test_merge_setup__three_same_oids(void)
+void test_merge_workdir_setup__three_same_oids(void)
 {
 	git_oid our_oid;
     git_oid octo1_1_oid;
@@ -483,7 +483,7 @@ static int merge_head_foreach_cb(const git_oid *oid, void *payload)
 	return 0;
 }
 
-void test_merge_setup__head_notfound(void)
+void test_merge_workdir_setup__head_notfound(void)
 {
 	int error;
 
@@ -492,7 +492,7 @@ void test_merge_setup__head_notfound(void)
 	cl_assert(error == GIT_ENOTFOUND);
 }
 
-void test_merge_setup__head_invalid_oid(void)
+void test_merge_workdir_setup__head_invalid_oid(void)
 {
 	int error;
 
@@ -503,7 +503,7 @@ void test_merge_setup__head_invalid_oid(void)
 	cl_assert(error == -1);
 }
 
-void test_merge_setup__head_foreach_nonewline(void)
+void test_merge_workdir_setup__head_foreach_nonewline(void)
 {
 	int error;
 
@@ -514,7 +514,7 @@ void test_merge_setup__head_foreach_nonewline(void)
 	cl_assert(error == -1);
 }
 
-void test_merge_setup__head_foreach_one(void)
+void test_merge_workdir_setup__head_foreach_one(void)
 {
 	const char *expected = THEIRS_SIMPLE_OID;
 
@@ -528,7 +528,7 @@ void test_merge_setup__head_foreach_one(void)
 	cl_assert(cb_data.i == cb_data.len);
 }
 
-void test_merge_setup__head_foreach_octopus(void)
+void test_merge_workdir_setup__head_foreach_octopus(void)
 {
 	const char *expected[] = { THEIRS_SIMPLE_OID,
 		OCTO1_OID, OCTO2_OID, OCTO3_OID, OCTO4_OID, OCTO5_OID };

@@ -3,7 +3,7 @@
 #include "git2/merge.h"
 #include "git2/merge_branches.h"
 #include "merge.h"
-#include "merge_helpers.h"
+#include "../merge_helpers.h"
 #include "refs.h"
 
 static git_repository *repo;
@@ -20,13 +20,13 @@ static git_index *repo_index;
 
 
 // Fixture setup and teardown
-void test_merge_fastforward__initialize(void)
+void test_merge_workdir_fastforward__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
 	git_repository_index(&repo_index, repo);
 }
 
-void test_merge_fastforward__cleanup(void)
+void test_merge_workdir_fastforward__cleanup(void)
 {
 	git_index_free(repo_index);
 	cl_git_sandbox_cleanup();
@@ -52,7 +52,7 @@ static git_merge_result *merge_fastforward_branch(int flags)
 	return result;
 }
 
-void test_merge_fastforward__fastforward(void)
+void test_merge_workdir_fastforward__fastforward(void)
 {
 	git_merge_result *result;
 	git_oid expected, ff_oid;
@@ -67,7 +67,7 @@ void test_merge_fastforward__fastforward(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_fastforward__fastforward_only(void)
+void test_merge_workdir_fastforward__fastforward_only(void)
 {
 	git_merge_result *result;
 	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
@@ -87,7 +87,7 @@ void test_merge_fastforward__fastforward_only(void)
 	git_reference_free(their_ref);
 }
 
-void test_merge_fastforward__no_fastforward(void)
+void test_merge_workdir_fastforward__no_fastforward(void)
 {
 	git_merge_result *result;
     
@@ -111,7 +111,7 @@ void test_merge_fastforward__no_fastforward(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_fastforward__uptodate(void)
+void test_merge_workdir_fastforward__uptodate(void)
 {
 	git_reference *their_ref;
 	git_merge_head *their_heads[1];
@@ -129,7 +129,7 @@ void test_merge_fastforward__uptodate(void)
 	git_merge_result_free(result);
 }
 
-void test_merge_fastforward__uptodate_merging_prev_commit(void)
+void test_merge_workdir_fastforward__uptodate_merging_prev_commit(void)
 {
 	git_oid their_oid;
 	git_merge_head *their_heads[1];

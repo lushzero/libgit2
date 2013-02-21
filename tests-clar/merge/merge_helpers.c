@@ -1,5 +1,49 @@
 #include "clar_libgit2.h"
+#include "buffer.h"
+#include "refs.h"
 #include "merge_helpers.h"
+
+int merge_trees_from_branches(
+	git_merge_result **result, git_index **index, git_repository *repo,
+	const char *ours_name, const char *theirs_name,
+	git_merge_opts *opts)
+{
+	git_commit *our_commit, *their_commit, *ancestor_commit;
+	git_tree *our_tree, *their_tree, *ancestor_tree;
+	git_oid our_oid, their_oid, ancestor_oid;
+	git_buf branch_buf = GIT_BUF_INIT;
+
+	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, ours_name);
+	cl_git_pass(git_reference_name_to_id(&our_oid, repo, branch_buf.ptr));
+	cl_git_pass(git_commit_lookup(&our_commit, repo, &our_oid));
+
+	git_buf_clear(&branch_buf);
+	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, theirs_name);
+	cl_git_pass(git_reference_name_to_id(&their_oid, repo, branch_buf.ptr));
+	cl_git_pass(git_commit_lookup(&their_commit, repo, &their_oid));
+
+	cl_git_pass(git_merge_base(&ancestor_oid, repo, git_commit_id(our_commit), git_commit_id(their_commit)));
+	cl_git_pass(git_commit_lookup(&ancestor_commit, repo, &ancestor_oid));
+	
+	cl_git_pass(git_commit_tree(&ancestor_tree, ancestor_commit));
+	cl_git_pass(git_commit_tree(&our_tree, our_commit));
+	cl_git_pass(git_commit_tree(&their_tree, their_commit));
+
+	cl_git_pass(git_index_new(index));
+	cl_git_pass(git_index_read_tree(*index, our_tree));
+
+	cl_git_pass(git_merge_trees(result, repo, *index, ancestor_tree, our_tree, their_tree, opts));
+
+	git_buf_free(&branch_buf);
+	git_tree_free(our_tree);
+	git_tree_free(their_tree);
+	git_tree_free(ancestor_tree);
+	git_commit_free(our_commit);
+	git_commit_free(their_commit);
+	git_commit_free(ancestor_commit);
+
+	return 0;
+}
 
 int merge_branches(git_merge_result **result, git_repository *repo, const char *ours_branch, const char *theirs_branch, git_merge_opts *opts)
 {

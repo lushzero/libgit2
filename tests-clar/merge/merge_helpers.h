@@ -21,6 +21,11 @@ struct merge_reuc_entry {
 	char their_oid_str[41];
 };
 
+int merge_trees_from_branches(
+	git_merge_result **result, git_index **index, git_repository *repo,
+	const char *ours_name, const char *theirs_name,
+	git_merge_opts *opts);
+
 int merge_branches(git_merge_result **result, git_repository *repo, const char *ours_branch, const char *theirs_branch, git_merge_opts *opts);
 
 int merge_test_index(git_index *index, const struct merge_index_entry expected[], size_t expected_len);

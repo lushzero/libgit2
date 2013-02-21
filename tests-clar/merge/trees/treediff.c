@@ -20,12 +20,12 @@ static git_repository *repo;
 #define TREE_OID_RENAME_CONFLICT_OURS		"c4efe31e9decccc8b2b4d3df9aac2cdfe2995618"
 #define TREE_OID_RENAME_CONFLICT_THEIRS		"9e7f4359c469f309b6057febf4c6e80742cbed5b"
 
-void test_merge_treediff__initialize(void)
+void test_merge_trees_treediff__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
 }
 
-void test_merge_treediff__cleanup(void)
+void test_merge_trees_treediff__cleanup(void)
 {
 	cl_git_sandbox_cleanup();
 }
@@ -157,7 +157,7 @@ static git_diff_tree_list *threeway(
     return diff_tree;
 }
 
-void test_merge_treediff__simple(void)
+void test_merge_trees_treediff__simple(void)
 {
     git_diff_tree_list *diff_tree;
     
@@ -217,7 +217,7 @@ void test_merge_treediff__simple(void)
     git_diff_tree_list_free(diff_tree);
 }
 
-void test_merge_treediff__df_conflicts(void)
+void test_merge_trees_treediff__df_conflicts(void)
 {
 	git_diff_tree_list *diff_tree;
 	
@@ -368,7 +368,7 @@ void test_merge_treediff__df_conflicts(void)
 	git_diff_tree_list_free(diff_tree);
 }
 
-void test_merge_treediff__strict_renames(void)
+void test_merge_trees_treediff__strict_renames(void)
 {
     git_diff_tree_list *diff_tree;
     
@@ -435,7 +435,7 @@ void test_merge_treediff__strict_renames(void)
     git_diff_tree_list_free(diff_tree);
 }
 
-void test_merge_treediff__rename_conflicts(void)
+void test_merge_trees_treediff__rename_conflicts(void)
 {
     git_diff_tree_list *diff_tree;
     
@@ -576,7 +576,7 @@ void test_merge_treediff__rename_conflicts(void)
 /*
  * TODO: enable this when diff computation is implemented.
  *
-void test_merge_treediff__best_renames(void)
+void test_merge_trees_treediff__best_renames(void)
 {
     git_diff_tree_list *diff_tree;
     
