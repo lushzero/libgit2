@@ -3,7 +3,7 @@
 #include "git2/merge.h"
 #include "git2/merge_branches.h"
 #include "merge.h"
-#include "merge_helpers.h"
+#include "../merge_helpers.h"
 #include "refs.h"
 #include "fileops.h"
 
@@ -15,13 +15,13 @@ static git_index *repo_index;
 
 
 // Fixture setup and teardown
-void test_merge_trivial__initialize(void)
+void test_merge_workdir_trivial__initialize(void)
 {
 	repo = cl_git_sandbox_init(TEST_REPO_PATH);
     git_repository_index(&repo_index, repo);
 }
 
-void test_merge_trivial__cleanup(void)
+void test_merge_workdir_trivial__cleanup(void)
 {
     git_index_free(repo_index);
 	cl_git_sandbox_cleanup();
@@ -79,7 +79,7 @@ static int merge_trivial_conflict_entrycount(void)
 }
 
 /* 2ALT: ancest:(empty)+, head:*empty*, remote:remote = result:remote */
-void test_merge_trivial__2alt(void)
+void test_merge_workdir_trivial__2alt(void)
 {
 	const git_index_entry *entry;
 
@@ -91,7 +91,7 @@ void test_merge_trivial__2alt(void)
 }
 
 /* 3ALT: ancest:(empty)+, head:head, remote:*empty* = result:head */
-void test_merge_trivial__3alt(void)
+void test_merge_workdir_trivial__3alt(void)
 {
 	const git_index_entry *entry;
 
@@ -103,7 +103,7 @@ void test_merge_trivial__3alt(void)
 }
 
 /* 4: ancest:(empty)^, head:head, remote:remote = result:no merge */
-void test_merge_trivial__4(void)
+void test_merge_workdir_trivial__4(void)
 {
 	const git_index_entry *entry;
 
@@ -118,7 +118,7 @@ void test_merge_trivial__4(void)
 }
 
 /* 5ALT: ancest:*, head:head, remote:head = result:head */
-void test_merge_trivial__5alt_1(void)
+void test_merge_workdir_trivial__5alt_1(void)
 {
 	const git_index_entry *entry;
 
@@ -130,7 +130,7 @@ void test_merge_trivial__5alt_1(void)
 }
 
 /* 5ALT: ancest:*, head:head, remote:head = result:head */
-void test_merge_trivial__5alt_2(void)
+void test_merge_workdir_trivial__5alt_2(void)
 {
 	const git_index_entry *entry;
 
@@ -142,7 +142,7 @@ void test_merge_trivial__5alt_2(void)
 }
 
 /* 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge */
-void test_merge_trivial__6(void)
+void test_merge_workdir_trivial__6(void)
 {
 	const git_index_entry *entry;
 
@@ -156,7 +156,7 @@ void test_merge_trivial__6(void)
 }
 
 /* 6: ancest:ancest+, head:(empty), remote:(empty) = result:no merge */
-void test_merge_trivial__6_automerge(void)
+void test_merge_workdir_trivial__6_automerge(void)
 {
 	const git_index_entry *entry;
 	const git_index_reuc_entry *reuc;
@@ -171,7 +171,7 @@ void test_merge_trivial__6_automerge(void)
 }
 
 /* 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge */
-void test_merge_trivial__8(void)
+void test_merge_workdir_trivial__8(void)
 {
 	const git_index_entry *entry;
 
@@ -186,7 +186,7 @@ void test_merge_trivial__8(void)
 }
 
 /* 8: ancest:ancest^, head:(empty), remote:ancest = result:no merge */
-void test_merge_trivial__8_automerge(void)
+void test_merge_workdir_trivial__8_automerge(void)
 {
 	const git_index_entry *entry;
 	const git_index_reuc_entry *reuc;
@@ -202,7 +202,7 @@ void test_merge_trivial__8_automerge(void)
 }
 
 /* 7: ancest:ancest+, head:(empty), remote:remote = result:no merge */
-void test_merge_trivial__7(void)
+void test_merge_workdir_trivial__7(void)
 {
 	const git_index_entry *entry;
 
@@ -217,7 +217,7 @@ void test_merge_trivial__7(void)
 }
 
 /* 7: ancest:ancest+, head:(empty), remote:remote = result:no merge */
-void test_merge_trivial__7_automerge(void)
+void test_merge_workdir_trivial__7_automerge(void)
 {
 	const git_index_entry *entry;
 
@@ -232,7 +232,7 @@ void test_merge_trivial__7_automerge(void)
 }
 
 /* 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge */
-void test_merge_trivial__10(void)
+void test_merge_workdir_trivial__10(void)
 {
 	const git_index_entry *entry;
 
@@ -247,7 +247,7 @@ void test_merge_trivial__10(void)
 }
 
 /* 10: ancest:ancest^, head:ancest, remote:(empty) = result:no merge */
-void test_merge_trivial__10_automerge(void)
+void test_merge_workdir_trivial__10_automerge(void)
 {
 	const git_index_entry *entry;
 	const git_index_reuc_entry *reuc;
@@ -263,7 +263,7 @@ void test_merge_trivial__10_automerge(void)
 }
 
 /* 9: ancest:ancest+, head:head, remote:(empty) = result:no merge */
-void test_merge_trivial__9(void)
+void test_merge_workdir_trivial__9(void)
 {
 	const git_index_entry *entry;
 
@@ -278,7 +278,7 @@ void test_merge_trivial__9(void)
 }
 
 /* 9: ancest:ancest+, head:head, remote:(empty) = result:no merge */
-void test_merge_trivial__9_automerge(void)
+void test_merge_workdir_trivial__9_automerge(void)
 {
 	const git_index_entry *entry;
 
@@ -293,7 +293,7 @@ void test_merge_trivial__9_automerge(void)
 }
 
 /* 13: ancest:ancest+, head:head, remote:ancest = result:head */
-void test_merge_trivial__13(void)
+void test_merge_workdir_trivial__13(void)
 {
 	const git_index_entry *entry;
 	git_oid expected_oid;
@@ -309,7 +309,7 @@ void test_merge_trivial__13(void)
 }
 
 /* 14: ancest:ancest+, head:ancest, remote:remote = result:remote */
-void test_merge_trivial__14(void)
+void test_merge_workdir_trivial__14(void)
 {
 	const git_index_entry *entry;
 	git_oid expected_oid;
@@ -325,7 +325,7 @@ void test_merge_trivial__14(void)
 }
 
 /* 11: ancest:ancest+, head:head, remote:remote = result:no merge */
-void test_merge_trivial__11(void)
+void test_merge_workdir_trivial__11(void)
 {
 	const git_index_entry *entry;
 
