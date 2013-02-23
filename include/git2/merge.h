@@ -109,7 +109,7 @@ typedef enum {
 
 	/* The child of a folder that is in a directory/file conflict. */
 	GIT_MERGE_CONFLICT_DF_CHILD = (1 << 11),
-} git_merge_conflict_t;
+} git_merge_conflict_type_t;
 
 
 /**

@@ -93,16 +93,16 @@ GIT_INLINE(int) diff_tree__compute_df_conflict(
 	/* Determine if this is a D/F conflict or the child of one */
 	if (threeway_data->df_path &&
 		path_is_prefixed(threeway_data->df_path, cur_path))
-		conflict->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
+		conflict->type = GIT_MERGE_CONFLICT_DF_CHILD;
 	else if(threeway_data->df_path)
 		threeway_data->df_path = NULL;
 	else if (threeway_data->prev_path &&
 		diff_tree__delta_added_or_modified(threeway_data->prev_conflict) &&
 		diff_tree__delta_added_or_modified(conflict) &&
 		path_is_prefixed(threeway_data->prev_path, cur_path)) {
-		conflict->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
+		conflict->type = GIT_MERGE_CONFLICT_DF_CHILD;
 		
-		threeway_data->prev_conflict->conflict = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
+		threeway_data->prev_conflict->type = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
 		threeway_data->df_path = threeway_data->prev_path;
 	}
 
@@ -117,21 +117,21 @@ GIT_INLINE(int) diff_tree__compute_conflict(
 {
 	if (conflict->our_status == GIT_DELTA_ADDED &&
 		conflict->their_status == GIT_DELTA_ADDED)
-		conflict->conflict = GIT_MERGE_CONFLICT_BOTH_ADDED;
+		conflict->type = GIT_MERGE_CONFLICT_BOTH_ADDED;
 	else if (conflict->our_status == GIT_DELTA_MODIFIED &&
 		conflict->their_status == GIT_DELTA_MODIFIED)
-		conflict->conflict = GIT_MERGE_CONFLICT_BOTH_MODIFIED;
+		conflict->type = GIT_MERGE_CONFLICT_BOTH_MODIFIED;
 	else if (conflict->our_status == GIT_DELTA_DELETED &&
 		conflict->their_status == GIT_DELTA_DELETED)
-		conflict->conflict = GIT_MERGE_CONFLICT_BOTH_DELETED;
+		conflict->type = GIT_MERGE_CONFLICT_BOTH_DELETED;
 	else if (conflict->our_status == GIT_DELTA_MODIFIED &&
 		conflict->their_status == GIT_DELTA_DELETED)
-		conflict->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
+		conflict->type = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
 	else if (conflict->our_status == GIT_DELTA_DELETED &&
 		conflict->their_status == GIT_DELTA_MODIFIED)
-		conflict->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
+		conflict->type = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
 	else
-		conflict->conflict = GIT_MERGE_CONFLICT_NONE;
+		conflict->type = GIT_MERGE_CONFLICT_NONE;
 
 	return 0;
 }
@@ -351,41 +351,41 @@ static void diff_tree__mark_rename_conflict(
 	if (ours_renamed && theirs_renamed) {
 		/* Both renamed to the same target name. */
 		if (ours_source_idx == theirs_source_idx)
-			ours_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED;
+			ours_source->type = GIT_MERGE_CONFLICT_BOTH_RENAMED;
 		else {
-			ours_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1;
-			theirs_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1;
+			ours_source->type = GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1;
+			theirs_source->type = GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1;
 		}
 	} else if (ours_renamed) {
 		/* If our source was also renamed in theirs, this is a 1->2 */
 		if (similarity_theirs[ours_source_idx].similarity >= opts->rename_threshold)
-			ours_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2;
+			ours_source->type = GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
 		else if (GIT_DIFF_TREE_FILE_EXISTS(target->their_entry)) {
-			ours_source->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
-			target->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
+			ours_source->type = GIT_MERGE_CONFLICT_RENAMED_ADDED;
+			target->type = GIT_MERGE_CONFLICT_RENAMED_ADDED;
 		}
 		
 		else if (!GIT_DIFF_TREE_FILE_EXISTS(ours_source->their_entry))
-			ours_source->conflict = GIT_MERGE_CONFLICT_RENAMED_DELETED;
+			ours_source->type = GIT_MERGE_CONFLICT_RENAMED_DELETED;
 		
-		else if (ours_source->conflict == GIT_MERGE_CONFLICT_MODIFIED_DELETED)
-			ours_source->conflict = GIT_MERGE_CONFLICT_RENAMED_MODIFIED;
+		else if (ours_source->type == GIT_MERGE_CONFLICT_MODIFIED_DELETED)
+			ours_source->type = GIT_MERGE_CONFLICT_RENAMED_MODIFIED;
 	} else if (theirs_renamed) {
 		/* If their source was also renamed in ours, this is a 1->2 */
 		if (similarity_ours[theirs_source_idx].similarity >= opts->rename_threshold)
-			theirs_source->conflict = GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2;
+			theirs_source->type = GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2;
 		
 		else if (GIT_DIFF_TREE_FILE_EXISTS(target->our_entry)) {
-			theirs_source->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
-			target->conflict = GIT_MERGE_CONFLICT_RENAMED_ADDED;
+			theirs_source->type = GIT_MERGE_CONFLICT_RENAMED_ADDED;
+			target->type = GIT_MERGE_CONFLICT_RENAMED_ADDED;
 		}
 		
 		else if (!GIT_DIFF_TREE_FILE_EXISTS(theirs_source->our_entry))
-			theirs_source->conflict = GIT_MERGE_CONFLICT_RENAMED_DELETED;
+			theirs_source->type = GIT_MERGE_CONFLICT_RENAMED_DELETED;
 		
-		else if (theirs_source->conflict == GIT_MERGE_CONFLICT_MODIFIED_DELETED)
-			theirs_source->conflict = GIT_MERGE_CONFLICT_RENAMED_MODIFIED;
+		else if (theirs_source->type == GIT_MERGE_CONFLICT_MODIFIED_DELETED)
+			theirs_source->type = GIT_MERGE_CONFLICT_RENAMED_MODIFIED;
 	}
 }
 

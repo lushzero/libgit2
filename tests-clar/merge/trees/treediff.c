@@ -41,7 +41,7 @@ struct treediff_delta_data {
 	struct treediff_file_data ancestor;
 	struct treediff_file_data ours;
 	struct treediff_file_data theirs;
-	git_merge_conflict_t conflict;
+	git_merge_conflict_type_t conflict_type;
 };
 
 struct treediff_cb_data {
@@ -87,7 +87,7 @@ static int treediff_cb(const git_merge_index_conflict *delta, void *cb_data)
 	cl_assert(treediff_cmp(&delta->our_entry, delta->our_status, &delta_data->ours));
 	cl_assert(treediff_cmp(&delta->their_entry, delta->their_status, &delta_data->theirs));
 	
-	cl_assert(delta->conflict == delta_data->conflict);
+	cl_assert(delta->type == delta_data->conflict_type);
 
     treediff_cb_data->idx++;
     

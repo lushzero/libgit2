@@ -432,7 +432,7 @@ static int merge_conflict_resolve_trivial(
 
 	*resolved = 0;
 
-	if (delta->conflict == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
+	if (delta->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
 		return 0;
 
 	ancestor_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->ancestor_entry);
@@ -511,7 +511,7 @@ static int merge_conflict_resolve_one_removed(
 
 	*resolved = 0;
 
-	if (delta->conflict == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
+	if (delta->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
 		return 0;
 
 	ours_empty = !GIT_DIFF_TREE_FILE_EXISTS(delta->our_entry);
@@ -564,7 +564,7 @@ static int merge_conflict_resolve_automerge(
 		return 0;
 
 	/* Reject D/F conflicts */
-	if (delta->conflict == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
+	if (delta->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
 		return 0;
 
 	/* Reject link/file conflicts. */

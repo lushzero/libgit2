@@ -28,6 +28,8 @@ struct git_merge_index {
  * Description of changes to one file across three trees.
  */
 typedef struct {
+	git_merge_conflict_type_t type;
+
 	git_index_entry ancestor_entry;
 	
 	git_index_entry our_entry;
@@ -35,8 +37,6 @@ typedef struct {
 	
 	git_index_entry their_entry;
 	git_delta_t their_status;
-	
-	git_merge_conflict_t conflict;
 } git_merge_index_conflict;
 
 /** @name Three-way Tree Diff Functions
