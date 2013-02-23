@@ -16,18 +16,12 @@
 
 #define GIT_DIFF_TREE_FILE_EXISTS(X)	((X).mode != 0)
 
-struct git_diff_tree_list {
+struct git_merge_index {
 	git_repository *repo;
 	git_pool pool;
 
 	git_vector deltas;    /* vector of git_diff_tree_delta */
 };
-
-/**
- * The git_diff_tree_list list object that contains all individual
- * object deltas.
- */
-typedef struct git_diff_tree_list git_diff_tree_list;
 
 /**
  * Description of changes to one file across three trees.
@@ -42,7 +36,7 @@ typedef struct {
 	git_delta_t their_status;
 	
 	git_merge_conflict_t conflict;
-} git_diff_tree_delta;
+} git_merge_index_conflict;
 
 /** @name Three-way Tree Diff Functions
  *
@@ -60,7 +54,7 @@ typedef struct {
 /**@{*/
 
 int git_diff_trees(
-	git_diff_tree_list **out,
+	git_merge_index **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
@@ -70,6 +64,6 @@ int git_diff_trees(
 /**
  * Deallocate a diff_tree list.
  */
-void git_diff_tree_list_free(git_diff_tree_list *diff_tree);
+void git_merge_index_free(git_merge_index *diff_tree);
 
 #endif

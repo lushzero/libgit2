@@ -142,6 +142,8 @@ GIT_EXTERN(int) git_merge_base_many(
 	const git_oid input_array[],
 	size_t length);
 
+typedef struct git_merge_tree_result git_merge_tree_result;
+
 /* TODO: doc! */
 /* Note the part about how the index is only added to. */
 GIT_EXTERN(int) git_merge_trees(
@@ -154,12 +156,11 @@ GIT_EXTERN(int) git_merge_trees(
 	const git_merge_tree_opts *opts);
 
 /**
- * Free a merge result.
+ * Free a merge index.
  *
- * @param merge_result the merge result to free
+ * @param merge_index the merge index to free
  */
-GIT_EXTERN(void) git_merge_tree_result_free(
-	git_merge_tree_result *merge_result);
+void git_merge_index_free(git_merge_index *diff_tree);
 
 /** @} */
 GIT_END_DECL

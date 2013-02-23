@@ -144,7 +144,7 @@ typedef struct git_note git_note;
 typedef struct git_packbuilder git_packbuilder;
 
 /** Representation of the result of merging trees */
-typedef struct git_merge_tree_result git_merge_tree_result;
+typedef struct git_merge_index git_merge_index;
 
 /** Time in a signature */
 typedef struct git_time {

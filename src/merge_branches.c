@@ -261,7 +261,7 @@ static char *merge_filediff_entry_name(
 static int merge_filediff_entry_names(char **our_path,
 	char **their_path,
 	const git_merge_head *merge_heads[],
-	const git_diff_tree_delta *delta)
+	const git_merge_index_conflict *delta)
 {
 	bool rename;
 
@@ -296,7 +296,7 @@ static int merge_conflict_write_diff3(
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	unsigned int flags)
 {
 	git_merge_file_input ancestor = GIT_MERGE_FILE_INPUT_INIT,
@@ -396,7 +396,7 @@ static int merge_conflict_write_file(
 static int merge_conflict_write_side(
 	git_repository *repo,
 	const git_merge_head *merge_head,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	const git_index_entry *entry,
 	unsigned int flags)
 {
@@ -441,7 +441,7 @@ static int merge_conflict_write_sides(
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	unsigned int flags)
 {
 	int error = 0;
@@ -473,7 +473,7 @@ int merge_conflict_write(int *out,
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	unsigned int flags)
 {
 	int conflict_written = 0;
@@ -660,7 +660,7 @@ int merge_conflict_write(int *out,
 	 const git_merge_head *ancestor_head,
 	 const git_merge_head *our_head,
 	 const git_merge_head *their_head,
-	 const git_diff_tree_delta *delta,
+	 const git_merge_index_conflict *delta,
 	 unsigned int flags);
 
 int merge_trees(
@@ -708,7 +708,7 @@ int git_merge(
 	git_merge_head *ancestor_head = NULL, *our_head = NULL;
 	git_tree *ancestor_tree = NULL, *our_tree = NULL, **their_trees = NULL;
 	git_index *index_new = NULL, *index_repo = NULL;
-	git_diff_tree_delta *delta;
+	git_merge_index_conflict *delta;
 	size_t i;
 	int error = 0;
 
@@ -856,7 +856,7 @@ int git_merge_result_conflict_foreach(git_merge_result *merge_result,
 	git_merge_conflict_foreach_cb conflict_cb,
 	void *payload)
 {
-	git_diff_tree_delta *delta;
+	git_merge_index_conflict *delta;
 	size_t i;
 	int error = 0;
 	
@@ -879,7 +879,7 @@ void git_merge_result_free(git_merge_result *merge_result)
 	
 	git_vector_free(&merge_result->conflicts);
 	
-	git_diff_tree_list_free(merge_result->diff_tree);
+	git_merge_index_free(merge_result->diff_tree);
 	merge_result->diff_tree = NULL;
 	
 	git__free(merge_result);

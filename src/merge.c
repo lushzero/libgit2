@@ -333,7 +333,7 @@ GIT_INLINE(int) index_entry_cmp(const git_index_entry *a, const git_index_entry 
 
 /* Conflict resolution */
 
-static int merge_file_index_remove(git_index *index, const git_diff_tree_delta *delta)
+static int merge_file_index_remove(git_index *index, const git_merge_index_conflict *delta)
 {
 	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->our_entry))
 		return 0;
@@ -342,7 +342,7 @@ static int merge_file_index_remove(git_index *index, const git_diff_tree_delta *
 }
 
 static int merge_file_apply(git_index *index,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	const git_index_entry *entry)
 {
 	int error = 0;
@@ -357,7 +357,7 @@ static int merge_file_apply(git_index *index,
 	return error;
 }
 
-static int merge_mark_conflict_resolved(git_index *index, const git_diff_tree_delta *delta)
+static int merge_mark_conflict_resolved(git_index *index, const git_merge_index_conflict *delta)
 {
 	const char *path;
 	assert(index && delta);
@@ -379,7 +379,7 @@ static int merge_mark_conflict_resolved(git_index *index, const git_diff_tree_de
 		delta->their_entry.mode, &delta->their_entry.oid);
 }
 
-static int merge_mark_conflict_unresolved(git_index *index, const git_diff_tree_delta *delta)
+static int merge_mark_conflict_unresolved(git_index *index, const git_merge_index_conflict *delta)
 {
 	bool ancestor_exists = 0, ours_exists = 0, theirs_exists = 0;
 	git_index_entry ancestor_entry, our_entry, their_entry;
@@ -421,7 +421,7 @@ static int merge_conflict_resolve_trivial(
 	int *resolved,
 	git_repository *repo,
 	git_index *index,
-	const git_diff_tree_delta *delta)
+	const git_merge_index_conflict *delta)
 {
 	int ancestor_empty, ours_empty, theirs_empty;
 	int ours_changed, theirs_changed, ours_theirs_differ;
@@ -500,7 +500,7 @@ static int merge_conflict_resolve_one_removed(
 	int *resolved,
 	git_repository *repo,
 	git_index *index,
-	const git_diff_tree_delta *delta)
+	const git_merge_index_conflict *delta)
 {
 	int ours_empty, theirs_empty;
 	int ours_changed, theirs_changed;
@@ -544,7 +544,7 @@ static int merge_conflict_resolve_automerge(
 	int *resolved,
 	git_repository *repo,
 	git_index *index,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	unsigned int automerge_flags)
 {
 	git_merge_file_input ancestor = GIT_MERGE_FILE_INPUT_INIT,
@@ -614,7 +614,7 @@ static int merge_conflict_resolve(
 	int *out,
 	git_repository *repo,
 	git_index *index,
-	const git_diff_tree_delta *delta,
+	const git_merge_index_conflict *delta,
 	unsigned int automerge_flags)
 {
 	int resolved = 0;
@@ -646,7 +646,7 @@ done:
 
 /* TODO: staticify */
 int merge_trees(
-	git_merge_tree_result *result,
+	struct git_merge_tree_result *result,
 	git_repository *repo,
 	git_index *index,
 	const git_tree *ancestor_tree,
@@ -654,7 +654,7 @@ int merge_trees(
 	const git_tree *their_tree,
 	const git_merge_tree_opts *opts)
 {
-	git_diff_tree_delta *delta;
+	git_merge_index_conflict *delta;
 	size_t i;
 	int error = 0;
 
@@ -718,7 +718,7 @@ int merge_tree_normalize_opts(
 }
 
 int git_merge_trees(
-	git_merge_tree_result **out,
+	struct git_merge_tree_result **out,
 	git_repository *repo,
 	git_index *index,
 	const git_tree *ancestor_tree,
@@ -727,7 +727,7 @@ int git_merge_trees(
 	const git_merge_tree_opts *given_opts)
 {
 	git_merge_tree_opts opts;
-	git_merge_tree_result *result;
+	struct git_merge_tree_result *result;
 	int error = 0;
 
 	assert(out && repo && index && ancestor_tree && our_tree && their_tree);
@@ -737,7 +737,7 @@ int git_merge_trees(
 	if ((error = merge_tree_normalize_opts(repo, &opts, given_opts)) < 0)
 		return error;
 	
-	result = git__calloc(1, sizeof(git_merge_tree_result));
+	result = git__calloc(1, sizeof(struct git_merge_tree_result));
 	GITERR_CHECK_ALLOC(result);
 	
 	if ((error = merge_trees(result, repo, index, ancestor_tree, our_tree, their_tree, &opts)) >= 0)
@@ -748,14 +748,14 @@ int git_merge_trees(
 	return error;
 }
 
-void git_merge_tree_result_free(git_merge_tree_result *merge_tree_result)
+void git_merge_tree_result_free(struct git_merge_tree_result *merge_tree_result)
 {
 	if (merge_tree_result == NULL)
 		return;
 	
 	git_vector_free(&merge_tree_result->conflicts);
 	
-	git_diff_tree_list_free(merge_tree_result->diff_tree);
+	git_merge_index_free(merge_tree_result->diff_tree);
 	merge_tree_result->diff_tree = NULL;
 	
 	git__free(merge_tree_result);
