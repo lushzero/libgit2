@@ -85,35 +85,35 @@ GIT_INLINE(bool) path_is_prefixed(const char *parent, const char *child)
 	return (child[parent_len] == '/');
 }
 
-GIT_INLINE(int) merge_index_conflict_df_type(
-	struct merge_index_df_data *threeway_data,
+GIT_INLINE(int) merge_index_conflict_detect_df(
+	struct merge_index_df_data *df_data,
 	git_merge_index_conflict *conflict)
 {
 	const char *cur_path = merge_index_conflict_path(conflict);
 	
 	/* Determine if this is a D/F conflict or the child of one */
-	if (threeway_data->df_path &&
-		path_is_prefixed(threeway_data->df_path, cur_path))
+	if (df_data->df_path &&
+		path_is_prefixed(df_data->df_path, cur_path))
 		conflict->type = GIT_MERGE_CONFLICT_DF_CHILD;
-	else if(threeway_data->df_path)
-		threeway_data->df_path = NULL;
-	else if (threeway_data->prev_path &&
-		merge_index_conflict_added_or_modified(threeway_data->prev_conflict) &&
+	else if(df_data->df_path)
+		df_data->df_path = NULL;
+	else if (df_data->prev_path &&
+		merge_index_conflict_added_or_modified(df_data->prev_conflict) &&
 		merge_index_conflict_added_or_modified(conflict) &&
-		path_is_prefixed(threeway_data->prev_path, cur_path)) {
+		path_is_prefixed(df_data->prev_path, cur_path)) {
 		conflict->type = GIT_MERGE_CONFLICT_DF_CHILD;
 		
-		threeway_data->prev_conflict->type = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
-		threeway_data->df_path = threeway_data->prev_path;
+		df_data->prev_conflict->type = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
+		df_data->df_path = df_data->prev_path;
 	}
 
-	threeway_data->prev_path = cur_path;
-	threeway_data->prev_conflict = conflict;
+	df_data->prev_path = cur_path;
+	df_data->prev_conflict = conflict;
 	
 	return 0;
 }
 
-GIT_INLINE(int) merge_index_conflict_type(
+GIT_INLINE(int) merge_index_conflict_detect_type(
 	git_merge_index_conflict *conflict)
 {
 	if (conflict->our_status == GIT_DELTA_ADDED &&
@@ -174,11 +174,11 @@ GIT_INLINE(int) merge_index_conflict_entry_status(
 }
 
 static git_merge_index_conflict *merge_index_conflict_from_entries(
-	struct merge_index_df_data *threeway_data,
+	git_merge_index *merge_index,
 	const git_index_entry **entries)
 {
 	git_merge_index_conflict *delta_tree;
-	git_pool *pool = &threeway_data->merge_index->pool;
+	git_pool *pool = &merge_index->pool;
 	
 	if ((delta_tree = git_pool_malloc(pool, sizeof(git_merge_index_conflict))) == NULL)
 		return NULL;
@@ -196,17 +196,17 @@ static git_merge_index_conflict *merge_index_conflict_from_entries(
 	return delta_tree;
 }
 
-static int merge_index_insert_conflict(const git_index_entry **tree_items, void *payload)
+static int merge_index_insert_conflict(
+	git_merge_index *merge_index,
+	struct merge_index_df_data *merge_df_data,
+	const git_index_entry *tree_items[3])
 {
-	struct merge_index_df_data *threeway_data = payload;
-	git_merge_index_conflict *delta_tree;
+	git_merge_index_conflict *merge_index_conflict;
 	
-	assert(tree_items && threeway_data);
-	
-	if ((delta_tree = merge_index_conflict_from_entries(threeway_data, tree_items)) == NULL ||
-		merge_index_conflict_type(delta_tree) < 0 ||
-		merge_index_conflict_df_type(threeway_data, delta_tree) < 0 ||
-		git_vector_insert(&threeway_data->merge_index->conflicts, delta_tree) < 0)
+	if ((merge_index_conflict = merge_index_conflict_from_entries(merge_index, tree_items)) == NULL ||
+		merge_index_conflict_detect_type(merge_index_conflict) < 0 ||
+		merge_index_conflict_detect_df(merge_df_data, merge_index_conflict) < 0 ||
+		git_vector_insert(&merge_index->conflicts, merge_index_conflict) < 0)
 		return -1;
 	
 	return 0;
@@ -469,10 +469,12 @@ static int merge_index_find_renames(
 	if (!opts || (opts->flags & GIT_MERGE_TREE_FIND_RENAMES) == 0)
 		return 0;
 
-	similarity_ours = git__calloc(merge_index->conflicts.length, sizeof(struct merge_index_similarity));
+	similarity_ours = git__calloc(merge_index->conflicts.length,
+		sizeof(struct merge_index_similarity));
 	GITERR_CHECK_ALLOC(similarity_ours);
 
-	similarity_theirs = git__calloc(merge_index->conflicts.length, sizeof(struct merge_index_similarity));
+	similarity_theirs = git__calloc(merge_index->conflicts.length,
+		sizeof(struct merge_index_similarity));
 	GITERR_CHECK_ALLOC(similarity_theirs);
 
 	/* Calculate similarity between items that were deleted from the ancestor
@@ -516,11 +518,12 @@ GIT_INLINE(int) index_entry_cmp(const git_index_entry *a, const git_index_entry 
 static int diff_trees(
 	git_repository *repo,
 	const git_tree *trees[3],
-	struct merge_index_df_data *threeway_data)
+	git_merge_index *merge_index)
 {
 	git_iterator *iterators[3] = {0};
 	git_index_entry const *items[3] = {0}, *best_cur_item, *cur_items[3];
 	git_vector_cmp entry_compare = git_index_entry__cmp;
+	struct merge_index_df_data df_data = {0};
 	int cur_item_modified;
 	size_t i;
 	int error = 0;
@@ -577,7 +580,7 @@ static int diff_trees(
 			break;
 		
 		if (cur_item_modified) {
-			if (merge_index_insert_conflict(cur_items, threeway_data)) {
+			if (merge_index_insert_conflict(merge_index, &df_data, cur_items)) {
 				error = GIT_EUSER;
 				goto done;
 			}
@@ -598,14 +601,14 @@ done:
 	return error;
 }
 
-int git_diff_trees(git_merge_index **out,
+int git_diff_trees(
+	git_merge_index **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
 	const git_merge_tree_opts *opts)
 {
-	struct merge_index_df_data threeway_data;
 	git_merge_index *merge_index;
 	git_tree const *trees[3];
 	int error = 0;
@@ -617,14 +620,11 @@ int git_diff_trees(git_merge_index **out,
 	merge_index = merge_index_alloc(repo);
 	GITERR_CHECK_ALLOC(merge_index);
 	
-	memset(&threeway_data, 0x0, sizeof(struct merge_index_df_data));
-	threeway_data.merge_index = merge_index;
-	
 	trees[THREEWAY_IDX_ANCESTOR] = ancestor_tree;
 	trees[THREEWAY_IDX_OURS] = our_tree;
 	trees[THREEWAY_IDX_THEIRS] = their_tree;
 	
-	if ((error = diff_trees(repo, trees, &threeway_data)) < 0 ||
+	if ((error = diff_trees(repo, trees, merge_index)) < 0 ||
 		(error = merge_index_find_renames(merge_index, opts)) < 0)
 		git_merge_index_free(merge_index);
 	
