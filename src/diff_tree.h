@@ -20,7 +20,8 @@ struct git_merge_index {
 	git_repository *repo;
 	git_pool pool;
 
-	git_vector deltas;    /* vector of git_diff_tree_delta */
+	/* Vector of git_merge_index_conflict */
+	git_vector conflicts;
 };
 
 /**

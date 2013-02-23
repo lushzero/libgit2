@@ -107,7 +107,7 @@ static int git_diff_tree_foreach(
 
 	assert (diff_tree && callback);
 
-	git_vector_foreach(&diff_tree->deltas, i, delta) {
+	git_vector_foreach(&diff_tree->conflicts, i, delta) {
 		if (callback(delta, payload) != 0) {
 			error = GIT_EUSER;
 			break;
@@ -143,7 +143,7 @@ static git_merge_index *threeway(
     
 	cl_git_pass(git_diff_trees(&diff_tree, repo, ancestor_tree, ours_tree, theirs_tree, &opts));
 
-    cl_assert(treediff_delta_data_len == diff_tree->deltas.length);
+    cl_assert(treediff_delta_data_len == diff_tree->conflicts.length);
     
     treediff_cb_data.delta_data = treediff_delta_data;
 	treediff_cb_data.delta_data_len = treediff_delta_data_len;

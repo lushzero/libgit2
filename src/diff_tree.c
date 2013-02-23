@@ -28,45 +28,45 @@ struct diff_tree_threeway_data {
 	
 	const char *df_path;
 	const char *prev_path;
-	git_merge_index_conflict *prev_delta_tree;
+	git_merge_index_conflict *prev_conflict;
 };
 
 static git_merge_index *diff_tree__list_alloc(git_repository *repo)
 {
-	git_merge_index *diff_tree =
-		git__calloc(1, sizeof(git_merge_index));
+	git_merge_index *merge_index = git__calloc(1, sizeof(git_merge_index));
 	
-	if (diff_tree == NULL)
+	if (merge_index == NULL)
 		return NULL;
 	
-	diff_tree->repo = repo;
+	merge_index->repo = repo;
 	
-	if (git_vector_init(&diff_tree->deltas, 0, git_diff_delta__cmp) < 0 ||
-		git_pool_init(&diff_tree->pool, 1, 0) < 0)
+	if (git_vector_init(&merge_index->conflicts, 0, NULL) < 0 ||
+		git_pool_init(&merge_index->pool, 1, 0) < 0)
 		return NULL;
 	
-	return diff_tree;
+	return merge_index;
 }
 
-GIT_INLINE(const char *) diff_tree__path(const git_merge_index_conflict *delta_tree)
+GIT_INLINE(const char *) diff_tree__path(
+	const git_merge_index_conflict *conflict)
 {
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->ancestor_entry))
-		return delta_tree->ancestor_entry.path;
-	else if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->our_entry))
-		return delta_tree->our_entry.path;
-	else if (GIT_DIFF_TREE_FILE_EXISTS(delta_tree->their_entry))
-		return delta_tree->their_entry.path;
+	if (GIT_DIFF_TREE_FILE_EXISTS(conflict->ancestor_entry))
+		return conflict->ancestor_entry.path;
+	else if (GIT_DIFF_TREE_FILE_EXISTS(conflict->our_entry))
+		return conflict->our_entry.path;
+	else if (GIT_DIFF_TREE_FILE_EXISTS(conflict->their_entry))
+		return conflict->their_entry.path;
 	
 	return NULL;
 }
 
 GIT_INLINE(bool) diff_tree__delta_added_or_modified(
-	const git_merge_index_conflict *delta_tree)
+	const git_merge_index_conflict *conflict)
 {
-	if (delta_tree->our_status == GIT_DELTA_ADDED ||
-		delta_tree->our_status == GIT_DELTA_MODIFIED ||
-		delta_tree->their_status == GIT_DELTA_ADDED ||
-		delta_tree->their_status == GIT_DELTA_MODIFIED)
+	if (conflict->our_status == GIT_DELTA_ADDED ||
+		conflict->our_status == GIT_DELTA_MODIFIED ||
+		conflict->their_status == GIT_DELTA_ADDED ||
+		conflict->their_status == GIT_DELTA_MODIFIED)
 		return true;
 		
 	return false;
@@ -86,52 +86,52 @@ GIT_INLINE(bool) path_is_prefixed(const char *parent, const char *child)
 
 GIT_INLINE(int) diff_tree__compute_df_conflict(
 	struct diff_tree_threeway_data *threeway_data,
-	git_merge_index_conflict *delta_tree)
+	git_merge_index_conflict *conflict)
 {
-	const char *cur_path = diff_tree__path(delta_tree);
+	const char *cur_path = diff_tree__path(conflict);
 	
 	/* Determine if this is a D/F conflict or the child of one */
 	if (threeway_data->df_path &&
 		path_is_prefixed(threeway_data->df_path, cur_path))
-		delta_tree->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
+		conflict->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
 	else if(threeway_data->df_path)
 		threeway_data->df_path = NULL;
 	else if (threeway_data->prev_path &&
-		diff_tree__delta_added_or_modified(threeway_data->prev_delta_tree) &&
-		diff_tree__delta_added_or_modified(delta_tree) &&
+		diff_tree__delta_added_or_modified(threeway_data->prev_conflict) &&
+		diff_tree__delta_added_or_modified(conflict) &&
 		path_is_prefixed(threeway_data->prev_path, cur_path)) {
-		delta_tree->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
+		conflict->conflict = GIT_MERGE_CONFLICT_DF_CHILD;
 		
-		threeway_data->prev_delta_tree->conflict = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
+		threeway_data->prev_conflict->conflict = GIT_MERGE_CONFLICT_DIRECTORY_FILE;
 		threeway_data->df_path = threeway_data->prev_path;
 	}
 
 	threeway_data->prev_path = cur_path;
-	threeway_data->prev_delta_tree = delta_tree;
+	threeway_data->prev_conflict = conflict;
 	
 	return 0;
 }
 
 GIT_INLINE(int) diff_tree__compute_conflict(
-	git_merge_index_conflict *delta_tree)
+	git_merge_index_conflict *conflict)
 {
-	if (delta_tree->our_status == GIT_DELTA_ADDED &&
-		delta_tree->their_status == GIT_DELTA_ADDED)
-		delta_tree->conflict = GIT_MERGE_CONFLICT_BOTH_ADDED;
-	else if (delta_tree->our_status == GIT_DELTA_MODIFIED &&
-		delta_tree->their_status == GIT_DELTA_MODIFIED)
-		delta_tree->conflict = GIT_MERGE_CONFLICT_BOTH_MODIFIED;
-	else if (delta_tree->our_status == GIT_DELTA_DELETED &&
-		delta_tree->their_status == GIT_DELTA_DELETED)
-		delta_tree->conflict = GIT_MERGE_CONFLICT_BOTH_DELETED;
-	else if (delta_tree->our_status == GIT_DELTA_MODIFIED &&
-		delta_tree->their_status == GIT_DELTA_DELETED)
-		delta_tree->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
-	else if (delta_tree->our_status == GIT_DELTA_DELETED &&
-		delta_tree->their_status == GIT_DELTA_MODIFIED)
-		delta_tree->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
+	if (conflict->our_status == GIT_DELTA_ADDED &&
+		conflict->their_status == GIT_DELTA_ADDED)
+		conflict->conflict = GIT_MERGE_CONFLICT_BOTH_ADDED;
+	else if (conflict->our_status == GIT_DELTA_MODIFIED &&
+		conflict->their_status == GIT_DELTA_MODIFIED)
+		conflict->conflict = GIT_MERGE_CONFLICT_BOTH_MODIFIED;
+	else if (conflict->our_status == GIT_DELTA_DELETED &&
+		conflict->their_status == GIT_DELTA_DELETED)
+		conflict->conflict = GIT_MERGE_CONFLICT_BOTH_DELETED;
+	else if (conflict->our_status == GIT_DELTA_MODIFIED &&
+		conflict->their_status == GIT_DELTA_DELETED)
+		conflict->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
+	else if (conflict->our_status == GIT_DELTA_DELETED &&
+		conflict->their_status == GIT_DELTA_MODIFIED)
+		conflict->conflict = GIT_MERGE_CONFLICT_MODIFIED_DELETED;
 	else
-		delta_tree->conflict = GIT_MERGE_CONFLICT_NONE;
+		conflict->conflict = GIT_MERGE_CONFLICT_NONE;
 
 	return 0;
 }
@@ -222,7 +222,7 @@ static int diff_tree__create_delta(const git_index_entry **tree_items, void *pay
 	if ((delta_tree = diff_tree__delta_from_entries(threeway_data, tree_items)) == NULL ||
 		diff_tree__compute_conflict(delta_tree) < 0 ||
 		diff_tree__compute_df_conflict(threeway_data, delta_tree) < 0 ||
-		git_vector_insert(&threeway_data->diff_tree->deltas, delta_tree) < 0)
+		git_vector_insert(&threeway_data->diff_tree->conflicts, delta_tree) < 0)
 		return -1;
 	
 	return 0;
@@ -250,23 +250,23 @@ static void diff_tree__mark_similarity(
 	unsigned char (*similarity_fn)(git_index_entry *, git_index_entry *))
 {
 	size_t i, j;
-	git_merge_index_conflict *delta_source, *delta_target;
+	git_merge_index_conflict *conflict_src, *conflict_tgt;
 	unsigned char similarity;
 	
-	git_vector_foreach(&diff_tree->deltas, i, delta_source) {
+	git_vector_foreach(&diff_tree->conflicts, i, conflict_src) {
 		/* Items can be the source of a rename iff they have an item in the
 		 * ancestor slot and lack an item in the ours or theirs slot. */
-		if (!GIT_DIFF_TREE_FILE_EXISTS(delta_source->ancestor_entry) ||
-			(GIT_DIFF_TREE_FILE_EXISTS(delta_source->our_entry) &&
-			 GIT_DIFF_TREE_FILE_EXISTS(delta_source->their_entry)))
+		if (!GIT_DIFF_TREE_FILE_EXISTS(conflict_src->ancestor_entry) ||
+			(GIT_DIFF_TREE_FILE_EXISTS(conflict_src->our_entry) &&
+			 GIT_DIFF_TREE_FILE_EXISTS(conflict_src->their_entry)))
 			continue;
 
-		git_vector_foreach(&diff_tree->deltas, j, delta_target) {
-			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->ancestor_entry))
+		git_vector_foreach(&diff_tree->conflicts, j, conflict_tgt) {
+			if (GIT_DIFF_TREE_FILE_EXISTS(conflict_tgt->ancestor_entry))
 				continue;
 			
-			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->our_entry)) {
-				similarity = similarity_fn(&delta_source->ancestor_entry, &delta_target->our_entry);
+			if (GIT_DIFF_TREE_FILE_EXISTS(conflict_tgt->our_entry)) {
+				similarity = similarity_fn(&conflict_src->ancestor_entry, &conflict_tgt->our_entry);
 	
 				if (similarity > similarity_ours[i].similarity &&
 					similarity > similarity_ours[j].similarity) {
@@ -285,8 +285,8 @@ static void diff_tree__mark_similarity(
 				}
 			}
 			
-			if (GIT_DIFF_TREE_FILE_EXISTS(delta_target->their_entry)) {
-				similarity = similarity_fn(&delta_source->ancestor_entry, &delta_target->their_entry);
+			if (GIT_DIFF_TREE_FILE_EXISTS(conflict_tgt->their_entry)) {
+				similarity = similarity_fn(&conflict_src->ancestor_entry, &conflict_tgt->their_entry);
 				
 				if (similarity > similarity_theirs[i].similarity &&
 					similarity > similarity_theirs[j].similarity) {
@@ -342,10 +342,10 @@ static void diff_tree__mark_rename_conflict(
 	git_merge_index_conflict *theirs_source = NULL;
 
 	if (ours_renamed)
-		ours_source = diff_tree->deltas.contents[ours_source_idx];
+		ours_source = diff_tree->conflicts.contents[ours_source_idx];
 	
 	if (theirs_renamed)
-		theirs_source = diff_tree->deltas.contents[theirs_source_idx];
+		theirs_source = diff_tree->conflicts.contents[theirs_source_idx];
 
 	/* Detect 2->1 conflicts */
 	if (ours_renamed && theirs_renamed) {
@@ -414,8 +414,8 @@ static void diff_tree__coalesce_renames(
 	size_t ours_source_idx = 0, theirs_source_idx = 0;
 	git_merge_index_conflict *ours_source, *theirs_source, *target;
 
-	for (i = 0; i < diff_tree->deltas.length; i++) {		
-		target = diff_tree->deltas.contents[i];
+	for (i = 0; i < diff_tree->conflicts.length; i++) {		
+		target = diff_tree->conflicts.contents[i];
 		
 		ours_renamed = 0;
 		theirs_renamed = 0;
@@ -424,7 +424,7 @@ static void diff_tree__coalesce_renames(
 			similarity_ours[i].similarity >= opts->rename_threshold) {
 			ours_source_idx = similarity_ours[i].other_idx;
 			
-			ours_source = diff_tree->deltas.contents[ours_source_idx];
+			ours_source = diff_tree->conflicts.contents[ours_source_idx];
 			
 			diff_tree__coalesce_rename(
 				&ours_source->our_entry,
@@ -443,7 +443,7 @@ static void diff_tree__coalesce_renames(
 			similarity_theirs[i].similarity >= opts->rename_threshold) {
 			theirs_source_idx = similarity_theirs[i].other_idx;
 			
-			theirs_source = diff_tree->deltas.contents[theirs_source_idx];
+			theirs_source = diff_tree->conflicts.contents[theirs_source_idx];
 
 			diff_tree__coalesce_rename(
 				&theirs_source->their_entry,
@@ -485,10 +485,10 @@ static int diff_tree__find_renames(
 	if (!opts || (opts->flags & GIT_MERGE_TREE_FIND_RENAMES) == 0)
 		return 0;
 
-	similarity_ours = git__calloc(diff_tree->deltas.length, sizeof(struct diff_tree_similarity));
+	similarity_ours = git__calloc(diff_tree->conflicts.length, sizeof(struct diff_tree_similarity));
 	GITERR_CHECK_ALLOC(similarity_ours);
 
-	similarity_theirs = git__calloc(diff_tree->deltas.length, sizeof(struct diff_tree_similarity));
+	similarity_theirs = git__calloc(diff_tree->conflicts.length, sizeof(struct diff_tree_similarity));
 	GITERR_CHECK_ALLOC(similarity_theirs);
 
 	/* Find exact renames (identical ids) */
@@ -497,7 +497,7 @@ static int diff_tree__find_renames(
 	
 	diff_tree__coalesce_renames(diff_tree, similarity_ours, similarity_theirs, opts);
 
-	git_vector_remove_matching(&diff_tree->deltas, diff_tree__is_empty);
+	git_vector_remove_matching(&diff_tree->conflicts, diff_tree__is_empty);
 
 	git__free(similarity_ours);
 	git__free(similarity_theirs);
@@ -647,7 +647,7 @@ void git_merge_index_free(git_merge_index *diff_tree)
 	if (!diff_tree)
 		return;
 	
-	git_vector_free(&diff_tree->deltas);
+	git_vector_free(&diff_tree->conflicts);
 	git_pool_clear(&diff_tree->pool);
 	git__free(diff_tree);
 }

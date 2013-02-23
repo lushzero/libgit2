@@ -661,7 +661,7 @@ int merge_trees(
 	if ((error = git_diff_trees(&result->diff_tree, repo, ancestor_tree, our_tree, their_tree, opts)) < 0)
 		return error;
 	
-	git_vector_foreach(&result->diff_tree->deltas, i, delta) {
+	git_vector_foreach(&result->diff_tree->conflicts, i, delta) {
 		int resolved = 0;
 		
 		if ((error = merge_conflict_resolve(&resolved, repo, index, delta, opts->automerge_flags)) < 0)
