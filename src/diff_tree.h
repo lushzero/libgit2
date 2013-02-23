@@ -14,7 +14,7 @@
 #include "git2/diff.h"
 #include "git2/merge.h"
 
-#define GIT_DIFF_TREE_FILE_EXISTS(X)	((X).mode != 0)
+#define GIT_MERGE_INDEX_ENTRY_EXISTS(X)	((X).mode != 0)
 
 struct git_merge_index {
 	git_repository *repo;

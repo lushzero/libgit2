@@ -275,15 +275,15 @@ static int merge_filediff_entry_names(char **our_path,
 	 * If all the paths are identical, decorate the diff3 file with the branch
 	 * names.  Otherwise, use branch_name:path
 	 */
-	rename = GIT_DIFF_TREE_FILE_EXISTS(delta->our_entry) &&
-		GIT_DIFF_TREE_FILE_EXISTS(delta->their_entry) &&
+	rename = GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) &&
+		GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) &&
 		strcmp(delta->our_entry.path, delta->their_entry.path) != 0;
 
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta->our_entry) &&
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) &&
 		(*our_path = merge_filediff_entry_name(merge_heads[1], &delta->our_entry, rename)) == NULL)
 		return -1;
 
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta->their_entry) &&
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) &&
 		(*their_path = merge_filediff_entry_name(merge_heads[2], &delta->their_entry, rename)) == NULL)
 		return -1;
 
@@ -328,8 +328,8 @@ static int merge_conflict_write_diff3(
 	/* TODO: reject name conflicts? */
 	
 	/* TODO: mkpath2file mode */
-	if (!GIT_DIFF_TREE_FILE_EXISTS(delta->our_entry) ||
-		!GIT_DIFF_TREE_FILE_EXISTS(delta->their_entry) ||
+	if (!GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) ||
+		!GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) ||
 		(error = git_merge_file_input_from_index_entry(&ancestor, repo, &delta->ancestor_entry)) < 0 ||
 		(error = git_merge_file_input_from_index_entry(&ours, repo, &delta->our_entry)) < 0 ||
 		(error = git_merge_file_input_from_index_entry(&theirs, repo, &delta->their_entry)) < 0 ||
@@ -453,11 +453,11 @@ static int merge_conflict_write_sides(
 	if (flags & GIT_MERGE_CONFLICT_NO_SIDES)
 		return 0;
 	
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta->our_entry) &&
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) &&
 		(error = merge_conflict_write_side(repo, our_head, delta, &delta->our_entry, flags)) < 0)
 		goto done;
 	
-	if (GIT_DIFF_TREE_FILE_EXISTS(delta->their_entry) &&
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) &&
 		(error = merge_conflict_write_side(repo, their_head, delta, &delta->their_entry, flags)) < 0)
 		goto done;
 
