@@ -22,6 +22,7 @@ struct git_merge_index {
 
 	/* Vector of git_merge_index_conflict */
 	git_vector conflicts;
+	git_vector resolved;
 };
 
 /**

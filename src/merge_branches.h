@@ -27,7 +27,6 @@ struct git_merge_result {
 	git_oid fastforward_oid;
 	
 	git_merge_index *diff_tree;
-	git_vector conflicts;
 };
 
 int git_merge__setup(

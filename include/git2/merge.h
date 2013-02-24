@@ -142,12 +142,10 @@ GIT_EXTERN(int) git_merge_base_many(
 	const git_oid input_array[],
 	size_t length);
 
-typedef struct git_merge_tree_result git_merge_tree_result;
-
 /* TODO: doc! */
 /* Note the part about how the index is only added to. */
 GIT_EXTERN(int) git_merge_trees(
-	git_merge_tree_result **out,
+	git_merge_index **out,
 	git_repository *repo,
 	git_index *index,
 	const git_tree *ancestor_tree,

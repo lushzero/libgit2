@@ -19,17 +19,6 @@
 #define GIT_MERGE_TREE_RENAME_THRESHOLD	50
 #define GIT_MERGE_TREE_TARGET_LIMIT		1000
 
-/** Internal structure for merge tree results */
-struct git_merge_tree_result {
-	bool is_uptodate;
-	
-	bool is_fastforward;
-	git_oid fastforward_oid;
-	
-	git_merge_index *diff_tree;
-	git_vector conflicts;
-};
-
 int git_merge__bases_many(
 	git_commit_list **out,
 	git_revwalk *walk,

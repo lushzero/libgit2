@@ -27,7 +27,7 @@ void test_merge_trees_modeconflict__cleanup(void)
 
 void test_merge_trees_modeconflict__df_conflict(void)
 {
-	git_merge_tree_result *result;
+	git_merge_index *result;
 	git_index *index;
 	
 	struct merge_index_entry merge_index_entries[] = {
@@ -58,5 +58,5 @@ void test_merge_trees_modeconflict__df_conflict(void)
 	cl_assert(merge_test_index(index, merge_index_entries, 20));
 
 	git_index_free(index);
-	git_merge_tree_result_free(result);
+	git_merge_index_free(result);
 }

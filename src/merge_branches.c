@@ -617,7 +617,7 @@ static int merge_fake_head(git_merge_head **_head, git_tree **_tree, git_reposit
 	return 0;
 }
 
-static int merge_index(git_repository *repo, git_index *index_new)
+static int merge_indexes(git_repository *repo, git_index *index_new)
 {
 	int error = 0;
 	size_t i;
@@ -664,7 +664,7 @@ int merge_conflict_write(int *out,
 	 unsigned int flags);
 
 int merge_trees(
-	git_merge_result *result,
+	git_merge_index **result,
 	git_repository *repo,
 	git_index *index,
 	const git_tree *ancestor_tree,
@@ -673,7 +673,7 @@ int merge_trees(
 	const git_merge_tree_opts *opts);
 
 static int merge_trees_octopus(
-	git_merge_result *result,
+	git_merge_index **result,
 	git_repository *repo,
 	git_index *index,
 	const git_tree *ancestor_tree,
@@ -707,6 +707,7 @@ int git_merge(
 	git_reference *our_ref = NULL;
 	git_merge_head *ancestor_head = NULL, *our_head = NULL;
 	git_tree *ancestor_tree = NULL, *our_tree = NULL, **their_trees = NULL;
+	git_merge_index *merge_index;
 	git_index *index_new = NULL, *index_repo = NULL;
 	git_merge_index_conflict *delta;
 	size_t i;
@@ -778,22 +779,22 @@ int git_merge(
 
 	/* TODO: recursive */
 	if (their_heads_len == 1)
-		error = merge_trees(result, repo, index_new, ancestor_tree, our_tree,
+		error = merge_trees(&merge_index, repo, index_new, ancestor_tree, our_tree,
 			their_trees[0], &opts.merge_tree_opts);
 	else
-		error = merge_trees_octopus(result, repo, index_new, ancestor_tree, our_tree,
+		error = merge_trees_octopus(&merge_index, repo, index_new, ancestor_tree, our_tree,
 			(const git_tree **)their_trees, their_heads_len, &opts.merge_tree_opts);
 	
 	if (error < 0)
 		goto on_error;
 
-	if ((error = merge_index(repo, index_new)) < 0 ||
+	if ((error = merge_indexes(repo, index_new)) < 0 ||
 		(error = git_repository_index(&index_repo, repo)) < 0 ||
 		(error = git_checkout_index(repo, index_repo, &opts.checkout_opts)) < 0)
 		goto on_error;
 
 	if (their_heads_len == 1) {
-		git_vector_foreach(&result->conflicts, i, delta) {
+		git_vector_foreach(&merge_index->conflicts, i, delta) {
 			int conflict_written = 0;
 			
 			if ((error = merge_conflict_write(&conflict_written, repo,
@@ -862,7 +863,7 @@ int git_merge_result_conflict_foreach(git_merge_result *merge_result,
 	
 	assert(merge_result && conflict_cb);
 	
-	git_vector_foreach(&merge_result->conflicts, i, delta) {
+	git_vector_foreach(&merge_result->diff_tree->conflicts, i, delta) {
 		if (conflict_cb(&delta->ancestor_entry, &delta->our_entry, &delta->their_entry, payload) != 0) {
 			error = GIT_EUSER;
 			break;
@@ -876,8 +877,6 @@ void git_merge_result_free(git_merge_result *merge_result)
 {
 	if (merge_result == NULL)
 		return;
-	
-	git_vector_free(&merge_result->conflicts);
 	
 	git_merge_index_free(merge_result->diff_tree);
 	merge_result->diff_tree = NULL;

@@ -21,7 +21,7 @@ static int merge_fake_tree(git_tree **_tree, git_repository *repo)
 }
 
 int merge_trees_from_branches(
-	git_merge_tree_result **result, git_index **index, git_repository *repo,
+	git_merge_index **result, git_index **index, git_repository *repo,
 	const char *ours_name, const char *theirs_name,
 	git_merge_tree_opts *opts)
 {
