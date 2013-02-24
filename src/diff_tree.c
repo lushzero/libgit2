@@ -18,10 +18,10 @@
  */
 
 typedef enum {
-	THREEWAY_IDX_ANCESTOR = 0,
-	THREEWAY_IDX_OURS = 1,
-	THREEWAY_IDX_THEIRS = 2
-} merge_threeway_index;
+	TREE_IDX_ANCESTOR = 0,
+	TREE_IDX_OURS = 1,
+	TREE_IDX_THEIRS = 2
+} merge_tree_index_t;
 
 /* Tracks D/F conflicts */
 struct merge_index_df_data {
@@ -183,15 +183,15 @@ static git_merge_index_conflict *merge_index_conflict_from_entries(
 	if ((delta_tree = git_pool_malloc(pool, sizeof(git_merge_index_conflict))) == NULL)
 		return NULL;
 
-	if (index_entry_dup(&delta_tree->ancestor_entry, pool, entries[THREEWAY_IDX_ANCESTOR]) < 0 ||
-		index_entry_dup(&delta_tree->our_entry, pool, entries[THREEWAY_IDX_OURS]) < 0 ||
-		index_entry_dup(&delta_tree->their_entry, pool, entries[THREEWAY_IDX_THEIRS]) < 0)
+	if (index_entry_dup(&delta_tree->ancestor_entry, pool, entries[TREE_IDX_ANCESTOR]) < 0 ||
+		index_entry_dup(&delta_tree->our_entry, pool, entries[TREE_IDX_OURS]) < 0 ||
+		index_entry_dup(&delta_tree->their_entry, pool, entries[TREE_IDX_THEIRS]) < 0)
 		return NULL;
 
 	delta_tree->our_status = merge_index_conflict_entry_status(
-		entries[THREEWAY_IDX_ANCESTOR], entries[THREEWAY_IDX_OURS]);
+		entries[TREE_IDX_ANCESTOR], entries[TREE_IDX_OURS]);
 	delta_tree->their_status = merge_index_conflict_entry_status(
-		entries[THREEWAY_IDX_ANCESTOR], entries[THREEWAY_IDX_THEIRS]);
+		entries[TREE_IDX_ANCESTOR], entries[TREE_IDX_THEIRS]);
 
 	return delta_tree;
 }
@@ -517,7 +517,9 @@ GIT_INLINE(int) index_entry_cmp(const git_index_entry *a, const git_index_entry 
 
 static int diff_trees(
 	git_repository *repo,
-	const git_tree *trees[3],
+	const git_tree *ancestor_tree,
+	const git_tree *our_tree,
+	const git_tree *their_tree,
 	git_merge_index *merge_index)
 {
 	git_iterator *iterators[3] = {0};
@@ -528,12 +530,16 @@ static int diff_trees(
 	size_t i;
 	int error = 0;
 	
-	assert(repo && trees);
+	assert(repo && ancestor_tree && our_tree && their_tree);
+
+	if ((error = git_iterator_for_tree(&iterators[TREE_IDX_ANCESTOR], (git_tree *)ancestor_tree)) < 0 ||
+		(error = git_iterator_for_tree(&iterators[TREE_IDX_OURS], (git_tree *)our_tree)) < 0 ||
+		(error = git_iterator_for_tree(&iterators[TREE_IDX_THEIRS], (git_tree *)their_tree)) < 0)
+		goto done;
 	
 	/* Set up the iterators */
 	for (i = 0; i < 3; i++) {
-		if ((error = git_iterator_for_tree(&iterators[i], (git_tree *)trees[i])) < 0 ||
-			(error = git_iterator_current(iterators[i], &items[i])) < 0)
+		if ((error = git_iterator_current(iterators[i], &items[i])) < 0)
 			goto done;
 	}
 	
@@ -610,7 +616,6 @@ int git_diff_trees(
 	const git_merge_tree_opts *opts)
 {
 	git_merge_index *merge_index;
-	git_tree const *trees[3];
 	int error = 0;
 	
 	assert(out && repo && ancestor_tree && our_tree && their_tree && opts);
@@ -620,11 +625,7 @@ int git_diff_trees(
 	merge_index = merge_index_alloc(repo);
 	GITERR_CHECK_ALLOC(merge_index);
 	
-	trees[THREEWAY_IDX_ANCESTOR] = ancestor_tree;
-	trees[THREEWAY_IDX_OURS] = our_tree;
-	trees[THREEWAY_IDX_THEIRS] = their_tree;
-	
-	if ((error = diff_trees(repo, trees, merge_index)) < 0 ||
+	if ((error = diff_trees(repo, ancestor_tree, our_tree, their_tree, merge_index)) < 0 ||
 		(error = merge_index_find_renames(merge_index, opts)) < 0)
 		git_merge_index_free(merge_index);
 	
