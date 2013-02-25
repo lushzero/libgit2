@@ -786,7 +786,9 @@ int git_merge_index_conflict_foreach(
 	assert(merge_index && conflict_cb);
 	
 	git_vector_foreach(&merge_index->conflicts, i, conflict) {
-		if (conflict_cb(&conflict->ancestor_entry, &conflict->our_entry, &conflict->their_entry, payload) != 0) {
+		if (conflict_cb(conflict->type,
+			&conflict->ancestor_entry, &conflict->our_entry,
+			&conflict->their_entry, payload) != 0) {
 			error = GIT_EUSER;
 			break;
 		}

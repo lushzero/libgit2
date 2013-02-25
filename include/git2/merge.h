@@ -159,6 +159,7 @@ GIT_EXTERN(int) git_merge_index_to_index(
 
 /** Callback for conflict iterator */
 typedef int (*git_merge_conflict_foreach_cb)(
+	git_merge_conflict_type_t type,
 	const git_index_entry *ancestor,
 	const git_index_entry *ours,
 	const git_index_entry *theirs,
