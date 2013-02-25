@@ -655,23 +655,6 @@ on_error:
 	return error;
 }
 
-int merge_conflict_write(int *out,
-	 git_repository *repo,
-	 const git_merge_head *ancestor_head,
-	 const git_merge_head *our_head,
-	 const git_merge_head *their_head,
-	 const git_merge_index_conflict *delta,
-	 unsigned int flags);
-
-int merge_trees(
-	git_merge_index **result,
-	git_repository *repo,
-	git_index *index,
-	const git_tree *ancestor_tree,
-	const git_tree *our_tree,
-	const git_tree *their_tree,
-	const git_merge_tree_opts *opts);
-
 static int merge_trees_octopus(
 	git_merge_index **result,
 	git_repository *repo,
@@ -695,6 +678,14 @@ static int merge_trees_octopus(
 	return -1;
 }
 
+int merge_trees(
+				git_merge_index **out,
+				git_repository *repo,
+				const git_tree *ancestor_tree,
+				const git_tree *our_tree,
+				const git_tree *their_tree,
+				const git_merge_tree_opts *opts);
+
 int git_merge(
 	git_merge_result **out,
 	git_repository *repo,
@@ -707,7 +698,7 @@ int git_merge(
 	git_reference *our_ref = NULL;
 	git_merge_head *ancestor_head = NULL, *our_head = NULL;
 	git_tree *ancestor_tree = NULL, *our_tree = NULL, **their_trees = NULL;
-	git_merge_index *merge_index;
+	git_merge_index *merge_index = NULL;
 	git_index *index_new = NULL, *index_repo = NULL;
 	git_merge_index_conflict *delta;
 	size_t i;
@@ -773,13 +764,9 @@ int git_merge(
 			goto on_error;
 	}
 
-	if ((error = git_index_new(&index_new)) < 0 ||
-		(error = git_index_read_tree(index_new, our_tree)) < 0)
-		goto on_error;
-
 	/* TODO: recursive */
 	if (their_heads_len == 1)
-		error = merge_trees(&merge_index, repo, index_new, ancestor_tree, our_tree,
+		error = merge_trees(&merge_index, repo, ancestor_tree, our_tree,
 			their_trees[0], &opts.merge_tree_opts);
 	else
 		error = merge_trees_octopus(&merge_index, repo, index_new, ancestor_tree, our_tree,
@@ -787,8 +774,9 @@ int git_merge(
 	
 	if (error < 0)
 		goto on_error;
-
-	if ((error = merge_indexes(repo, index_new)) < 0 ||
+	
+	if ((error = git_merge_index_to_index(&index_new, merge_index)) < 0 ||
+		(error = merge_indexes(repo, index_new)) < 0 ||
 		(error = git_repository_index(&index_repo, repo)) < 0 ||
 		(error = git_checkout_index(repo, index_repo, &opts.checkout_opts)) < 0)
 		goto on_error;
@@ -825,6 +813,8 @@ done:
 	git_merge_head_free(ancestor_head);
 	
 	git_reference_free(our_ref);
+	
+	git_merge_index_free(merge_index);
 
 	return error;
 }

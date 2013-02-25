@@ -145,13 +145,16 @@ GIT_EXTERN(int) git_merge_base_many(
 /* TODO: doc! */
 /* Note the part about how the index is only added to. */
 GIT_EXTERN(int) git_merge_trees(
-	git_merge_index **out,
+	git_merge_index **merge_index_out,
 	git_repository *repo,
-	git_index *index,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
 	const git_merge_tree_opts *opts);
+
+GIT_EXTERN(int) git_merge_index_to_index(
+	git_index **index_out,
+	git_merge_index *merge_index);
 
 /**
  * Free a merge index.

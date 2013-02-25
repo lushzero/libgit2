@@ -57,7 +57,8 @@ int merge_trees_from_branches(
 	cl_git_pass(git_index_new(index));
 	cl_git_pass(git_index_read_tree(*index, our_tree));
 
-	cl_git_pass(git_merge_trees(result, repo, *index, ancestor_tree, our_tree, their_tree, opts));
+	cl_git_pass(git_merge_trees(result, repo, ancestor_tree, our_tree, their_tree, opts));
+	cl_git_pass(git_merge_index_to_index(index, *result));
 
 	git_buf_free(&branch_buf);
 	git_tree_free(our_tree);
@@ -93,12 +94,53 @@ int merge_branches(git_merge_result **result, git_repository *repo, const char *
 	return 0;
 }
 
+void dump_index(git_index *index)
+{
+	size_t i;
+	const git_index_entry *index_entry;
+	
+	printf ("\nINDEX:\n");
+	for (i = 0; i < git_index_entrycount(index); i++) {
+		index_entry = git_index_get_byindex(index, i);
+		
+		printf("%o ", index_entry->mode);
+		printf("%s ", git_oid_allocfmt(&index_entry->oid));
+		printf("%d ", git_index_entry_stage(index_entry));
+		printf("%s ", index_entry->path);
+		printf("\n");
+	}
+	printf("\n");
+}
+
+void dump_reuc(git_index *index)
+{
+	size_t i;
+	const git_index_reuc_entry *reuc;
+
+	printf ("\nREUC:\n");
+	for (i = 0; i < git_index_reuc_entrycount(index); i++) {
+		reuc = git_index_reuc_get_byindex(index, i);
+		
+		printf("%s ", reuc->path);
+		printf("%o ", reuc->mode[0]);
+		printf("%s\n", git_oid_allocfmt(&reuc->oid[0]));
+		printf("          %o ", reuc->mode[1]);
+		printf("          %s\n", git_oid_allocfmt(&reuc->oid[1]));
+		printf("          %o ", reuc->mode[2]);
+		printf("          %s ", git_oid_allocfmt(&reuc->oid[2]));
+		printf("\n");
+	}
+	printf("\n");
+}
+
 int merge_test_index(git_index *index, const struct merge_index_entry expected[], size_t expected_len)
 {
     size_t i;
     const git_index_entry *index_entry;
     bool test_oid;
     git_oid expected_oid;
+	
+	// dump_index(index);
 	
     if (git_index_entrycount(index) != expected_len)
         return 0;
@@ -128,7 +170,9 @@ int merge_test_reuc(git_index *index, const struct merge_reuc_entry expected[], 
     size_t i;
 	const git_index_reuc_entry *reuc_entry;
     git_oid expected_oid;
-    
+	
+	// dump_reuc(index);
+
     if (git_index_reuc_entrycount(index) != expected_len)
         return 0;
     

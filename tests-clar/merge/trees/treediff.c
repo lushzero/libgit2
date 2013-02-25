@@ -1,6 +1,7 @@
 #include "clar_libgit2.h"
 #include "git2/tree.h"
 #include "diff_tree.h"
+#include "merge.h"
 
 static git_repository *repo;
 
@@ -124,7 +125,7 @@ static git_merge_index *threeway(
     struct treediff_delta_data *treediff_delta_data,
     size_t treediff_delta_data_len)
 {
-    git_merge_index *diff_tree;
+    git_merge_index *diff_tree = git_merge_index__alloc(repo);
     git_oid ancestor_oid, ours_oid, theirs_oid;
     git_tree *ancestor_tree, *ours_tree, *theirs_tree;
     struct treediff_cb_data treediff_cb_data = {0};
@@ -141,7 +142,7 @@ static git_merge_index *threeway(
     cl_git_pass(git_tree_lookup(&ours_tree, repo, &ours_oid));
     cl_git_pass(git_tree_lookup(&theirs_tree, repo, &theirs_oid));
     
-	cl_git_pass(git_diff_trees(&diff_tree, repo, ancestor_tree, ours_tree, theirs_tree, &opts));
+	cl_git_pass(git_diff_trees(diff_tree, ancestor_tree, ours_tree, theirs_tree, &opts));
 
     cl_assert(treediff_delta_data_len == diff_tree->conflicts.length);
     

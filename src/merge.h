@@ -25,4 +25,6 @@ int git_merge__bases_many(
 	git_commit_list_node *one,
 	git_vector *twos);
 
+git_merge_index *git_merge_index__alloc(git_repository *repo);
+
 #endif

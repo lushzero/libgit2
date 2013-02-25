@@ -20,8 +20,13 @@ struct git_merge_index {
 	git_repository *repo;
 	git_pool pool;
 
+	/* Vector of git_index_entry */
+	git_vector staged;
+
 	/* Vector of git_merge_index_conflict */
 	git_vector conflicts;
+
+	/* Vector of git_merge_index_conflict */
 	git_vector resolved;
 };
 
@@ -56,8 +61,7 @@ typedef struct {
 /**@{*/
 
 int git_diff_trees(
-	git_merge_index **out,
-	git_repository *repo,
+	git_merge_index *merge_index,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
