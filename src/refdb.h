@@ -8,10 +8,11 @@
 #define INCLUDE_refdb_h__
 
 #include "git2/refdb.h"
+#include "repository.h"
 
 struct git_refdb {
-	git_repository *repo;
 	git_refcount rc;
+	git_repository *repo;
 	git_refdb_backend *backend;
 };
 

@@ -120,9 +120,9 @@ corrupt:
 }
 
 static int packed_parse_peel(
-		struct packref *tag_ref,
-		const char **buffer_out,
-		const char *buffer_end)
+	struct packref *tag_ref,
+	const char **buffer_out,
+	const char *buffer_end)
 {
 	const char *buffer = *buffer_out + 1;
 
@@ -267,9 +267,9 @@ corrupted:
 }
 
 static int loose_lookup_to_packfile(
-		struct packref **ref_out,
-		refdb_fs_backend *backend,
-		const char *name)
+	struct packref **ref_out,
+	refdb_fs_backend *backend,
+	const char *name)
 {
 	git_buf ref_file = GIT_BUF_INIT;
 	struct packref *ref = NULL;

@@ -59,10 +59,8 @@ static int reference_alloc(
 
 	assert(ref_out && repo && name);
 
-	reference = git__malloc(sizeof(git_reference));
+	reference = git__calloc(1, sizeof(git_reference));
 	GITERR_CHECK_ALLOC(reference);
-
-	memset(reference, 0x0, sizeof(git_reference));
 
 	git_repository_refdb__weakptr(&reference->db, repo);
 
