@@ -93,16 +93,7 @@ GIT_EXTERN(int) git_merge_result_is_fastforward(git_merge_result *merge_result);
  */
 GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_result);
 
-/** Callback for conflict iterator */
-typedef int (*git_merge_conflict_foreach_cb)(
-	const git_index_entry *ancestor,
-	const git_index_entry *ours,
-	const git_index_entry *theirs,
-	void *payload);
-
-GIT_EXTERN(int) git_merge_result_conflict_foreach(git_merge_result *merge_result,
-	git_merge_conflict_foreach_cb conflict_cb,
-	void *payload);
+GIT_EXTERN(git_merge_index *) git_merge_result_index(git_merge_result *merge_result);
 
 GIT_EXTERN(void) git_merge_result_free(git_merge_result *merge_result);
 

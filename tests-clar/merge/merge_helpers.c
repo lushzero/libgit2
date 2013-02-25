@@ -4,22 +4,6 @@
 #include "tree.h"
 #include "merge_helpers.h"
 
-static int merge_fake_tree(git_tree **_tree, git_repository *repo)
-{
-	git_tree *tree;
-	
-	tree = git__calloc(1, sizeof(git_tree));
-	GITERR_CHECK_ALLOC(tree);
-	
-	git_atomic_inc(&tree->object.cached.refcount);
-	tree->object.type = GIT_OBJ_TREE;
-	tree->object.repo = repo;
-	
-	*_tree = tree;
-
-	return 0;
-}
-
 int merge_trees_from_branches(
 	git_merge_index **result, git_index **index, git_repository *repo,
 	const char *ours_name, const char *theirs_name,
@@ -42,9 +26,7 @@ int merge_trees_from_branches(
 
 	error = git_merge_base(&ancestor_oid, repo, git_commit_id(our_commit), git_commit_id(their_commit));
 
-	if (error == GIT_ENOTFOUND)
-		cl_git_pass(merge_fake_tree(&ancestor_tree, repo));
-	else {
+	if (error != GIT_ENOTFOUND) {
 		cl_git_pass(error);
 
 		cl_git_pass(git_commit_lookup(&ancestor_commit, repo, &ancestor_oid));

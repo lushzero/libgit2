@@ -529,10 +529,17 @@ static int diff_trees(
 	size_t i;
 	int error = 0;
 	
-	assert(merge_index && ancestor_tree && our_tree && their_tree);
+	assert(merge_index && our_tree && their_tree);
 
-	if ((error = git_iterator_for_tree(&iterators[TREE_IDX_ANCESTOR], (git_tree *)ancestor_tree)) < 0 ||
-		(error = git_iterator_for_tree(&iterators[TREE_IDX_OURS], (git_tree *)our_tree)) < 0 ||
+	if (ancestor_tree)
+		error = git_iterator_for_tree(&iterators[TREE_IDX_ANCESTOR], (git_tree *)ancestor_tree);
+	else
+		error = git_iterator_for_nothing(&iterators[TREE_IDX_ANCESTOR], 0);
+
+	if (error < 0)
+		goto done;
+
+	if ((error = git_iterator_for_tree(&iterators[TREE_IDX_OURS], (git_tree *)our_tree)) < 0 ||
 		(error = git_iterator_for_tree(&iterators[TREE_IDX_THEIRS], (git_tree *)their_tree)) < 0)
 		goto done;
 	
@@ -613,7 +620,7 @@ int git_diff_trees(
 {
 	int error = 0;
 	
-	assert(merge_index && ancestor_tree && our_tree && their_tree && opts);
+	assert(merge_index && our_tree && their_tree && opts);
 	
 	if ((error = diff_trees(merge_index, ancestor_tree, our_tree, their_tree)) >= 0)
 		error = merge_index_find_renames(merge_index, opts);

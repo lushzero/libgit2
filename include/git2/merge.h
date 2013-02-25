@@ -11,6 +11,7 @@
 #include "git2/types.h"
 #include "git2/oid.h"
 #include "git2/checkout.h"
+#include "git2/index.h"
 
 /**
  * @file git2/merge.h
@@ -155,6 +156,18 @@ GIT_EXTERN(int) git_merge_trees(
 GIT_EXTERN(int) git_merge_index_to_index(
 	git_index **index_out,
 	git_merge_index *merge_index);
+
+/** Callback for conflict iterator */
+typedef int (*git_merge_conflict_foreach_cb)(
+	const git_index_entry *ancestor,
+	const git_index_entry *ours,
+	const git_index_entry *theirs,
+	void *payload);
+
+GIT_EXTERN(int) git_merge_index_conflict_foreach(
+	git_merge_index *merge_index,
+	git_merge_conflict_foreach_cb conflict_cb,
+	void *payload);
 
 /**
  * Free a merge index.

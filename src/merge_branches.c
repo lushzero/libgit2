@@ -309,7 +309,7 @@ static int merge_conflict_write_diff3(
 	git_filebuf output = GIT_FILEBUF_INIT;
 	int error = 0;
 	
-	assert(conflict_written && repo && ancestor_head && our_head && their_head && delta);
+	assert(conflict_written && repo && our_head && their_head && delta);
 	
 	*conflict_written = 0;
 	
@@ -445,8 +445,10 @@ static int merge_conflict_write_sides(
 	unsigned int flags)
 {
 	int error = 0;
+
+	GIT_UNUSED(ancestor_head);
 	
-	assert(conflict_written && repo && ancestor_head && our_head && their_head && delta);
+	assert(conflict_written && repo && our_head && their_head && delta);
 	
 	*conflict_written = 0;
 
@@ -479,7 +481,7 @@ int merge_conflict_write(int *out,
 	int conflict_written = 0;
 	int error = 0;
 
-	assert(out && repo && ancestor_head && our_head && their_head && delta);
+	assert(out && repo && our_head && their_head && delta);
 	
 	*out = 0;
 
@@ -594,27 +596,6 @@ static int merge_normalize_opts(
 	}
 
 	return error;
-}
-
-static int merge_fake_head(git_merge_head **_head, git_tree **_tree, git_repository *repo)
-{
-	git_merge_head *head;
-	git_tree *tree;
-	
-	head = git__calloc(1, sizeof(git_merge_head));
-	GITERR_CHECK_ALLOC(head);
-
-	tree = git__calloc(1, sizeof(git_tree));
-	GITERR_CHECK_ALLOC(tree);
-	
-	git_atomic_inc(&tree->object.cached.refcount);
-	tree->object.type = GIT_OBJ_TREE;
-	tree->object.repo = repo;
-	
-	*_head = head;
-	*_tree = tree;
-
-	return 0;
 }
 
 static int merge_indexes(git_repository *repo, git_index *index_new)
@@ -748,13 +729,9 @@ int git_merge(
 	if ((error = git_merge__setup(repo, our_head, their_heads, their_heads_len, opts.merge_flags)) < 0)
 		goto on_error;
 	
-	if (ancestor_head == NULL) {
-		if ((error = merge_fake_head(&ancestor_head, &ancestor_tree, repo)) < 0)
+	if (ancestor_head != NULL &&
+		(error = git_commit_tree(&ancestor_tree, ancestor_head->commit)) < 0)
 			goto on_error;
-	} else {
-		if ((error = git_commit_tree(&ancestor_tree, ancestor_head->commit)) < 0)
-			goto on_error;
-	}
 
 	if ((error = git_commit_tree(&our_tree, our_head->commit)) < 0)
 		goto on_error;
@@ -819,6 +796,8 @@ done:
 	return error;
 }
 
+
+
 /* Merge result data */
 
 int git_merge_result_is_uptodate(git_merge_result *merge_result)
@@ -843,24 +822,11 @@ int git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_resul
 	return 0;
 }
 
-int git_merge_result_conflict_foreach(git_merge_result *merge_result,
-	git_merge_conflict_foreach_cb conflict_cb,
-	void *payload)
+git_merge_index *git_merge_result_index(git_merge_result *merge_result)
 {
-	git_merge_index_conflict *delta;
-	size_t i;
-	int error = 0;
+	assert(merge_result);
 	
-	assert(merge_result && conflict_cb);
-	
-	git_vector_foreach(&merge_result->diff_tree->conflicts, i, delta) {
-		if (conflict_cb(&delta->ancestor_entry, &delta->our_entry, &delta->their_entry, payload) != 0) {
-			error = GIT_EUSER;
-			break;
-		}
-	}
-	
-	return error;
+	return merge_result->diff_tree;
 }
 
 void git_merge_result_free(git_merge_result *merge_result)

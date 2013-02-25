@@ -675,7 +675,7 @@ int git_merge_trees(
 	git_merge_tree_opts opts;
 	int error = 0;
 
-	assert(out && repo && ancestor_tree && our_tree && their_tree);
+	assert(out && repo && our_tree && their_tree);
 	
 	*out = NULL;
 	
@@ -771,5 +771,26 @@ int git_merge_index_to_index(git_index **out, git_merge_index *merge_index)
 on_error:
 	git_index_free(index);
 
+	return error;
+}
+
+int git_merge_index_conflict_foreach(
+	git_merge_index *merge_index,
+	git_merge_conflict_foreach_cb conflict_cb,
+	void *payload)
+{
+	git_merge_index_conflict *conflict;
+	size_t i;
+	int error = 0;
+	
+	assert(merge_index && conflict_cb);
+	
+	git_vector_foreach(&merge_index->conflicts, i, conflict) {
+		if (conflict_cb(&conflict->ancestor_entry, &conflict->our_entry, &conflict->their_entry, payload) != 0) {
+			error = GIT_EUSER;
+			break;
+		}
+	}
+	
 	return error;
 }
