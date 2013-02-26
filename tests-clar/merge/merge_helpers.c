@@ -37,7 +37,7 @@ int merge_trees_from_branches(
 	cl_git_pass(git_commit_tree(&their_tree, their_commit));
 
 	cl_git_pass(git_merge_trees(result, repo, ancestor_tree, our_tree, their_tree, opts));
-	cl_git_pass(git_merge_index_to_index(index, *result));
+	cl_git_pass(git_index_from_merge_index(index, *result));
 
 	git_buf_free(&branch_buf);
 	git_tree_free(our_tree);

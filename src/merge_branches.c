@@ -747,7 +747,7 @@ int git_merge(
 	if (error < 0)
 		goto on_error;
 	
-	if ((error = git_merge_index_to_index(&index_new, merge_index)) < 0 ||
+	if ((error = git_index_from_merge_index(&index_new, merge_index)) < 0 ||
 		(error = merge_indexes(repo, index_new)) < 0 ||
 		(error = git_repository_index(&index_repo, repo)) < 0 ||
 		(error = git_checkout_index(repo, index_repo, &opts.checkout_opts)) < 0)

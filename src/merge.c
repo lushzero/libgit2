@@ -44,8 +44,6 @@ typedef enum {
 
 /* Tracks D/F conflicts */
 struct merge_index_df_data {
-	git_merge_index *merge_index;
-	
 	const char *df_path;
 	const char *prev_path;
 	git_merge_index_conflict *prev_conflict;
@@ -1278,7 +1276,7 @@ static int merge_index_insert_reuc(
 		mode[0], oid[0], mode[1], oid[1], mode[2], oid[2]);
 }
 
-int git_merge_index_to_index(git_index **out, git_merge_index *merge_index)
+int git_index_from_merge_index(git_index **out, git_merge_index *merge_index)
 {
 	git_index *index;
 	size_t i;
@@ -1336,6 +1334,13 @@ on_error:
 	git_index_free(index);
 
 	return error;
+}
+
+int git_merge_index_has_conflicts(git_merge_index *merge_index)
+{
+	assert(merge_index);
+
+	return (merge_index->conflicts.length > 0);
 }
 
 int git_merge_index_conflict_foreach(

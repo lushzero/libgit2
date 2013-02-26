@@ -143,17 +143,40 @@ GIT_EXTERN(int) git_merge_base_many(
 	const git_oid input_array[],
 	size_t length);
 
-/* TODO: doc! */
-/* Note the part about how the index is only added to. */
+/**
+ * Merge two trees, producing a merge_index that reflects the changes.
+ * The merge_index will contain the contents of the merged index but conflicts
+ * will track renames.
+ *
+ * The returned merge_index must be freed explicitly with
+ * `git_merge_index_free`.
+ *
+ * @param out pointer to store the merge_index result in
+ * @param repo repository that contains the given trees
+ * @param ancestor_tree the common ancestor between the trees (or null if none)
+ * @param our_tree the tree that reflects the destination tree
+ * @param their_tree the tree to merge in to `our_tree`
+ * @param opts the merge tree options (or null for defaults)
+ * @return zero on success, -1 on failure.
+ */
 GIT_EXTERN(int) git_merge_trees(
-	git_merge_index **merge_index_out,
+	git_merge_index **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
 	const git_merge_tree_opts *opts);
 
-GIT_EXTERN(int) git_merge_index_to_index(
+/**
+ * Produces a `git_index` from the given `git_merge_index`
+ *
+ * The returned index must be freed explicitly with `git_index_free`.
+ *
+ * @param out pointer to store the index result in
+ * @param merge_index the merge_index to produce an index from
+ * @return zero on success, -1 on failure.
+ */
+GIT_EXTERN(int) git_index_from_merge_index(
 	git_index **index_out,
 	git_merge_index *merge_index);
 
@@ -165,6 +188,22 @@ typedef int (*git_merge_conflict_foreach_cb)(
 	const git_index_entry *theirs,
 	void *payload);
 
+/**
+ * Determines if there were conflicts produced by the merge.
+ *
+ * @param merge_index the merge index that may have conflicts
+ * @return 1 if conflicts exist, 0 otherwise
+ */
+GIT_EXTERN(int) git_merge_index_has_conflicts(git_merge_index *merge_index);
+
+/**
+ * Call callback 'conflict_cb' for each conflict in the merge index.
+ *
+ * @param merge_index the merge_index to iterate conflicts in
+ * @param conflict_cb callback function
+ * @param payload pointer to callback data (optional)
+ * @return 0 on success, GIT_EUSER on error
+ */
 GIT_EXTERN(int) git_merge_index_conflict_foreach(
 	git_merge_index *merge_index,
 	git_merge_conflict_foreach_cb conflict_cb,
