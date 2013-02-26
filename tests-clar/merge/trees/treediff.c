@@ -37,7 +37,7 @@ struct treediff_file_data {
     unsigned int status;
 };
 
-struct treediff_delta_data {
+struct treediff_conflict_data {
 	struct treediff_file_data ancestor;
 	struct treediff_file_data ours;
 	struct treediff_file_data theirs;
@@ -45,8 +45,8 @@ struct treediff_delta_data {
 };
 
 struct treediff_cb_data {
-    struct treediff_delta_data *delta_data;
-    size_t delta_data_len;
+    struct treediff_conflict_data *conflict_data;
+    size_t conflict_data_len;
 
     size_t idx;
 };
@@ -78,37 +78,37 @@ static bool treediff_cmp(
 	return 1;
 }
 
-static int treediff_cb(const git_merge_index_conflict *delta, void *cb_data)
+static int treediff_cb(const git_merge_index_conflict *conflict, void *cb_data)
 {
     struct treediff_cb_data *treediff_cb_data = cb_data;
-	struct treediff_delta_data *delta_data = &treediff_cb_data->delta_data[treediff_cb_data->idx];
+	struct treediff_conflict_data *conflict_data = &treediff_cb_data->conflict_data[treediff_cb_data->idx];
     
-	cl_assert(treediff_cmp(&delta->ancestor_entry, 0, &delta_data->ancestor));
-	cl_assert(treediff_cmp(&delta->our_entry, delta->our_status, &delta_data->ours));
-	cl_assert(treediff_cmp(&delta->their_entry, delta->their_status, &delta_data->theirs));
+	cl_assert(treediff_cmp(&conflict->ancestor_entry, 0, &conflict_data->ancestor));
+	cl_assert(treediff_cmp(&conflict->our_entry, conflict->our_status, &conflict_data->ours));
+	cl_assert(treediff_cmp(&conflict->their_entry, conflict->their_status, &conflict_data->theirs));
 	
-	cl_assert(delta->type == delta_data->conflict_type);
+	cl_assert(conflict->type == conflict_data->conflict_type);
 
     treediff_cb_data->idx++;
     
     return 0;
 }
 
-typedef int (*git_diff_tree_delta_cb)(const git_merge_index_conflict *delta, void *payload);
+typedef int (*merge_index_conflict_cb)(const git_merge_index_conflict *delta, void *payload);
 
-static int git_diff_tree_foreach(
-	git_merge_index *diff_tree,
-	git_diff_tree_delta_cb callback,
+static int merge_index_conflict_foreach(
+	git_merge_index *merge_index,
+	merge_index_conflict_cb callback,
 	void *payload)
 {
-	git_merge_index_conflict *delta;
+	git_merge_index_conflict *conflict;
 	size_t i;
 	int error = 0;
 
-	assert (diff_tree && callback);
+	assert (merge_index && callback);
 
-	git_vector_foreach(&diff_tree->conflicts, i, delta) {
-		if (callback(delta, payload) != 0) {
+	git_vector_foreach(&merge_index->conflicts, i, conflict) {
+		if (callback(conflict, payload) != 0) {
 			error = GIT_EUSER;
 			break;
 		}
@@ -117,12 +117,12 @@ static int git_diff_tree_foreach(
 	return error;
 }
 
-static git_merge_index *threeway(
+static void test_find_differences(
     const char *ancestor_oidstr,
     const char *ours_oidstr,
     const char *theirs_oidstr,
-    struct treediff_delta_data *treediff_delta_data,
-    size_t treediff_delta_data_len)
+    struct treediff_conflict_data *treediff_conflict_data,
+    size_t treediff_conflict_data_len)
 {
     git_merge_index *merge_index = git_merge_index__alloc(repo);
     git_oid ancestor_oid, ours_oid, theirs_oid;
@@ -144,25 +144,23 @@ static git_merge_index *threeway(
 	cl_git_pass(git_merge_index__find_differences(merge_index, ancestor_tree, ours_tree, theirs_tree));
 	cl_git_pass(git_merge_index__find_renames(merge_index, &opts));
 
-    cl_assert(treediff_delta_data_len == merge_index->conflicts.length);
+    cl_assert(treediff_conflict_data_len == merge_index->conflicts.length);
     
-    treediff_cb_data.delta_data = treediff_delta_data;
-	treediff_cb_data.delta_data_len = treediff_delta_data_len;
+    treediff_cb_data.conflict_data = treediff_conflict_data;
+	treediff_cb_data.conflict_data_len = treediff_conflict_data_len;
     
-    cl_git_pass(git_diff_tree_foreach(merge_index, treediff_cb, &treediff_cb_data));
+    cl_git_pass(merge_index_conflict_foreach(merge_index, treediff_cb, &treediff_cb_data));
     
     git_tree_free(ancestor_tree);
     git_tree_free(ours_tree);
     git_tree_free(theirs_tree);
     
-    return merge_index;
+	git_merge_index_free(merge_index);
 }
 
 void test_merge_trees_treediff__simple(void)
 {
-    git_merge_index *diff_tree;
-    
-    struct treediff_delta_data treediff_delta_data[] = {
+    struct treediff_conflict_data treediff_conflict_data[] = {
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
@@ -213,16 +211,12 @@ void test_merge_trees_treediff__simple(void)
 		},
     };
     
-    cl_assert(diff_tree = threeway(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_BRANCH, treediff_delta_data, 7));
-    
-    git_merge_index_free(diff_tree);
+    test_find_differences(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_BRANCH, treediff_conflict_data, 7);
 }
 
 void test_merge_trees_treediff__df_conflicts(void)
 {
-	git_merge_index *diff_tree;
-	
-    struct treediff_delta_data treediff_delta_data[] = {
+    struct treediff_conflict_data treediff_conflict_data[] = {
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "dir-10", "49130a28ef567af9a6a6104c38773fedfa5f9742", GIT_DELTA_ADDED },
@@ -364,16 +358,12 @@ void test_merge_trees_treediff__df_conflicts(void)
 		},
 	};
 	
-	cl_assert(diff_tree = threeway(TREE_OID_DF_ANCESTOR, TREE_OID_DF_SIDE1, TREE_OID_DF_SIDE2, treediff_delta_data, 20));
-
-	git_merge_index_free(diff_tree);
+	test_find_differences(TREE_OID_DF_ANCESTOR, TREE_OID_DF_SIDE1, TREE_OID_DF_SIDE2, treediff_conflict_data, 20);
 }
 
 void test_merge_trees_treediff__strict_renames(void)
 {
-    git_merge_index *diff_tree;
-
-	struct treediff_delta_data treediff_delta_data[] = {
+	struct treediff_conflict_data treediff_conflict_data[] = {
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
@@ -431,16 +421,12 @@ void test_merge_trees_treediff__strict_renames(void)
 		},
     };
     
-    cl_assert(diff_tree = threeway(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES1, treediff_delta_data, 8));
-	
-    git_merge_index_free(diff_tree);
+    test_find_differences(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES1, treediff_conflict_data, 8);
 }
 
 void test_merge_trees_treediff__rename_conflicts(void)
 {
-    git_merge_index *diff_tree;
-    
-	struct treediff_delta_data treediff_delta_data[] = {
+	struct treediff_conflict_data treediff_conflict_data[] = {
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
 			{ 0100644, "0b-duplicated-in-ours.txt", "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", GIT_DELTA_ADDED },
@@ -569,9 +555,8 @@ void test_merge_trees_treediff__rename_conflicts(void)
 		},
     };
     
-    cl_assert(diff_tree = threeway(TREE_OID_RENAME_CONFLICT_ANCESTOR, TREE_OID_RENAME_CONFLICT_OURS, TREE_OID_RENAME_CONFLICT_THEIRS, treediff_delta_data, 18));
-    
-    git_merge_index_free(diff_tree);
+    test_find_differences(TREE_OID_RENAME_CONFLICT_ANCESTOR,
+		TREE_OID_RENAME_CONFLICT_OURS, TREE_OID_RENAME_CONFLICT_THEIRS, treediff_conflict_data, 18);
 }
 
 /*
@@ -579,8 +564,6 @@ void test_merge_trees_treediff__rename_conflicts(void)
  *
 void test_merge_trees_treediff__best_renames(void)
 {
-    git_diff_tree_list *diff_tree;
-    
     struct treediff_file_data treediff_file_data[] = {
         { 0, "", "", GIT_DELTA_UNMODIFIED },
         { 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
@@ -611,8 +594,6 @@ void test_merge_trees_treediff__best_renames(void)
         { 0100644, "renamed-75.txt", "a77a56a49f8f3ae242e02717f18ebbc60c5cc543", GIT_DELTA_ADDED },        
     };
     
-    cl_assert(diff_tree = threeway(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES2, treediff_file_data, 7));
-    
-    git_diff_tree_list_free(diff_tree);
+    test_find_differences(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES2, treediff_file_data, 7);
 }
 */

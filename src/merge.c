@@ -991,23 +991,23 @@ static git_merge_index_conflict *merge_index_conflict_from_entries(
 	git_merge_index *merge_index,
 	const git_index_entry **entries)
 {
-	git_merge_index_conflict *delta_tree;
+	git_merge_index_conflict *conflict;
 	git_pool *pool = &merge_index->pool;
 	
-	if ((delta_tree = git_pool_malloc(pool, sizeof(git_merge_index_conflict))) == NULL)
+	if ((conflict = git_pool_malloc(pool, sizeof(git_merge_index_conflict))) == NULL)
 		return NULL;
 	
-	if (index_entry_dup(&delta_tree->ancestor_entry, pool, entries[TREE_IDX_ANCESTOR]) < 0 ||
-		index_entry_dup(&delta_tree->our_entry, pool, entries[TREE_IDX_OURS]) < 0 ||
-		index_entry_dup(&delta_tree->their_entry, pool, entries[TREE_IDX_THEIRS]) < 0)
+	if (index_entry_dup(&conflict->ancestor_entry, pool, entries[TREE_IDX_ANCESTOR]) < 0 ||
+		index_entry_dup(&conflict->our_entry, pool, entries[TREE_IDX_OURS]) < 0 ||
+		index_entry_dup(&conflict->their_entry, pool, entries[TREE_IDX_THEIRS]) < 0)
 		return NULL;
 	
-	delta_tree->our_status = merge_index_conflict_entry_status(
+	conflict->our_status = merge_index_conflict_entry_status(
 		entries[TREE_IDX_ANCESTOR], entries[TREE_IDX_OURS]);
-	delta_tree->their_status = merge_index_conflict_entry_status(
+	conflict->their_status = merge_index_conflict_entry_status(
 		entries[TREE_IDX_ANCESTOR], entries[TREE_IDX_THEIRS]);
 	
-	return delta_tree;
+	return conflict;
 }
 
 /* Merge trees */

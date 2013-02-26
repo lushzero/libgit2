@@ -263,7 +263,7 @@ static char *merge_filediff_entry_name(
 static int merge_filediff_entry_names(char **our_path,
 	char **their_path,
 	const git_merge_head *merge_heads[],
-	const git_merge_index_conflict *delta)
+	const git_merge_index_conflict *conflict)
 {
 	bool rename;
 
@@ -277,16 +277,16 @@ static int merge_filediff_entry_names(char **our_path,
 	 * If all the paths are identical, decorate the diff3 file with the branch
 	 * names.  Otherwise, use branch_name:path
 	 */
-	rename = GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) &&
-		GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) &&
-		strcmp(delta->our_entry.path, delta->their_entry.path) != 0;
+	rename = GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) &&
+		GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) &&
+		strcmp(conflict->our_entry.path, conflict->their_entry.path) != 0;
 
-	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) &&
-		(*our_path = merge_filediff_entry_name(merge_heads[1], &delta->our_entry, rename)) == NULL)
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) &&
+		(*our_path = merge_filediff_entry_name(merge_heads[1], &conflict->our_entry, rename)) == NULL)
 		return -1;
 
-	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) &&
-		(*their_path = merge_filediff_entry_name(merge_heads[2], &delta->their_entry, rename)) == NULL)
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) &&
+		(*their_path = merge_filediff_entry_name(merge_heads[2], &conflict->their_entry, rename)) == NULL)
 		return -1;
 
 	return 0;
@@ -298,7 +298,7 @@ static int merge_conflict_write_diff3(
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
-	const git_merge_index_conflict *delta,
+	const git_merge_index_conflict *conflict,
 	unsigned int flags)
 {
 	git_merge_file_input ancestor = GIT_MERGE_FILE_INPUT_INIT,
@@ -311,7 +311,7 @@ static int merge_conflict_write_diff3(
 	git_filebuf output = GIT_FILEBUF_INIT;
 	int error = 0;
 	
-	assert(conflict_written && repo && our_head && their_head && delta);
+	assert(conflict_written && repo && our_head && their_head && conflict);
 	
 	*conflict_written = 0;
 	
@@ -319,23 +319,23 @@ static int merge_conflict_write_diff3(
 		return 0;
 
 	/* Reject link/file conflicts. */
-	if ((S_ISLNK(delta->ancestor_entry.mode) ^ S_ISLNK(delta->our_entry.mode)) ||
-		(S_ISLNK(delta->ancestor_entry.mode) ^ S_ISLNK(delta->their_entry.mode)))
+	if ((S_ISLNK(conflict->ancestor_entry.mode) ^ S_ISLNK(conflict->our_entry.mode)) ||
+		(S_ISLNK(conflict->ancestor_entry.mode) ^ S_ISLNK(conflict->their_entry.mode)))
 		return 0;
 	
 	/* Reject D/F conflicts */
-	if (delta->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
+	if (conflict->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
 		return 0;
 
 	/* TODO: reject name conflicts? */
 	
 	/* TODO: mkpath2file mode */
-	if (!GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) ||
-		!GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) ||
-		(error = git_merge_file_input_from_index_entry(&ancestor, repo, &delta->ancestor_entry)) < 0 ||
-		(error = git_merge_file_input_from_index_entry(&ours, repo, &delta->our_entry)) < 0 ||
-		(error = git_merge_file_input_from_index_entry(&theirs, repo, &delta->their_entry)) < 0 ||
-		(error = merge_filediff_entry_names(&our_label, &their_label, merge_heads, delta)) < 0)
+	if (!GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) ||
+		!GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) ||
+		(error = git_merge_file_input_from_index_entry(&ancestor, repo, &conflict->ancestor_entry)) < 0 ||
+		(error = git_merge_file_input_from_index_entry(&ours, repo, &conflict->our_entry)) < 0 ||
+		(error = git_merge_file_input_from_index_entry(&theirs, repo, &conflict->their_entry)) < 0 ||
+		(error = merge_filediff_entry_names(&our_label, &their_label, merge_heads, conflict)) < 0)
 		goto done;
 
 	ancestor.label = NULL;
@@ -398,7 +398,7 @@ static int merge_conflict_write_file(
 static int merge_conflict_write_side(
 	git_repository *repo,
 	const git_merge_head *merge_head,
-	const git_merge_index_conflict *delta,
+	const git_merge_index_conflict *conflict,
 	const git_index_entry *entry,
 	unsigned int flags)
 {
@@ -415,7 +415,7 @@ static int merge_conflict_write_side(
 	 * Mutate the name if we're D/F conflicted or if we didn't write a diff3
 	 * file.
 	 */
-	if (delta->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE ||
+	if (conflict->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE ||
 		(flags & GIT_MERGE_CONFLICT_NO_DIFF3)) {
 		git_buf_puts(&path_with_branch, entry->path);
 		git_buf_putc(&path_with_branch, '~');
@@ -443,26 +443,26 @@ static int merge_conflict_write_sides(
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
-	const git_merge_index_conflict *delta,
+	const git_merge_index_conflict *conflict,
 	unsigned int flags)
 {
 	int error = 0;
 
 	GIT_UNUSED(ancestor_head);
 	
-	assert(conflict_written && repo && our_head && their_head && delta);
+	assert(conflict_written && repo && our_head && their_head && conflict);
 	
 	*conflict_written = 0;
 
 	if (flags & GIT_MERGE_CONFLICT_NO_SIDES)
 		return 0;
 	
-	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->our_entry) &&
-		(error = merge_conflict_write_side(repo, our_head, delta, &delta->our_entry, flags)) < 0)
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) &&
+		(error = merge_conflict_write_side(repo, our_head, conflict, &conflict->our_entry, flags)) < 0)
 		goto done;
 	
-	if (GIT_MERGE_INDEX_ENTRY_EXISTS(delta->their_entry) &&
-		(error = merge_conflict_write_side(repo, their_head, delta, &delta->their_entry, flags)) < 0)
+	if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) &&
+		(error = merge_conflict_write_side(repo, their_head, conflict, &conflict->their_entry, flags)) < 0)
 		goto done;
 
 done:
@@ -477,23 +477,23 @@ int merge_conflict_write(int *out,
 	const git_merge_head *ancestor_head,
 	const git_merge_head *our_head,
 	const git_merge_head *their_head,
-	const git_merge_index_conflict *delta,
+	const git_merge_index_conflict *conflict,
 	unsigned int flags)
 {
 	int conflict_written = 0;
 	int error = 0;
 
-	assert(out && repo && our_head && their_head && delta);
+	assert(out && repo && our_head && their_head && conflict);
 	
 	*out = 0;
 
 	if ((error = merge_conflict_write_diff3(&conflict_written, repo, ancestor_head,
-		our_head, their_head, delta, flags)) < 0)
+		our_head, their_head, conflict, flags)) < 0)
 		goto done;
 
 	if (!conflict_written)
 		error = merge_conflict_write_sides(&conflict_written, repo, ancestor_head,
-			our_head, their_head, delta, flags);
+			our_head, their_head, conflict, flags);
 
 	*out = conflict_written;
 
@@ -676,7 +676,7 @@ int git_merge(
 	git_tree *ancestor_tree = NULL, *our_tree = NULL, **their_trees = NULL;
 	git_merge_index *merge_index = NULL;
 	git_index *index_new = NULL, *index_repo = NULL;
-	git_merge_index_conflict *delta;
+	git_merge_index_conflict *conflict;
 	size_t i;
 	int error = 0;
 
@@ -754,11 +754,11 @@ int git_merge(
 		goto on_error;
 
 	if (their_heads_len == 1) {
-		git_vector_foreach(&merge_index->conflicts, i, delta) {
+		git_vector_foreach(&merge_index->conflicts, i, conflict) {
 			int conflict_written = 0;
 			
 			if ((error = merge_conflict_write(&conflict_written, repo,
-				ancestor_head, our_head, their_heads[0], delta, opts.conflict_flags)) < 0)
+				ancestor_head, our_head, their_heads[0], conflict, opts.conflict_flags)) < 0)
 				goto on_error;
 		}
 	}
@@ -821,7 +821,7 @@ git_merge_index *git_merge_result_index(git_merge_result *merge_result)
 {
 	assert(merge_result);
 	
-	return merge_result->diff_tree;
+	return merge_result->merge_index;
 }
 
 void git_merge_result_free(git_merge_result *merge_result)
@@ -829,8 +829,8 @@ void git_merge_result_free(git_merge_result *merge_result)
 	if (merge_result == NULL)
 		return;
 	
-	git_merge_index_free(merge_result->diff_tree);
-	merge_result->diff_tree = NULL;
+	git_merge_index_free(merge_result->merge_index);
+	merge_result->merge_index = NULL;
 	
 	git__free(merge_result);
 }
