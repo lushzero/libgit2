@@ -77,6 +77,8 @@ static int refdb_test_backend__write(
 	
 	if (ref_cpy(ref_dup, ref) < 0)
 		return -1;
+	
+	time(&ref_dup->mtime);
 
 	git_vector_insert(&backend->refs, ref_dup);
 	
@@ -120,8 +122,10 @@ static int refdb_test_backend__foreach(
 	backend = (refdb_test_backend *)_backend;
 
 	git_vector_foreach(&backend->refs, i, r) {
-		if ((r->flags & GIT_REF_OID) != (list_flags & GIT_REF_OID) ||
-			(r->flags & GIT_REF_SYMBOLIC) != (list_flags & GIT_REF_SYMBOLIC))
+		if ((r->flags & GIT_REF_OID) == GIT_REF_OID && (list_flags & GIT_REF_OID) == 0)
+			continue;
+		
+		if ((r->flags & GIT_REF_SYMBOLIC) == GIT_REF_SYMBOLIC && (list_flags & GIT_REF_SYMBOLIC) == 0)
 			continue;
 		
 		if (callback(r->name, payload) != 0)
@@ -144,7 +148,6 @@ static int refdb_test_backend__delete(
 
 	git_vector_foreach(&backend->refs, i, r) {
 		if (strcmp(ref->name, r->name) == 0) {
-			git_reference_free(ref);
 			git_vector_remove(&backend->refs, i);
 			return 0;
 		}
