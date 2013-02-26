@@ -7,7 +7,6 @@
 #ifndef INCLUDE_filediff_h__
 #define INCLUDE_filediff_h__
 
-#include "diff_tree.h"
 #include "xdiff/xdiff.h"
 
 #include "git2/merge.h"

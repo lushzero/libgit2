@@ -18,7 +18,6 @@
 #include "iterator.h"
 #include "refs.h"
 #include "diff.h"
-#include "diff_tree.h"
 #include "checkout.h"
 #include "tree.h"
 #include "merge_file.h"
@@ -36,6 +35,9 @@
 #include "git2/signature.h"
 #include "git2/config.h"
 #include "git2/tree.h"
+
+/* TODO: remove */
+#define GIT_MERGE_INDEX_ENTRY_EXISTS(X)	((X).mode != 0)
 
 /* Merge setup */
 
@@ -563,11 +565,6 @@ GIT_INLINE(bool) merge_check_fastforward(
 	return false;
 }
 
-int merge_tree_normalize_opts(
-	git_repository *repo,
-	git_merge_tree_opts *opts,
-	const git_merge_tree_opts *given);
-
 static int merge_normalize_opts(
 	git_repository *repo,
 	git_merge_opts *opts,
@@ -579,20 +576,18 @@ static int merge_normalize_opts(
 		GIT_CHECKOUT_REMOVE_UNTRACKED |
 		GIT_CHECKOUT_ALLOW_CONFLICTS;
 
+	GIT_UNUSED(repo);
+	
 	if (given != NULL) {
 		memcpy(opts, given, sizeof(git_merge_opts));
 
 		if (!opts->checkout_opts.checkout_strategy)
 			opts->checkout_opts.checkout_strategy = default_checkout_strategy;
-
-		error = merge_tree_normalize_opts(repo, &opts->merge_tree_opts, &given->merge_tree_opts);
 	} else {
 		git_merge_opts default_opts = GIT_MERGE_OPTS_INIT;
 		memcpy(opts, &default_opts, sizeof(git_merge_opts));
 		
 		opts->checkout_opts.checkout_strategy = default_checkout_strategy;
-
-		error = merge_tree_normalize_opts(repo, &opts->merge_tree_opts, NULL);
 	}
 
 	return error;
@@ -743,7 +738,7 @@ int git_merge(
 
 	/* TODO: recursive */
 	if (their_heads_len == 1)
-		error = merge_trees(&merge_index, repo, ancestor_tree, our_tree,
+		error = git_merge_trees(&merge_index, repo, ancestor_tree, our_tree,
 			their_trees[0], &opts.merge_tree_opts);
 	else
 		error = merge_trees_octopus(&merge_index, repo, index_new, ancestor_tree, our_tree,

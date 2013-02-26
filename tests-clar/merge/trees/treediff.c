@@ -1,6 +1,5 @@
 #include "clar_libgit2.h"
 #include "git2/tree.h"
-#include "diff_tree.h"
 #include "merge.h"
 
 static git_repository *repo;
@@ -125,7 +124,7 @@ static git_merge_index *threeway(
     struct treediff_delta_data *treediff_delta_data,
     size_t treediff_delta_data_len)
 {
-    git_merge_index *diff_tree = git_merge_index__alloc(repo);
+    git_merge_index *merge_index = git_merge_index__alloc(repo);
     git_oid ancestor_oid, ours_oid, theirs_oid;
     git_tree *ancestor_tree, *ours_tree, *theirs_tree;
     struct treediff_cb_data treediff_cb_data = {0};
@@ -142,20 +141,21 @@ static git_merge_index *threeway(
     cl_git_pass(git_tree_lookup(&ours_tree, repo, &ours_oid));
     cl_git_pass(git_tree_lookup(&theirs_tree, repo, &theirs_oid));
     
-	cl_git_pass(git_diff_trees(diff_tree, ancestor_tree, ours_tree, theirs_tree, &opts));
+	cl_git_pass(git_merge_index__find_differences(merge_index, ancestor_tree, ours_tree, theirs_tree));
+	cl_git_pass(git_merge_index__find_renames(merge_index, &opts));
 
-    cl_assert(treediff_delta_data_len == diff_tree->conflicts.length);
+    cl_assert(treediff_delta_data_len == merge_index->conflicts.length);
     
     treediff_cb_data.delta_data = treediff_delta_data;
 	treediff_cb_data.delta_data_len = treediff_delta_data_len;
     
-    cl_git_pass(git_diff_tree_foreach(diff_tree, treediff_cb, &treediff_cb_data));
+    cl_git_pass(git_diff_tree_foreach(merge_index, treediff_cb, &treediff_cb_data));
     
     git_tree_free(ancestor_tree);
     git_tree_free(ours_tree);
     git_tree_free(theirs_tree);
     
-    return diff_tree;
+    return merge_index;
 }
 
 void test_merge_trees_treediff__simple(void)
@@ -365,14 +365,14 @@ void test_merge_trees_treediff__df_conflicts(void)
 	};
 	
 	cl_assert(diff_tree = threeway(TREE_OID_DF_ANCESTOR, TREE_OID_DF_SIDE1, TREE_OID_DF_SIDE2, treediff_delta_data, 20));
-	
+
 	git_merge_index_free(diff_tree);
 }
 
 void test_merge_trees_treediff__strict_renames(void)
 {
     git_merge_index *diff_tree;
-    
+
 	struct treediff_delta_data treediff_delta_data[] = {
 		{
 			{ 0, "", "", GIT_DELTA_UNMODIFIED },
@@ -432,7 +432,7 @@ void test_merge_trees_treediff__strict_renames(void)
     };
     
     cl_assert(diff_tree = threeway(TREE_OID_ANCESTOR, TREE_OID_MASTER, TREE_OID_RENAMES1, treediff_delta_data, 8));
-    
+	
     git_merge_index_free(diff_tree);
 }
 
