@@ -51,9 +51,6 @@ static int merge_trivial(git_index **index, const char *ours, const char *theirs
 	cl_git_pass(git_commit_tree(&our_tree, our_commit));
 	cl_git_pass(git_commit_tree(&their_tree, their_commit));
 
-	cl_git_pass(git_index_new(index));
-	cl_git_pass(git_index_read_tree(*index, our_tree));
-
 	cl_git_pass(git_merge_trees(&result, repo, ancestor_tree, our_tree, their_tree, &opts));
 	cl_git_pass(git_merge_index_to_index(index, result));
 

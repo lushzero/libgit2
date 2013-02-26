@@ -10,7 +10,7 @@ int merge_trees_from_branches(
 	git_merge_tree_opts *opts)
 {
 	git_commit *our_commit, *their_commit, *ancestor_commit = NULL;
-	git_tree *our_tree, *their_tree, *ancestor_tree;
+	git_tree *our_tree, *their_tree, *ancestor_tree = NULL;
 	git_oid our_oid, their_oid, ancestor_oid;
 	git_buf branch_buf = GIT_BUF_INIT;
 	int error;
@@ -35,9 +35,6 @@ int merge_trees_from_branches(
 
 	cl_git_pass(git_commit_tree(&our_tree, our_commit));
 	cl_git_pass(git_commit_tree(&their_tree, their_commit));
-
-	cl_git_pass(git_index_new(index));
-	cl_git_pass(git_index_read_tree(*index, our_tree));
 
 	cl_git_pass(git_merge_trees(result, repo, ancestor_tree, our_tree, their_tree, opts));
 	cl_git_pass(git_merge_index_to_index(index, *result));
