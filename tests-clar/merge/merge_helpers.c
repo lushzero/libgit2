@@ -90,7 +90,7 @@ void dump_index_entries(git_vector *index_entries)
 		printf("%s ", index_entry->path);
 		printf("\n");
 	}
-	printf("\n");	
+	printf("\n");
 }
 
 void dump_index_conflict_entries(git_vector *conflict_entries)
@@ -226,6 +226,8 @@ int merge_test_index(git_index *index, const struct merge_index_entry expected[]
     size_t i;
     const git_index_entry *index_entry;
 	
+	dump_index_entries(&index->entries);
+	
     if (git_index_entrycount(index) != expected_len)
         return 0;
     
@@ -246,7 +248,7 @@ int merge_test_reuc(git_index *index, const struct merge_reuc_entry expected[], 
 	const git_index_reuc_entry *reuc_entry;
     git_oid expected_oid;
 	
-	// dump_reuc(index);
+	dump_reuc(index);
 
     if (git_index_reuc_entrycount(index) != expected_len)
         return 0;

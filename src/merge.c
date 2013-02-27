@@ -366,8 +366,8 @@ static int merge_conflict_resolve_trivial(
 		conflict->type == GIT_MERGE_CONFLICT_RENAMED_ADDED)
 		return 0;
 	
-	if ((conflict->our_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED ||
-		(conflict->their_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED)
+	if (conflict->our_status == GIT_DELTA_RENAMED ||
+		conflict->their_status == GIT_DELTA_RENAMED)
 		return 0;
 
 	ancestor_empty = !GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry);
@@ -485,41 +485,30 @@ static int merge_conflict_resolve_one_renamed(
 	assert(resolved && merge_index && conflict);
 	
 	*resolved = 0;
-	
-	if (conflict->type != GIT_MERGE_CONFLICT_RENAMED_MODIFIED &&
-		conflict->type != GIT_MERGE_CONFLICT_BOTH_RENAMED)
-		return 0;
 
-	if ((conflict->our_status & GIT_DELTA_RENAMED) == 0 &&
-		(conflict->their_status & GIT_DELTA_RENAMED) == 0)
-		return 0;
-	
 	if (!GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) ||
 		!GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry))
 		return 0;
-	
-	ours_renamed = ((conflict->our_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED);
-	theirs_renamed = ((conflict->their_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED);
-	
-	ours_changed =
-		((conflict->our_status & GIT_DELTA_MODIFIED) == GIT_DELTA_MODIFIED);
 
-	theirs_changed =
-		((conflict->their_status & GIT_DELTA_MODIFIED) == GIT_DELTA_MODIFIED);
-
+	ours_renamed = (conflict->our_status == GIT_DELTA_RENAMED);
+	theirs_renamed = (conflict->their_status == GIT_DELTA_RENAMED);
+	
 	if (!ours_renamed && !theirs_renamed)
 		return 0;
-	
-	/* Reject name conflicts */
-	if (ours_renamed && theirs_renamed &&
-		strcmp(conflict->our_entry.path, conflict->their_entry.path) != 0)
+
+	/* Reject one file in a 2->1 conflict */
+	if (conflict->type == GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1 ||
+		conflict->type == GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2)
 		return 0;
+
+	ours_changed = (git_oid_cmp(&conflict->ancestor_entry.oid, &conflict->our_entry.oid) != 0);
+	theirs_changed = (git_oid_cmp(&conflict->ancestor_entry.oid, &conflict->their_entry.oid) != 0);
 	
-	/* Reject edit/edit conflict */
+	/* if both are modified (and not to a common target) require a merge */
 	if (ours_changed && theirs_changed &&
 		git_oid_cmp(&conflict->our_entry.oid, &conflict->their_entry.oid) != 0)
 		return 0;
-	
+
 	if ((merged = git_pool_malloc(&merge_index->pool, sizeof(git_index_entry))) == NULL)
 		return -1;
 	
@@ -1331,7 +1320,7 @@ on_error:
 static int merge_index_insert_reuc(
 	git_index *index,
 	size_t idx,
-	git_index_entry *entry)
+	const git_index_entry *entry)
 {
 	const git_index_reuc_entry *reuc;
 	int mode[3] = { 0, 0, 0 };
@@ -1355,6 +1344,55 @@ static int merge_index_insert_reuc(
 		mode[0], oid[0], mode[1], oid[1], mode[2], oid[2]);
 }
 
+static const git_index_entry *index_conflict_side(
+	const git_merge_index_conflict *conflict,
+	const git_index_entry *side)
+{
+	if (!GIT_MERGE_INDEX_ENTRY_EXISTS(*side))
+		return NULL;
+	
+	/*
+	 * Core git does not necessarily write all sides of a conflict.  This
+	 * is for compatibility.
+	 */
+	
+	/* 
+	 * Only the common destination filename is written in a rename 2->1
+	 * conflict.
+	 */
+	if (conflict->type == GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1) {
+		if (side == &conflict->ancestor_entry)
+			return NULL;
+		
+		if (side == &conflict->our_entry && conflict->our_status != GIT_DELTA_RENAMED)
+			return NULL;
+		
+		if (side == &conflict->their_entry && conflict->their_status != GIT_DELTA_RENAMED)
+			return NULL;
+	}
+	
+	/*
+	 * Only the destination filename is written in a rename/add conflict.
+	 */
+	if (conflict->type == GIT_MERGE_CONFLICT_RENAMED_ADDED) {
+		if (side == &conflict->ancestor_entry)
+			return NULL;
+
+		if (side == &conflict->our_entry && conflict->our_status != GIT_DELTA_RENAMED)
+			return NULL;
+		
+		if (side == &conflict->their_entry && conflict->their_status != GIT_DELTA_RENAMED)
+			return NULL;
+	}
+	
+	/* The ancestor is not written in a rename/delete conflict. */
+	if (conflict->type == GIT_MERGE_CONFLICT_RENAMED_DELETED &&
+		side == &conflict->ancestor_entry)
+		return NULL;
+
+	return side;
+}
+
 int git_index_from_merge_index(git_index **out, git_merge_index *merge_index)
 {
 	git_index *index;
@@ -1373,21 +1411,15 @@ int git_index_from_merge_index(git_index **out, git_merge_index *merge_index)
 			goto on_error;
 	}
 	
-	/*
-	 * We do not mark the non-renamed sides of a renamed 2->1 conflict.
-	 */
 	git_vector_foreach(&merge_index->conflicts, i, conflict) {
-		git_index_entry *ancestor =
-		GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry) ?
-			&conflict->ancestor_entry : NULL;
+		const git_index_entry *ancestor =
+			index_conflict_side(conflict, &conflict->ancestor_entry);
 
-		git_index_entry *ours =
-		GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) ?
-			&conflict->our_entry : NULL;
+		const git_index_entry *ours =
+			index_conflict_side(conflict, &conflict->our_entry);
 
-		git_index_entry *theirs =
-			GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) ?
-			&conflict->their_entry : NULL;
+		const git_index_entry *theirs =
+			index_conflict_side(conflict, &conflict->their_entry);
 
 		if ((error = git_index_conflict_add(index, ancestor, ours, theirs)) < 0)
 			goto on_error;
@@ -1396,16 +1428,25 @@ int git_index_from_merge_index(git_index **out, git_merge_index *merge_index)
 	/* Add each entry in the resolved conflict to the REUC independently, since
 	 * the paths may differ due to renames. */
 	git_vector_foreach(&merge_index->resolved, i, conflict) {
-		if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry) &&
-			(error = merge_index_insert_reuc(index, TREE_IDX_ANCESTOR, &conflict->ancestor_entry)) < 0)
+		const git_index_entry *ancestor =
+			index_conflict_side(conflict, &conflict->ancestor_entry);
+
+		const git_index_entry *ours =
+			index_conflict_side(conflict, &conflict->our_entry);
+
+		const git_index_entry *theirs =
+			index_conflict_side(conflict, &conflict->their_entry);
+
+		if (ancestor != NULL &&
+			(error = merge_index_insert_reuc(index, TREE_IDX_ANCESTOR, ancestor)) < 0)
 				goto on_error;
 
-		if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) &&
-			(error = merge_index_insert_reuc(index, TREE_IDX_OURS, &conflict->our_entry)) < 0)
+		if (ours != NULL &&
+			(error = merge_index_insert_reuc(index, TREE_IDX_OURS, ours)) < 0)
 			goto on_error;
 
-		if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) &&
-			(error = merge_index_insert_reuc(index, TREE_IDX_THEIRS, &conflict->their_entry)) < 0)
+		if (theirs != NULL &&
+			(error = merge_index_insert_reuc(index, TREE_IDX_THEIRS, theirs)) < 0)
 			goto on_error;
 	}
 	
