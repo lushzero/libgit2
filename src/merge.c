@@ -362,7 +362,12 @@ static int merge_conflict_resolve_trivial(
 
 	*resolved = 0;
 
-	if (conflict->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
+	if (conflict->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE ||
+		conflict->type == GIT_MERGE_CONFLICT_RENAMED_ADDED)
+		return 0;
+	
+	if ((conflict->our_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED ||
+		(conflict->their_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED)
 		return 0;
 
 	ancestor_empty = !GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry);
@@ -466,6 +471,76 @@ static int merge_conflict_resolve_one_removed(
 	return error;
 }
 
+
+static int merge_conflict_resolve_one_renamed(
+	int *resolved,
+	git_merge_index *merge_index,
+	const git_merge_index_conflict *conflict)
+{
+	int ours_renamed, theirs_renamed;
+	int ours_changed, theirs_changed;
+	git_index_entry *merged;
+	int error = 0;
+	
+	assert(resolved && merge_index && conflict);
+	
+	*resolved = 0;
+	
+	if (conflict->type != GIT_MERGE_CONFLICT_RENAMED_MODIFIED &&
+		conflict->type != GIT_MERGE_CONFLICT_BOTH_RENAMED)
+		return 0;
+
+	if ((conflict->our_status & GIT_DELTA_RENAMED) == 0 &&
+		(conflict->their_status & GIT_DELTA_RENAMED) == 0)
+		return 0;
+	
+	if (!GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) ||
+		!GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry))
+		return 0;
+	
+	ours_renamed = ((conflict->our_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED);
+	theirs_renamed = ((conflict->their_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED);
+	
+	ours_changed =
+		((conflict->our_status & GIT_DELTA_MODIFIED) == GIT_DELTA_MODIFIED);
+
+	theirs_changed =
+		((conflict->their_status & GIT_DELTA_MODIFIED) == GIT_DELTA_MODIFIED);
+
+	if (!ours_renamed && !theirs_renamed)
+		return 0;
+	
+	/* Reject name conflicts */
+	if (ours_renamed && theirs_renamed &&
+		strcmp(conflict->our_entry.path, conflict->their_entry.path) != 0)
+		return 0;
+	
+	/* Reject edit/edit conflict */
+	if (ours_changed && theirs_changed &&
+		git_oid_cmp(&conflict->our_entry.oid, &conflict->their_entry.oid) != 0)
+		return 0;
+	
+	if ((merged = git_pool_malloc(&merge_index->pool, sizeof(git_index_entry))) == NULL)
+		return -1;
+	
+	if (ours_changed)
+		memcpy(merged, &conflict->our_entry, sizeof(git_index_entry));
+	else
+		memcpy(merged, &conflict->their_entry, sizeof(git_index_entry));
+
+	if (ours_renamed)
+		merged->path = conflict->our_entry.path;
+	else
+		merged->path = conflict->their_entry.path;
+	
+	*resolved = 1;
+	
+	git_vector_insert(&merge_index->staged, merged);
+	git_vector_insert(&merge_index->resolved, (git_merge_index_conflict *)conflict);
+	
+	return error;
+}
+
 static int merge_conflict_resolve_automerge(
 	int *resolved,
 	git_merge_index *merge_index,
@@ -498,11 +573,12 @@ static int merge_conflict_resolve_automerge(
 		return 0;
 
 	/* Reject name conflicts */
-	if (GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry) &&
-		((GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) &&
-		strcmp(conflict->ancestor_entry.path, conflict->our_entry.path) != 0) ||
-		(GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->their_entry) &&
-		strcmp(conflict->ancestor_entry.path, conflict->their_entry.path) != 0)))
+	if (conflict->type == GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1)
+		return 0;
+
+	if ((conflict->our_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED &&
+		(conflict->their_status & GIT_DELTA_RENAMED) == GIT_DELTA_RENAMED &&
+		strcmp(conflict->ancestor_entry.path, conflict->their_entry.path) != 0)
 		return 0;
 
 	if ((error = git_repository_odb(&odb, merge_index->repo)) < 0 ||
@@ -555,6 +631,9 @@ static int merge_conflict_resolve(
 
 	if (automerge_flags != GIT_MERGE_AUTOMERGE_NONE) {
 		if (!resolved && (error = merge_conflict_resolve_one_removed(&resolved, merge_index, conflict)) < 0)
+			goto done;
+		
+		if (!resolved && (error = merge_conflict_resolve_one_renamed(&resolved, merge_index, conflict)) < 0)
 			goto done;
 
 		if (!resolved && (error = merge_conflict_resolve_automerge(&resolved, merge_index, conflict, automerge_flags)) < 0)
@@ -1294,13 +1373,16 @@ int git_index_from_merge_index(git_index **out, git_merge_index *merge_index)
 			goto on_error;
 	}
 	
+	/*
+	 * We do not mark the non-renamed sides of a renamed 2->1 conflict.
+	 */
 	git_vector_foreach(&merge_index->conflicts, i, conflict) {
 		git_index_entry *ancestor =
-			GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry) ?
+		GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->ancestor_entry) ?
 			&conflict->ancestor_entry : NULL;
 
 		git_index_entry *ours =
-			GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) ?
+		GIT_MERGE_INDEX_ENTRY_EXISTS(conflict->our_entry) ?
 			&conflict->our_entry : NULL;
 
 		git_index_entry *theirs =

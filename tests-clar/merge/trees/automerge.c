@@ -22,28 +22,15 @@ static git_repository *repo;
 
 /* Non-conflicting files, index entries are common to every merge operation */
 #define ADDED_IN_MASTER_INDEX_ENTRY	\
-	{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, \
-	  "added-in-master.txt" }
+	{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0,  "added-in-master.txt" }
 #define AUTOMERGEABLE_INDEX_ENTRY \
-	{ 0100644, "f2e1550a0c9e53d5811175864a29536642ae3821", 0, \
-	  "automergeable.txt" }
+	{ 0100644, "f2e1550a0c9e53d5811175864a29536642ae3821", 0,  "automergeable.txt" }
 #define CHANGED_IN_BRANCH_INDEX_ENTRY \
-	{ 0100644, "4eb04c9e79e88f6640d01ff5b25ca2a60764f216", 0, \
-	  "changed-in-branch.txt" }
+	{ 0100644, "4eb04c9e79e88f6640d01ff5b25ca2a60764f216", 0,  "changed-in-branch.txt" }
 #define CHANGED_IN_MASTER_INDEX_ENTRY \
-	{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, \
-	  "changed-in-master.txt" }
+	{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0,  "changed-in-master.txt" }
 #define UNCHANGED_INDEX_ENTRY \
-	{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, \
-	  "unchanged.txt" }
-
-/* Unrelated files */
-#define UNRELATED_NEW1 \
-	{ 0100644, "ef58fdd8086c243bdc81f99e379acacfd21d32d6", 0, \
-	  "new-in-unrelated1.txt" }
-#define UNRELATED_NEW2 \
-	{ 0100644, "948ba6e701c1edab0c2d394fb7c5538334129793", 0, \
-	  "new-in-unrelated2.txt" }
+	{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0,  "unchanged.txt" }
 
 /* Expected REUC entries */
 #define AUTOMERGEABLE_REUC_ENTRY \
@@ -165,7 +152,7 @@ void test_merge_trees_automerge__favor_ours(void)
 		REMOVED_IN_BRANCH_REUC_ENTRY,
 		REMOVED_IN_MASTER_REUC_ENTRY,
 	};
-    
+	
 	opts.automerge_flags = GIT_MERGE_AUTOMERGE_FAVOR_OURS;
     
 	cl_git_pass(merge_trees_from_branches(&result, &index, repo, "master", THEIRS_AUTOMERGE_BRANCH, &opts));

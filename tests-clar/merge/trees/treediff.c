@@ -1,6 +1,7 @@
 #include "clar_libgit2.h"
 #include "git2/tree.h"
 #include "merge.h"
+#include "../merge_helpers.h"
 
 static git_repository *repo;
 
@@ -30,98 +31,18 @@ void test_merge_trees_treediff__cleanup(void)
 	cl_git_sandbox_cleanup();
 }
 
-struct treediff_file_data {
-    uint16_t mode;
-    char path[128];
-    char oid_str[41];
-    unsigned int status;
-};
-
-struct treediff_conflict_data {
-	struct treediff_file_data ancestor;
-	struct treediff_file_data ours;
-	struct treediff_file_data theirs;
-	git_merge_conflict_type_t conflict_type;
-};
-
 struct treediff_cb_data {
-    struct treediff_conflict_data *conflict_data;
+    struct merge_index_conflict_data *conflict_data;
     size_t conflict_data_len;
 
     size_t idx;
 };
 
-static bool treediff_cmp(
-	const git_index_entry *diff_file,
-	const git_delta_t diff_status,
-	const struct treediff_file_data *expected)
-{
-	git_oid oid;
-
-	if (expected->mode == 0) {
-		if (diff_file->path != NULL)
-			return 0;
-	} else {
-		if (diff_file->path == NULL)
-			return 0;
-		
-		cl_git_pass(git_oid_fromstr(&oid, expected->oid_str));
-
-		if (strcmp(expected->path, diff_file->path) != 0 ||
-			git_oid_cmp(&oid, &diff_file->oid) != 0)
-			return 0;
-	}
-
-	if (expected->status != diff_status)
-		return 0;
-	
-	return 1;
-}
-
-static int treediff_cb(const git_merge_index_conflict *conflict, void *cb_data)
-{
-    struct treediff_cb_data *treediff_cb_data = cb_data;
-	struct treediff_conflict_data *conflict_data = &treediff_cb_data->conflict_data[treediff_cb_data->idx];
-    
-	cl_assert(treediff_cmp(&conflict->ancestor_entry, 0, &conflict_data->ancestor));
-	cl_assert(treediff_cmp(&conflict->our_entry, conflict->our_status, &conflict_data->ours));
-	cl_assert(treediff_cmp(&conflict->their_entry, conflict->their_status, &conflict_data->theirs));
-	
-	cl_assert(conflict->type == conflict_data->conflict_type);
-
-    treediff_cb_data->idx++;
-    
-    return 0;
-}
-
-typedef int (*merge_index_conflict_cb)(const git_merge_index_conflict *delta, void *payload);
-
-static int merge_index_conflict_foreach(
-	git_merge_index *merge_index,
-	merge_index_conflict_cb callback,
-	void *payload)
-{
-	git_merge_index_conflict *conflict;
-	size_t i;
-	int error = 0;
-
-	assert (merge_index && callback);
-
-	git_vector_foreach(&merge_index->conflicts, i, conflict) {
-		if (callback(conflict, payload) != 0) {
-			error = GIT_EUSER;
-			break;
-		}
-	}
-
-	return error;
-}
-
 static void test_find_differences(
     const char *ancestor_oidstr,
     const char *ours_oidstr,
     const char *theirs_oidstr,
-    struct treediff_conflict_data *treediff_conflict_data,
+    struct merge_index_conflict_data *treediff_conflict_data,
     size_t treediff_conflict_data_len)
 {
     git_merge_index *merge_index = git_merge_index__alloc(repo);
@@ -148,9 +69,9 @@ static void test_find_differences(
     
     treediff_cb_data.conflict_data = treediff_conflict_data;
 	treediff_cb_data.conflict_data_len = treediff_conflict_data_len;
-    
-    cl_git_pass(merge_index_conflict_foreach(merge_index, treediff_cb, &treediff_cb_data));
-    
+
+	cl_assert(merge_test_merge_conflicts(&merge_index->conflicts, treediff_conflict_data, treediff_conflict_data_len));
+
     git_tree_free(ancestor_tree);
     git_tree_free(ours_tree);
     git_tree_free(theirs_tree);
@@ -160,53 +81,53 @@ static void test_find_differences(
 
 void test_merge_trees_treediff__simple(void)
 {
-    struct treediff_conflict_data treediff_conflict_data[] = {
+    struct merge_index_conflict_data treediff_conflict_data[] = {
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE
 		},
 
         {
-			{ 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "automergeable.txt", "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", GIT_DELTA_MODIFIED },
-			{ 0100644, "automergeable.txt", "058541fc37114bfc1dddf6bd6bffc7fae5c2e6fe", GIT_DELTA_MODIFIED },
+			{ 0100644, "6212c31dab5e482247d7977e4f0dd3601decf13b", 0, "automergeable.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", 0, "automergeable.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "058541fc37114bfc1dddf6bd6bffc7fae5c2e6fe", 0, "automergeable.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_BOTH_MODIFIED
 		},
 		
 		{
-			{ 0100644, "changed-in-branch.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "changed-in-branch.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "changed-in-branch.txt", "4eb04c9e79e88f6640d01ff5b25ca2a60764f216", GIT_DELTA_MODIFIED },
+			{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-branch.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-branch.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "4eb04c9e79e88f6640d01ff5b25ca2a60764f216", 0, "changed-in-branch.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_NONE
 		},
 		
 		{
-			{ 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "changed-in-master.txt", "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", GIT_DELTA_MODIFIED },
-			{ 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-master.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-master.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE
         },
 		
 		{
-			{ 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "conflicting.txt", "4e886e602529caa9ab11d71f86634bd1b6e0de10", GIT_DELTA_MODIFIED },
-			{ 0100644, "conflicting.txt", "2bd0a343aeef7a2cf0d158478966a6e587ff3863", GIT_DELTA_MODIFIED },
+			{ 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", 0, "conflicting.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 0, "conflicting.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "2bd0a343aeef7a2cf0d158478966a6e587ff3863", 0, "conflicting.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_BOTH_MODIFIED
         },
 		
 		{
-			{ 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_NONE
         },
 		
 		{
-			{ 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", 0, "removed-in-master.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", 0, "removed-in-master.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE
 		},
     };
@@ -216,144 +137,144 @@ void test_merge_trees_treediff__simple(void)
 
 void test_merge_trees_treediff__df_conflicts(void)
 {
-    struct treediff_conflict_data treediff_conflict_data[] = {
+    struct merge_index_conflict_data treediff_conflict_data[] = {
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-10", "49130a28ef567af9a6a6104c38773fedfa5f9742", GIT_DELTA_ADDED },
-			{ 0100644, "dir-10", "6c06dcd163587c2cc18be44857e0b71116382aeb", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "49130a28ef567af9a6a6104c38773fedfa5f9742", 0, "dir-10", GIT_DELTA_ADDED },
+			{ 0100644, "6c06dcd163587c2cc18be44857e0b71116382aeb", 0, "dir-10", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_BOTH_ADDED,
 		},
 
 		{
-			{ 0100644, "dir-10/file.txt", "242591eb280ee9eeb2ce63524b9a8b9bc4cb515d", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "242591eb280ee9eeb2ce63524b9a8b9bc4cb515d", 0, "dir-10/file.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_BOTH_DELETED,
 		},
 		
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-6", "43aafd43bea779ec74317dc361f45ae3f532a505", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "43aafd43bea779ec74317dc361f45ae3f532a505", 0, "dir-6", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "dir-6/file.txt", "cf8c5cc8a85a1ff5a4ba51e0bc7cf5665669924d", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-6/file.txt", "cf8c5cc8a85a1ff5a4ba51e0bc7cf5665669924d", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			GIT_MERGE_CONFLICT_NONE,
-		},
-		
-		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-7", "a031a28ae70e33a641ce4b8a8f6317f1ab79dee4", GIT_DELTA_ADDED },
-			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
-		},
-
-		{
-			{ 0100644, "dir-7/file.txt", "5012fd565b1393bdfda1805d4ec38ce6619e1fd1", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-7/file.txt", "a5563304ddf6caba25cb50323a2ea6f7dbfcadca", GIT_DELTA_MODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			GIT_MERGE_CONFLICT_DF_CHILD,
-		},
-		
-		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-8", "e9ad6ec3e38364a3d07feda7c4197d4d845c53b5", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			GIT_MERGE_CONFLICT_NONE,
-		},
-
-		{
-			{ 0100644, "dir-8/file.txt", "f20c9063fa0bda9a397c96947a7b687305c49753", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "dir-8/file.txt", "f20c9063fa0bda9a397c96947a7b687305c49753", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "cf8c5cc8a85a1ff5a4ba51e0bc7cf5665669924d", 0, "dir-6/file.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "cf8c5cc8a85a1ff5a4ba51e0bc7cf5665669924d", 0, "dir-6/file.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 		
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "dir-9", "3ef4d30382ca33fdeba9fda895a99e0891ba37aa", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "a031a28ae70e33a641ce4b8a8f6317f1ab79dee4", 0, "dir-7", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 
 		{
-			{ 0100644, "dir-9/file.txt", "fc4c636d6515e9e261f9260dbcf3cc6eca97ea08", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "dir-9/file.txt", "76ab0e2868197ec158ddd6c78d8a0d2fd73d38f9", GIT_DELTA_MODIFIED },
+			{ 0100644, "5012fd565b1393bdfda1805d4ec38ce6619e1fd1", 0, "dir-7/file.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "a5563304ddf6caba25cb50323a2ea6f7dbfcadca", 0, "dir-7/file.txt", GIT_DELTA_MODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			GIT_MERGE_CONFLICT_DF_CHILD,
+		},
+		
+		{
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "e9ad6ec3e38364a3d07feda7c4197d4d845c53b5", 0, "dir-8", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			GIT_MERGE_CONFLICT_NONE,
+		},
+
+		{
+			{ 0100644, "f20c9063fa0bda9a397c96947a7b687305c49753", 0, "dir-8/file.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "f20c9063fa0bda9a397c96947a7b687305c49753", 0, "dir-8/file.txt", GIT_DELTA_UNMODIFIED },
+			GIT_MERGE_CONFLICT_NONE,
+		},
+		
+		{
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "3ef4d30382ca33fdeba9fda895a99e0891ba37aa", 0, "dir-9", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
+		},
+
+		{
+			{ 0100644, "fc4c636d6515e9e261f9260dbcf3cc6eca97ea08", 0, "dir-9/file.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "76ab0e2868197ec158ddd6c78d8a0d2fd73d38f9", 0, "dir-9/file.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 
 		{
-			{ 0100644, "file-1", "1e4ff029aee68d0d69ef9eb6efa6cbf1ec732f99", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-1", "1e4ff029aee68d0d69ef9eb6efa6cbf1ec732f99", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "1e4ff029aee68d0d69ef9eb6efa6cbf1ec732f99", 0, "file-1",  GIT_DELTA_UNMODIFIED },
+			{ 0100644, "1e4ff029aee68d0d69ef9eb6efa6cbf1ec732f99", 0, "file-1",  GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-1/new", "5c2411f8075f48a6b2fdb85ebc0d371747c4df15", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "5c2411f8075f48a6b2fdb85ebc0d371747c4df15", 0, "file-1/new", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "file-2", "a39a620dae5bc8b4e771cd4d251b7d080401a21e", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-2", "d963979c237d08b6ba39062ee7bf64c7d34a27f8", GIT_DELTA_MODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "a39a620dae5bc8b4e771cd4d251b7d080401a21e", 0, "file-2", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "d963979c237d08b6ba39062ee7bf64c7d34a27f8", 0, "file-2", GIT_DELTA_MODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 		
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-2/new", "5c341ead2ba6f2af98ce5ec3fe84f6b6d2899c0d", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "5c341ead2ba6f2af98ce5ec3fe84f6b6d2899c0d", 0, "file-2/new", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 
 		{
-			{ 0100644, "file-3", "032ebc5ab85d9553bb187d3cd40875ff23a63ed0", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "file-3", "032ebc5ab85d9553bb187d3cd40875ff23a63ed0", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "032ebc5ab85d9553bb187d3cd40875ff23a63ed0", 0, "file-3", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "032ebc5ab85d9553bb187d3cd40875ff23a63ed0", 0, "file-3", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-3/new", "9efe7723802d4305142eee177e018fee1572c4f4", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "9efe7723802d4305142eee177e018fee1572c4f4", 0, "file-3/new", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "file-4", "bacac9b3493509aa15e1730e1545fc0919d1dae0", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "file-4", "7663fce0130db092936b137cabd693ec234eb060", GIT_DELTA_MODIFIED },
+			{ 0100644, "bacac9b3493509aa15e1730e1545fc0919d1dae0", 0, "file-4", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "7663fce0130db092936b137cabd693ec234eb060", 0, "file-4", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_DIRECTORY_FILE,
 		},
 
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-4/new", "e49f917b448d1340b31d76e54ba388268fd4c922", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "e49f917b448d1340b31d76e54ba388268fd4c922", 0, "file-4/new", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_DF_CHILD,
 		},
 
 		{
-			{ 0100644, "file-5", "ac4045f965119e6998f4340ed0f411decfb3ec05", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "ac4045f965119e6998f4340ed0f411decfb3ec05", 0, "file-5", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_BOTH_DELETED,
 		},
 		
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "file-5/new", "cab2cf23998b40f1af2d9d9a756dc9e285a8df4b", GIT_DELTA_ADDED },
-			{ 0100644, "file-5/new", "f5504f36e6f4eb797a56fc5bac6c6c7f32969bf2", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "cab2cf23998b40f1af2d9d9a756dc9e285a8df4b", 0, "file-5/new", GIT_DELTA_ADDED },
+			{ 0100644, "f5504f36e6f4eb797a56fc5bac6c6c7f32969bf2", 0, "file-5/new", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_BOTH_ADDED,
 		},
 	};
@@ -363,60 +284,60 @@ void test_merge_trees_treediff__df_conflicts(void)
 
 void test_merge_trees_treediff__strict_renames(void)
 {
-	struct treediff_conflict_data treediff_conflict_data[] = {
+	struct merge_index_conflict_data treediff_conflict_data[] = {
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "added-in-master.txt", "233c0919c998ed110a4b6ff36f353aec8b713487", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "233c0919c998ed110a4b6ff36f353aec8b713487", 0, "added-in-master.txt", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
         
 		{
-			{ 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "automergeable.txt", "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", GIT_DELTA_MODIFIED },
-			{ 0100644, "automergeable.txt", "6212c31dab5e482247d7977e4f0dd3601decf13b", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "6212c31dab5e482247d7977e4f0dd3601decf13b", 0, "automergeable.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf", 0, "automergeable.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "6212c31dab5e482247d7977e4f0dd3601decf13b", 0, "automergeable.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "changed-in-master.txt", "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", GIT_DELTA_MODIFIED },
-			{ 0100644, "changed-in-master.txt", "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-master.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "11deab00b2d3a6f5a3073988ac050c2d7b6655e2", 0, "changed-in-master.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "ab6c44a2e84492ad4b41bb6bac87353e9d02ac8b", 0, "changed-in-master.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "conflicting.txt", "4e886e602529caa9ab11d71f86634bd1b6e0de10", GIT_DELTA_MODIFIED },
-			{ 0100644, "conflicting.txt", "d427e0b2e138501a3d15cc376077a3631e15bd46", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", 0, "conflicting.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "4e886e602529caa9ab11d71f86634bd1b6e0de10", 0, "conflicting.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "d427e0b2e138501a3d15cc376077a3631e15bd46", 0, "conflicting.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "removed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "renamed-in-branch.txt", "dfe3f22baa1f6fce5447901c3086bae368de6bdd", GIT_DELTA_RENAMED },
+			{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "removed-in-branch.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "dfe3f22baa1f6fce5447901c3086bae368de6bdd", 0, "renamed-in-branch.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "removed-in-master.txt", "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", 0, "removed-in-master.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644,  "5c3b68a71fc4fa5d362fd3875e53137c6a5ab7a5", 0, "removed-in-master.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "renamed.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "renamed.txt", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "unchanged.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "unchanged.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "copied.txt", "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", GIT_DELTA_RENAMED },
+			{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "unchanged.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "c8f06f2e3bb2964174677e91f0abead0e43c9e5d", 0, "copied.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
     };
@@ -426,131 +347,130 @@ void test_merge_trees_treediff__strict_renames(void)
 
 void test_merge_trees_treediff__rename_conflicts(void)
 {
-	struct treediff_conflict_data treediff_conflict_data[] = {
+	struct merge_index_conflict_data treediff_conflict_data[] = {
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "0b-duplicated-in-ours.txt", "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", 0, "0b-duplicated-in-ours.txt", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "0b-rewritten-in-ours.txt", "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "0b-rewritten-in-ours.txt", "e376fbdd06ebf021c92724da9f26f44212734e3e", GIT_DELTA_MODIFIED },
-			{ 0100644, "0b-rewritten-in-ours.txt", "b2d399ae15224e1d58066e3c8df70ce37de7a656", GIT_DELTA_MODIFIED },
+			{ 0100644, "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", 0, "0b-rewritten-in-ours.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "e376fbdd06ebf021c92724da9f26f44212734e3e", 0, "0b-rewritten-in-ours.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "b2d399ae15224e1d58066e3c8df70ce37de7a656", 0, "0b-rewritten-in-ours.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_BOTH_MODIFIED,
 		},
 
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "0c-duplicated-in-theirs.txt", "2f56120107d680129a5d9791b521cb1e73a2ed31", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "2f56120107d680129a5d9791b521cb1e73a2ed31", 0, "0c-duplicated-in-theirs.txt", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 		
 		{
-			{ 0100644, "0c-rewritten-in-theirs.txt", "2f56120107d680129a5d9791b521cb1e73a2ed31", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "0c-rewritten-in-theirs.txt", "efc9121fdedaf08ba180b53ebfbcf71bd488ed09", GIT_DELTA_MODIFIED },
-			{ 0100644, "0c-rewritten-in-theirs.txt", "712ebba6669ea847d9829e4f1059d6c830c8b531", GIT_DELTA_MODIFIED },
+			{ 0100644, "2f56120107d680129a5d9791b521cb1e73a2ed31", 0, "0c-rewritten-in-theirs.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "efc9121fdedaf08ba180b53ebfbcf71bd488ed09", 0, "0c-rewritten-in-theirs.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "712ebba6669ea847d9829e4f1059d6c830c8b531", 0, "0c-rewritten-in-theirs.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_BOTH_MODIFIED,
 		},
 
 		{
-			{ 0100644, "1a-renamed-in-ours-edited-in-theirs.txt", "c3d02eeef75183df7584d8d13ac03053910c1301", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "1a-newname-in-ours-edited-in-theirs.txt", "c3d02eeef75183df7584d8d13ac03053910c1301", GIT_DELTA_RENAMED },
-			{ 0100644, "1a-renamed-in-ours-edited-in-theirs.txt", "0d872f8e871a30208305978ecbf9e66d864f1638", GIT_DELTA_MODIFIED },
+			{ 0100644, "c3d02eeef75183df7584d8d13ac03053910c1301", 0, "1a-renamed-in-ours-edited-in-theirs.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "c3d02eeef75183df7584d8d13ac03053910c1301", 0, "1a-newname-in-ours-edited-in-theirs.txt", GIT_DELTA_RENAMED },
+			{ 0100644, "0d872f8e871a30208305978ecbf9e66d864f1638", 0, "1a-renamed-in-ours-edited-in-theirs.txt", GIT_DELTA_MODIFIED },
 			GIT_MERGE_CONFLICT_RENAMED_MODIFIED,
 		},
 		
 		{
-			{ 0100644, "1a-renamed-in-ours.txt", "d0d4594e16f2e19107e3fa7ea63e7aaaff305ffb", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "1a-newname-in-ours.txt", "d0d4594e16f2e19107e3fa7ea63e7aaaff305ffb", GIT_DELTA_RENAMED },
-			{ 0100644, "1a-renamed-in-ours.txt", "d0d4594e16f2e19107e3fa7ea63e7aaaff305ffb", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "d0d4594e16f2e19107e3fa7ea63e7aaaff305ffb", 0, "1a-renamed-in-ours.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "d0d4594e16f2e19107e3fa7ea63e7aaaff305ffb", 0, "1a-newname-in-ours.txt", GIT_DELTA_RENAMED },
+			{ 0100644, "d0d4594e16f2e19107e3fa7ea63e7aaaff305ffb", 0, "1a-renamed-in-ours.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 		
 		{
-			{ 0100644, "1b-renamed-in-theirs-edited-in-ours.txt", "241a1005cd9b980732741b74385b891142bcba28", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "1b-renamed-in-theirs-edited-in-ours.txt", "ed9523e62e453e50dd9be1606af19399b96e397a", GIT_DELTA_MODIFIED },
-			{ 0100644, "1b-newname-in-theirs-edited-in-ours.txt", "241a1005cd9b980732741b74385b891142bcba28", GIT_DELTA_RENAMED },
+			{ 0100644, "241a1005cd9b980732741b74385b891142bcba28", 0, "1b-renamed-in-theirs-edited-in-ours.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "ed9523e62e453e50dd9be1606af19399b96e397a", 0, "1b-renamed-in-theirs-edited-in-ours.txt", GIT_DELTA_MODIFIED },
+			{ 0100644, "241a1005cd9b980732741b74385b891142bcba28", 0, "1b-newname-in-theirs-edited-in-ours.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_RENAMED_MODIFIED,
 		},
 		
 		{
-			{ 0100644, "1b-renamed-in-theirs.txt", "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "1b-renamed-in-theirs.txt", "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "1b-newname-in-theirs.txt", "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", GIT_DELTA_RENAMED },
+			{ 0100644, "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", 0, "1b-renamed-in-theirs.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", 0, "1b-renamed-in-theirs.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", 0, "1b-newname-in-theirs.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_NONE,
 		},
 
 		{
-			{ 0100644, "2-renamed-in-both.txt", "178940b450f238a56c0d75b7955cb57b38191982", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "2-newname-in-both.txt", "178940b450f238a56c0d75b7955cb57b38191982", GIT_DELTA_RENAMED },
-			{ 0100644, "2-newname-in-both.txt", "178940b450f238a56c0d75b7955cb57b38191982", GIT_DELTA_RENAMED },
+			{ 0100644, "178940b450f238a56c0d75b7955cb57b38191982", 0, "2-renamed-in-both.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "178940b450f238a56c0d75b7955cb57b38191982", 0, "2-newname-in-both.txt", GIT_DELTA_RENAMED },
+			{ 0100644, "178940b450f238a56c0d75b7955cb57b38191982", 0, "2-newname-in-both.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_BOTH_RENAMED,
 		},
 		
 		{
-			{ 0100644, "3a-renamed-in-ours-deleted-in-theirs.txt", "18cb316b1cefa0f8a6946f0e201a8e1a6f845ab9", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "3a-newname-in-ours-deleted-in-theirs.txt", "18cb316b1cefa0f8a6946f0e201a8e1a6f845ab9", GIT_DELTA_RENAMED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "18cb316b1cefa0f8a6946f0e201a8e1a6f845ab9", 0, "3a-renamed-in-ours-deleted-in-theirs.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "18cb316b1cefa0f8a6946f0e201a8e1a6f845ab9", 0, "3a-newname-in-ours-deleted-in-theirs.txt", GIT_DELTA_RENAMED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_RENAMED_DELETED,
 		},
 		
 		{
-			{ 0100644, "3b-renamed-in-theirs-deleted-in-ours.txt", "36219b49367146cb2e6a1555b5a9ebd4d0328495", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "3b-newname-in-theirs-deleted-in-ours.txt", "36219b49367146cb2e6a1555b5a9ebd4d0328495", GIT_DELTA_RENAMED },
+			{ 0100644, "36219b49367146cb2e6a1555b5a9ebd4d0328495", 0, "3b-renamed-in-theirs-deleted-in-ours.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "36219b49367146cb2e6a1555b5a9ebd4d0328495", 0, "3b-newname-in-theirs-deleted-in-ours.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_RENAMED_DELETED,
 		},
 		
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "4a-newname-in-ours-added-in-theirs.txt", "8b5b53cb2aa9ceb1139f5312fcfa3cc3c5a47c9a", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "8b5b53cb2aa9ceb1139f5312fcfa3cc3c5a47c9a", 0, "4a-newname-in-ours-added-in-theirs.txt", GIT_DELTA_ADDED },
 			GIT_MERGE_CONFLICT_RENAMED_ADDED,
 		},		
 		
 		{
-			{ 0100644, "4a-renamed-in-ours-added-in-theirs.txt", "227792b52aaa0b238bea00ec7e509b02623f168c", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "4a-newname-in-ours-added-in-theirs.txt", "227792b52aaa0b238bea00ec7e509b02623f168c", GIT_DELTA_RENAMED },
-			{ 0, "", "", GIT_DELTA_DELETED },
+			{ 0100644, "227792b52aaa0b238bea00ec7e509b02623f168c", 0, "4a-renamed-in-ours-added-in-theirs.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "227792b52aaa0b238bea00ec7e509b02623f168c", 0, "4a-newname-in-ours-added-in-theirs.txt", GIT_DELTA_RENAMED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
 			GIT_MERGE_CONFLICT_RENAMED_ADDED,
 		},
 
 		{
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "4b-newname-in-theirs-added-in-ours.txt", "de872ee3618b894992e9d1e18ba2ebe256a112f9", GIT_DELTA_ADDED },
-			{ 0, "", "", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "de872ee3618b894992e9d1e18ba2ebe256a112f9", 0, "4b-newname-in-theirs-added-in-ours.txt", GIT_DELTA_ADDED },
+			{ 0, "", 0, "", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_RENAMED_ADDED,
 		},
 
 		{
-			{ 0100644, "4b-renamed-in-theirs-added-in-ours.txt", "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", GIT_DELTA_UNMODIFIED },
-			{ 0, "", "", GIT_DELTA_DELETED },
-			{ 0100644, "4b-newname-in-theirs-added-in-ours.txt", "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", GIT_DELTA_RENAMED },
+			{ 0100644, "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", 0, "4b-renamed-in-theirs-added-in-ours.txt", GIT_DELTA_UNMODIFIED },
+			{ 0, "", 0, "", GIT_DELTA_DELETED },
+			{ 0100644, "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", 0, "4b-newname-in-theirs-added-in-ours.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_RENAMED_ADDED,
 		},
 		
 		{
-			{ 0100644, "5-both-renamed-1-to-2.txt", "d8fa77b6833082c1ea36b7828a582d4c43882450", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "5-both-renamed-1-to-2-ours.txt", "d8fa77b6833082c1ea36b7828a582d4c43882450", GIT_DELTA_RENAMED },
-			{ 0100644, "5-both-renamed-1-to-2-theirs.txt", "d8fa77b6833082c1ea36b7828a582d4c43882450", GIT_DELTA_RENAMED },
+			{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-ours.txt", GIT_DELTA_RENAMED },
+			{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-theirs.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2,
 		},
 		
 		{
-
-			{ 0100644, "6-both-renamed-side-1.txt", "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "6-both-renamed.txt", "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", GIT_DELTA_RENAMED },
-			{ 0100644, "6-both-renamed-side-1.txt", "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "6-both-renamed-side-1.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "6-both-renamed.txt", GIT_DELTA_RENAMED },
+			{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "6-both-renamed-side-1.txt", GIT_DELTA_UNMODIFIED },
 			GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1,
 		},
 		
 		{
-			{ 0100644, "6-both-renamed-side-2.txt", "b69fe837e4cecfd4c9a40cdca7c138468687df07", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "6-both-renamed-side-2.txt", "b69fe837e4cecfd4c9a40cdca7c138468687df07", GIT_DELTA_UNMODIFIED },
-			{ 0100644, "6-both-renamed.txt", "b69fe837e4cecfd4c9a40cdca7c138468687df07", GIT_DELTA_RENAMED },
+			{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "6-both-renamed-side-2.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "6-both-renamed-side-2.txt", GIT_DELTA_UNMODIFIED },
+			{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "6-both-renamed.txt", GIT_DELTA_RENAMED },
 			GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1,
 		},
     };
