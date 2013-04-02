@@ -405,8 +405,7 @@ typedef enum {
  * Pluggable similarity metric
  */
 typedef struct {
-	int (*file_signature)(
-		void **out, const git_diff_file *file,
+	int (*file_signature)(void **out, const git_diff_file *file,
 		const char *fullpath, void *payload);
 	int (*buffer_signature)(
 		void **out, const git_diff_file *file,

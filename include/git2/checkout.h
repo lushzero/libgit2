@@ -133,6 +133,9 @@ typedef enum {
 
 	/** Treat pathspec as simple list of exact match file paths */
 	GIT_CHECKOUT_DISABLE_PATHSPEC_MATCH = (1u << 13),
+	
+	/** Maintain the REUC in the index (if provided) */
+	GIT_CHECKOUT_MAINTAIN_REUC = (1u << 14),
 
 	/**
 	 * THE FOLLOWING OPTIONS ARE NOT YET IMPLEMENTED
@@ -149,7 +152,6 @@ typedef enum {
 	GIT_CHECKOUT_UPDATE_SUBMODULES = (1u << 16),
 	/** Recursively checkout submodules if HEAD moved in super repo (NOT IMPLEMENTED) */
 	GIT_CHECKOUT_UPDATE_SUBMODULES_IF_CHANGED = (1u << 17),
-
 } git_checkout_strategy_t;
 
 /**
