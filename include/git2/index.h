@@ -84,6 +84,12 @@ typedef struct git_index_entry {
 	char *path;
 } git_index_entry;
 
+typedef struct git_index_name_entry {
+	char *ancestor;
+	char *ours;
+	char *theirs;
+} git_index_name_entry;
+
 /** Representation of a resolve undo entry in the index. */
 typedef struct git_index_reuc_entry {
 	unsigned int mode[3];
@@ -478,6 +484,53 @@ GIT_EXTERN(int) git_index_has_conflicts(const git_index *index);
 
 /**@}*/
 
+/** @name Conflict Name entry functions
+ *
+ * These functions work on rename conflict entries.
+ */
+/**@{*/
+
+/**
+ * Get the count of filename conflict entries currently in the index.
+ *
+ * @param index an existing index object
+ * @return integer of count of current filename conflict entries
+ */
+GIT_EXTERN(unsigned int) git_index_name_entrycount(git_index *index);
+
+/**
+ * Get a filename conflict entry from the index.
+ *
+ * The returned entry is read-only and should not be modified
+ * or freed by the caller.
+ *
+ * @param index an existing index object
+ * @param n the position of the entry
+ * @return a pointer to the filename conflict entry; NULL if out of bounds
+ */
+GIT_EXTERN(const git_index_name_entry *) git_index_name_get_byindex(
+	git_index *index, size_t n);
+
+/**
+ * Record the filenames involved in a rename conflict.
+ *
+ * @param index an existing index object
+ * @param ancestor the path of the file as it existed in the ancestor
+ * @param ours the path of the file as it existed in our tree
+ * @param theirs the path of the file as it existed in their tree
+ */
+GIT_EXTERN(int) git_index_name_add(git_index *index,
+	const char *ancestor, const char *ours, const char *theirs);
+
+/**
+ * Remove all filename conflict entries.
+ *
+ * @param index an existing index object
+ * @return 0 or an error code
+ */
+GIT_EXTERN(void) git_index_name_clear(git_index *index);
+/**@}*/
+
 /** @name Resolve Undo (REUC) index entry manipulation.
  *
  * These functions work on the Resolve Undo index extension and contains
@@ -551,9 +604,9 @@ GIT_EXTERN(const git_index_reuc_entry *) git_index_reuc_get_byindex(git_index *i
  * @return 0 or an error code
  */
 GIT_EXTERN(int) git_index_reuc_add(git_index *index, const char *path,
-	int ancestor_mode, git_oid *ancestor_id,
-	int our_mode, git_oid *our_id,
-	int their_mode, git_oid *their_id);
+	int ancestor_mode, const git_oid *ancestor_id,
+	int our_mode, const git_oid *our_id,
+	int their_mode, const git_oid *their_id);
 
 /**
  * Remove an resolve undo entry from the index

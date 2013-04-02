@@ -885,12 +885,36 @@ static int checkout_safe_for_update_only(const char *path, mode_t expected_mode)
 	return 0;
 }
 
+int git_checkout_blob(
+	git_repository *repo,
+	const git_oid *oid,
+	const char *path,
+	mode_t mode,
+	struct stat *st,
+	bool can_symlink,
+	git_checkout_opts *opts)
+{
+	git_blob *blob;
+	int error = 0;
+	
+	if ((error = git_blob_lookup(&blob, repo, oid)) < 0)
+		return error;
+	
+	if (S_ISLNK(mode))
+		error = blob_content_to_link(st, blob, path, can_symlink);
+	else
+		error = blob_content_to_file(st, blob, path, mode, opts);
+	
+	git_blob_free(blob);
+	
+	return error;
+}
+
 static int checkout_blob(
 	checkout_data *data,
 	const git_diff_file *file)
 {
 	int error = 0;
-	git_blob *blob;
 	struct stat st;
 
 	git_buf_truncate(&data->path, data->workdir_len);
@@ -904,17 +928,10 @@ static int checkout_blob(
 			return rval;
 	}
 
-	if ((error = git_blob_lookup(&blob, data->repo, &file->oid)) < 0)
+	if ((error = git_checkout_blob(
+		data->repo, &file->oid, git_buf_cstr(&data->path), file->mode, &st,
+		data->can_symlink, &data->opts)) < 0)
 		return error;
-
-	if (S_ISLNK(file->mode))
-		error = blob_content_to_link(
-			&st, blob, git_buf_cstr(&data->path), data->can_symlink);
-	else
-		error = blob_content_to_file(
-			&st, blob, git_buf_cstr(&data->path), file->mode, &data->opts);
-
-	git_blob_free(blob);
 
 	/* if we try to create the blob and an existing directory blocks it from
 	 * being written, then there must have been a typechange conflict in a
@@ -937,6 +954,8 @@ static int checkout_blob(
 
 	return error;
 }
+
+
 
 static int checkout_remove_the_old(
 	unsigned int *actions,
