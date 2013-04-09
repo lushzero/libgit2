@@ -187,16 +187,70 @@ void test_merge_trees_renames__index(void)
 		{ 0100644, "2b5f1f181ee3b58ea751f5dd5d8f9b445520a136", 0, "1b-newname-in-theirs.txt" },
 		{ 0100644, "178940b450f238a56c0d75b7955cb57b38191982", 0, "2-newname-in-both.txt" },
 		{ 0100644, "18cb316b1cefa0f8a6946f0e201a8e1a6f845ab9", 2, "3a-newname-in-ours-deleted-in-theirs.txt" },
+		{ 0100644, "18cb316b1cefa0f8a6946f0e201a8e1a6f845ab9", 1, "3a-renamed-in-ours-deleted-in-theirs.txt" },
 		{ 0100644, "36219b49367146cb2e6a1555b5a9ebd4d0328495", 3, "3b-newname-in-theirs-deleted-in-ours.txt" },
+		{ 0100644, "36219b49367146cb2e6a1555b5a9ebd4d0328495", 1, "3b-renamed-in-theirs-deleted-in-ours.txt" },
 		{ 0100644, "227792b52aaa0b238bea00ec7e509b02623f168c", 2, "4a-newname-in-ours-added-in-theirs.txt" },
+		{ 0100644, "8b5b53cb2aa9ceb1139f5312fcfa3cc3c5a47c9a", 3, "4a-newname-in-ours-added-in-theirs.txt" },
+		{ 0100644, "227792b52aaa0b238bea00ec7e509b02623f168c", 1, "4a-renamed-in-ours-added-in-theirs.txt" },
+		{ 0100644, "de872ee3618b894992e9d1e18ba2ebe256a112f9", 2, "4b-newname-in-theirs-added-in-ours.txt" },
 		{ 0100644, "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", 3, "4b-newname-in-theirs-added-in-ours.txt" },
+		{ 0100644, "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", 1, "4b-renamed-in-theirs-added-in-ours.txt" },
 		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 2, "5-both-renamed-1-to-2-ours.txt" },
 		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 3, "5-both-renamed-1-to-2-theirs.txt" },
 		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 1, "5-both-renamed-1-to-2.txt" },
+		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 1, "6-both-renamed-side-1.txt" },
+		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 3, "6-both-renamed-side-1.txt" },
+		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 1, "6-both-renamed-side-2.txt" },
+		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 2, "6-both-renamed-side-2.txt" },
 		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 2, "6-both-renamed.txt" },
 		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 3, "6-both-renamed.txt" },
 	};
 	
+	struct merge_name_entry merge_name_entries[] = {
+		{
+			"3a-renamed-in-ours-deleted-in-theirs.txt",
+			"3a-newname-in-ours-deleted-in-theirs.txt",
+			""
+		},
+		
+		{
+			"3b-renamed-in-theirs-deleted-in-ours.txt",
+			"",
+			"3b-newname-in-theirs-deleted-in-ours.txt",
+		},
+
+		{
+			"4a-renamed-in-ours-added-in-theirs.txt",
+			"4a-newname-in-ours-added-in-theirs.txt",
+			"",
+		},
+
+		{
+			"4b-renamed-in-theirs-added-in-ours.txt",
+			"",
+			"4b-newname-in-theirs-added-in-ours.txt",
+		},
+		
+		{
+			"5-both-renamed-1-to-2.txt",
+			"5-both-renamed-1-to-2-ours.txt",
+			"5-both-renamed-1-to-2-theirs.txt",
+		},
+		
+		{
+			"6-both-renamed-side-1.txt",
+			"6-both-renamed.txt",
+			"6-both-renamed-side-1.txt",
+		},
+		
+		{
+			"6-both-renamed-side-2.txt",
+			"6-both-renamed-side-2.txt",
+			"6-both-renamed.txt",
+		},
+	};
+
 	struct merge_reuc_entry merge_reuc_entries[] = {
 		{ "1a-newname-in-ours-edited-in-theirs.txt",
 			0, 0100644, 0,
@@ -263,7 +317,8 @@ void test_merge_trees_renames__index(void)
 		BRANCH_RENAME_OURS, BRANCH_RENAME_THEIRS,
 		opts));
 	
-	cl_assert(merge_test_index(index, merge_index_entries, 23));
+	cl_assert(merge_test_index(index, merge_index_entries, 33));
+	cl_assert(merge_test_names(index, merge_name_entries, 7));
 	cl_assert(merge_test_reuc(index, merge_reuc_entries, 10));
 	
 	git_merge_index_free(merge_index);

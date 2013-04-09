@@ -76,7 +76,7 @@ int merge_branches(git_merge_result **result, git_repository *repo, const char *
 	return 0;
 }
 
-void dump_index_entries(git_vector *index_entries)
+static void dump_index_entries(git_vector *index_entries)
 {
 	size_t i;
 	const git_index_entry *index_entry;
@@ -94,7 +94,7 @@ void dump_index_entries(git_vector *index_entries)
 	printf("\n");
 }
 
-void dump_index_conflict_entries(git_vector *conflict_entries)
+static void dump_index_conflict_entries(git_vector *conflict_entries)
 {
 	size_t i;
 	const git_merge_index_conflict *conflict;
@@ -130,7 +130,20 @@ void dump_index_conflict_entries(git_vector *conflict_entries)
 	
 }
 
-void dump_reuc(git_index *index)
+static void dump_names(git_index *index)
+{
+	size_t i;
+	const git_index_name_entry *conflict_name;
+
+	for (i = 0; i < git_index_name_entrycount(index); i++) {
+		conflict_name = git_index_name_get_byindex(index, i);
+		
+		printf("%s %s %s\n", conflict_name->ancestor, conflict_name->ours, conflict_name->theirs);
+	}
+	printf("\n");
+}
+
+static void dump_reuc(git_index *index)
 {
 	size_t i;
 	const git_index_reuc_entry *reuc;
@@ -151,7 +164,7 @@ void dump_reuc(git_index *index)
 	printf("\n");
 }
 
-int index_entry_eq_merge_index_entry(const struct merge_index_entry *expected, const git_index_entry *actual)
+static int index_entry_eq_merge_index_entry(const struct merge_index_entry *expected, const git_index_entry *actual)
 {
 	git_oid expected_oid;
     bool test_oid;
@@ -191,7 +204,7 @@ int merge_test_merge_index_staged(git_merge_index *merge_index, const struct mer
 	return 1;
 }
 
-int index_conflict_eq_merge_index_conflict(const struct merge_index_conflict_data *expected, git_merge_index_conflict *actual)
+static int index_conflict_eq_merge_index_conflict(const struct merge_index_conflict_data *expected, git_merge_index_conflict *actual)
 {
 	if (!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->ancestor, &actual->ancestor_entry) ||
 		!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->ours, &actual->our_entry) ||
@@ -202,6 +215,24 @@ int index_conflict_eq_merge_index_conflict(const struct merge_index_conflict_dat
 		expected->theirs.status != actual->their_status)
 		return 0;
 	
+	return 1;
+}
+
+static int name_entry_eq(const char *expected, const char *actual)
+{
+	if (strlen(expected) == 0)
+		return (actual == NULL) ? 1 : 0;
+	
+	return (strcmp(expected, actual) == 0) ? 1 : 0;
+}
+
+static int name_entry_eq_merge_name_entry(const struct merge_name_entry *expected, const git_index_name_entry *actual)
+{
+	if (name_entry_eq(expected->ancestor_path, actual->ancestor) == 0 ||
+		name_entry_eq(expected->our_path, actual->ours) == 0 ||
+		name_entry_eq(expected->their_path, actual->theirs) == 0)
+		return 0;
+
 	return 1;
 }
 
@@ -230,7 +261,7 @@ int merge_test_index(git_index *index, const struct merge_index_entry expected[]
 	/*
 	dump_index_entries(&index->entries);
 	*/
-	
+
     if (git_index_entrycount(index) != expected_len)
         return 0;
     
@@ -243,6 +274,29 @@ int merge_test_index(git_index *index, const struct merge_index_entry expected[]
     }
     
     return 1;
+}
+
+int merge_test_names(git_index *index, const struct merge_name_entry expected[], size_t expected_len)
+{
+	size_t i;
+	const git_index_name_entry *name_entry;
+	
+	/*
+	dump_names(index);
+	*/
+
+	if (git_index_name_entrycount(index) != expected_len)
+		return 0;
+
+	for (i = 0; i < expected_len; i++) {
+		if ((name_entry = git_index_name_get_byindex(index, i)) == NULL)
+			return 0;
+
+		if (! name_entry_eq_merge_name_entry(&expected[i], name_entry))
+			return 0;
+	}
+	
+	return 1;
 }
 
 int merge_test_reuc(git_index *index, const struct merge_reuc_entry expected[], size_t expected_len)

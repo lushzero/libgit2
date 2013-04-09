@@ -11,6 +11,12 @@ struct merge_index_entry {
 	char path[128];
 };
 
+struct merge_name_entry {
+	char ancestor_path[128];
+	char our_path[128];
+	char their_path[128];
+};
+
 struct merge_index_with_status {
     uint16_t mode;
 	char oid_str[41];
