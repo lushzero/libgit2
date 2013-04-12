@@ -29,15 +29,7 @@ void test_merge_workdir_renames__renames(void)
 {
 	git_merge_result *result;
 	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
-	
-	opts.merge_tree_opts.flags |= GIT_MERGE_TREE_FIND_RENAMES;
-	opts.merge_tree_opts.rename_threshold = 50;
-	
-	/*
-	 * Note: this differs slightly from the core git merge result.  4a is
-	 * tracked as a rename/delete instead of a rename/add and the theirs side
-	 * is not placed in workdir in any form.
-	 */
+		
 	struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "68c6c84b091926c7d90aa6a79b2bc3bb6adccd8e", 0, "0a-no-change.txt" },
 		{ 0100644, "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", 0, "0b-duplicated-in-ours.txt" },
@@ -55,14 +47,21 @@ void test_merge_workdir_renames__renames(void)
 		{ 0100644, "8b5b53cb2aa9ceb1139f5312fcfa3cc3c5a47c9a", 0, "4a-newname-in-ours-added-in-theirs.txt~rename_conflict_theirs" },
 		{ 0100644, "de872ee3618b894992e9d1e18ba2ebe256a112f9", 0, "4b-newname-in-theirs-added-in-ours.txt~HEAD" },
 		{ 0100644, "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", 0, "4b-newname-in-theirs-added-in-ours.txt~rename_conflict_theirs" },
-		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-ours.txt" },
-		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-theirs.txt" },
-		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "6-both-renamed.txt~HEAD" },
-		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "6-both-renamed.txt~rename_conflict_theirs" },
+		{ 0100644, "d3719a5ae8e4d92276b5313ce976f6ee5af2b436", 0, "5a-newname-in-ours-added-in-theirs.txt~HEAD" },
+		{ 0100644, "98ba4205fcf31f5dd93c916d35fe3f3b3d0e6714", 0, "5a-newname-in-ours-added-in-theirs.txt~rename_conflict_theirs" },
+		{ 0100644, "385c8a0f26ddf79e9041e15e17dc352ed2c4cced", 0, "5b-newname-in-theirs-added-in-ours.txt~HEAD" },
+		{ 0100644, "63247125386de9ec90a27ad36169307bf8a11a38", 0, "5b-newname-in-theirs-added-in-ours.txt~rename_conflict_theirs" },
+		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "6-both-renamed-1-to-2-ours.txt" },
+		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "6-both-renamed-1-to-2-theirs.txt" },
+		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "7-both-renamed.txt~HEAD" },
+		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "7-both-renamed.txt~rename_conflict_theirs" },
 	};
 
+	opts.merge_tree_opts.flags |= GIT_MERGE_TREE_FIND_RENAMES;
+	opts.merge_tree_opts.rename_threshold = 50;
+
 	cl_git_pass(merge_branches(&result, repo, GIT_REFS_HEADS_DIR BRANCH_RENAME_OURS, GIT_REFS_HEADS_DIR BRANCH_RENAME_THEIRS, &opts));
-	cl_assert(merge_test_workdir(repo, merge_index_entries, 20));
+	cl_assert(merge_test_workdir(repo, merge_index_entries, 24));
 
 	git_merge_result_free(result);
 }
@@ -72,15 +71,6 @@ void test_merge_workdir_renames__no_sides(void)
 	git_merge_result *result;
 	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
 	
-	opts.merge_tree_opts.flags |= GIT_MERGE_TREE_FIND_RENAMES;
-	opts.merge_tree_opts.rename_threshold = 50;
-	opts.conflict_flags = GIT_MERGE_CONFLICT_NO_SIDES | GIT_MERGE_CONFLICT_NO_DIFF3 | GIT_MERGE_CONFLICT_KEEP_OURS;
-	
-	/*
-	 * Note: this differs slightly from the core git merge result.  4a is
-	 * tracked as a rename/delete instead of a rename/add and the theirs side
-	 * is not placed in workdir in any form.
-	 */
 	struct merge_index_entry merge_index_entries[] = {
 		{ 0100644, "68c6c84b091926c7d90aa6a79b2bc3bb6adccd8e", 0, "0a-no-change.txt" },
 		{ 0100644, "f0ce2b8e4986084d9b308fb72709e414c23eb5e6", 0, "0b-duplicated-in-ours.txt" },
@@ -96,13 +86,20 @@ void test_merge_workdir_renames__no_sides(void)
 		{ 0100644, "36219b49367146cb2e6a1555b5a9ebd4d0328495", 0, "3b-newname-in-theirs-deleted-in-ours.txt" },
 		{ 0100644, "227792b52aaa0b238bea00ec7e509b02623f168c", 0, "4a-newname-in-ours-added-in-theirs.txt" },
 		{ 0100644, "de872ee3618b894992e9d1e18ba2ebe256a112f9", 0, "4b-newname-in-theirs-added-in-ours.txt" },
-		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-ours.txt" },
-		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "6-both-renamed-side-2.txt" },		
-		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "6-both-renamed.txt" },
+		{ 0100644, "d3719a5ae8e4d92276b5313ce976f6ee5af2b436", 0, "5a-newname-in-ours-added-in-theirs.txt" },
+		{ 0100644, "385c8a0f26ddf79e9041e15e17dc352ed2c4cced", 0, "5b-newname-in-theirs-added-in-ours.txt" },
+		{ 0100644, "63247125386de9ec90a27ad36169307bf8a11a38", 0, "5b-renamed-in-theirs-added-in-ours.txt" },
+		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "6-both-renamed-1-to-2-ours.txt" },
+		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "7-both-renamed-side-2.txt" },
+		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "7-both-renamed.txt" },
 	};
+
+	opts.merge_tree_opts.flags |= GIT_MERGE_TREE_FIND_RENAMES;
+	opts.merge_tree_opts.rename_threshold = 50;
+	opts.conflict_flags = GIT_MERGE_CONFLICT_NO_SIDES | GIT_MERGE_CONFLICT_NO_DIFF3 | GIT_MERGE_CONFLICT_KEEP_OURS;
 	
 	cl_git_pass(merge_branches(&result, repo, GIT_REFS_HEADS_DIR BRANCH_RENAME_OURS, GIT_REFS_HEADS_DIR BRANCH_RENAME_THEIRS, &opts));
-	cl_assert(merge_test_workdir(repo, merge_index_entries, 17));
+	cl_assert(merge_test_workdir(repo, merge_index_entries, 20));
 	
 	git_merge_result_free(result);	
 }
@@ -111,10 +108,7 @@ void test_merge_renames__similar(void)
 {
 	git_merge_result *result;
 	git_merge_opts opts = GIT_MERGE_OPTS_INIT;
-	
-	opts.merge_tree_opts.flags |= GIT_MERGE_TREE_FIND_RENAMES;
-	opts.merge_tree_opts.rename_threshold = 50;
-	
+
 	/*
 	 * Note: this differs slightly from the core git merge result - there, 4a is
 	 * tracked as a rename/delete instead of a rename/add and the theirs side
@@ -137,14 +131,21 @@ void test_merge_renames__similar(void)
 		{ 0100644, "8b5b53cb2aa9ceb1139f5312fcfa3cc3c5a47c9a", 0, "4a-newname-in-ours-added-in-theirs.txt~rename_conflict_theirs" },
 		{ 0100644, "de872ee3618b894992e9d1e18ba2ebe256a112f9", 0, "4b-newname-in-theirs-added-in-ours.txt~HEAD" },
 		{ 0100644, "98d52d07c0b0bbf2b46548f6aa521295c2cb55db", 0, "4b-newname-in-theirs-added-in-ours.txt~rename_conflict_theirs" },
-		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-ours.txt" },
-		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "5-both-renamed-1-to-2-theirs.txt" },
-		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "6-both-renamed.txt~HEAD" },
-		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "6-both-renamed.txt~rename_conflict_theirs" },
+		{ 0100644, "d3719a5ae8e4d92276b5313ce976f6ee5af2b436", 0, "5a-newname-in-ours-added-in-theirs.txt~HEAD" },
+		{ 0100644, "98ba4205fcf31f5dd93c916d35fe3f3b3d0e6714", 0, "5a-newname-in-ours-added-in-theirs.txt~rename_conflict_theirs" },
+		{ 0100644, "385c8a0f26ddf79e9041e15e17dc352ed2c4cced", 0, "5b-newname-in-theirs-added-in-ours.txt~HEAD" },
+		{ 0100644, "63247125386de9ec90a27ad36169307bf8a11a38", 0, "5b-newname-in-theirs-added-in-ours.txt~rename_conflict_theirs" },
+		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "6-both-renamed-1-to-2-ours.txt" },
+		{ 0100644, "d8fa77b6833082c1ea36b7828a582d4c43882450", 0, "6-both-renamed-1-to-2-theirs.txt" },
+		{ 0100644, "b42712cfe99a1a500b2a51fe984e0b8a7702ba11", 0, "7-both-renamed.txt~HEAD" },
+		{ 0100644, "b69fe837e4cecfd4c9a40cdca7c138468687df07", 0, "7-both-renamed.txt~rename_conflict_theirs" },
 	};
-	
+
+	opts.merge_tree_opts.flags |= GIT_MERGE_TREE_FIND_RENAMES;
+	opts.merge_tree_opts.rename_threshold = 50;
+
 	cl_git_pass(merge_branches(&result, repo, GIT_REFS_HEADS_DIR BRANCH_RENAME_OURS, GIT_REFS_HEADS_DIR BRANCH_RENAME_THEIRS, &opts));
-	cl_assert(merge_test_workdir(repo, merge_index_entries, 20));
+	cl_assert(merge_test_workdir(repo, merge_index_entries, 24));
 	
 	git_merge_result_free(result);
 }

@@ -26,7 +26,7 @@ struct git_merge_result {
 	bool is_fastforward;
 	git_oid fastforward_oid;
 	
-	git_merge_index *merge_index;
+	git_index *index;
 };
 
 int git_merge__setup(

@@ -67,54 +67,6 @@ typedef struct {
 #define GIT_MERGE_TREE_OPTS_VERSION 1
 #define GIT_MERGE_TREE_OPTS_INIT {GIT_MERGE_TREE_OPTS_VERSION}
 
-/** Types of conflicts when files are merged from branch to branch. */
-typedef enum {
-	/* No conflict - a change only occurs in one branch. */
-	GIT_MERGE_CONFLICT_NONE = 0,
-	
-	/* Occurs when a file is modified in both branches. */
-	GIT_MERGE_CONFLICT_BOTH_MODIFIED = (1 << 0),
-	
-	/* Occurs when a file is added in both branches. */
-	GIT_MERGE_CONFLICT_BOTH_ADDED = (1 << 1),
-	
-	/* Occurs when a file is deleted in both branches. */
-	GIT_MERGE_CONFLICT_BOTH_DELETED = (1 << 2),
-	
-	/* Occurs when a file is modified in one branch and deleted in the other. */
-	GIT_MERGE_CONFLICT_MODIFIED_DELETED = (1 << 3),
-	
-	/* Occurs when a file is renamed in one branch and modified in the other. */
-	GIT_MERGE_CONFLICT_RENAMED_MODIFIED = (1 << 4),
-	
-	/* Occurs when a file is renamed in one branch and deleted in the other. */
-	GIT_MERGE_CONFLICT_RENAMED_DELETED = (1 << 5),
-	
-	/* Occurs when a file is renamed in one branch and a file with the same
-	 * name is added in the other.  Eg, A->B and new file B.  Core git calls
-	 * this a "rename/delete". */
-	GIT_MERGE_CONFLICT_RENAMED_ADDED = (1 << 6),
-	
-	/* Occurs when both a file is renamed to the same name in the ours and
-	 * theirs branches.  Eg, A->B and A->B in both.  Automergeable. */
-	GIT_MERGE_CONFLICT_BOTH_RENAMED = (1 << 7),
-	
-	/* Occurs when a file is renamed to different names in the ours and theirs
-	 * branches.  Eg, A->B and A->C. */
-	GIT_MERGE_CONFLICT_BOTH_RENAMED_1_TO_2 = (1 << 8),
-	
-	/* Occurs when two files are renamed to the same name in the ours and
-	 * theirs branches.  Eg, A->C and B->C. */
-	GIT_MERGE_CONFLICT_BOTH_RENAMED_2_TO_1 = (1 << 9),
-	
-	/* Occurs when an item at a path in one branch is a directory, and an
-	 * item at the same path in a different branch is a file. */
-	GIT_MERGE_CONFLICT_DIRECTORY_FILE = (1 << 10),
-
-	/* The child of a folder that is in a directory/file conflict. */
-	GIT_MERGE_CONFLICT_DF_CHILD = (1 << 11),
-} git_merge_conflict_type_t;
-
 
 /**
  * Find a merge base between two commits
@@ -163,61 +115,12 @@ GIT_EXTERN(int) git_merge_base_many(
  * @return zero on success, -1 on failure.
  */
 GIT_EXTERN(int) git_merge_trees(
-	git_merge_index **out,
+	git_index **out,
 	git_repository *repo,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
 	const git_tree *their_tree,
 	const git_merge_tree_opts *opts);
-
-/**
- * Produces a `git_index` from the given `git_merge_index`
- *
- * The returned index must be freed explicitly with `git_index_free`.
- *
- * @param out pointer to store the index result in
- * @param merge_index the merge_index to produce an index from
- * @return zero on success, -1 on failure.
- */
-GIT_EXTERN(int) git_index_from_merge_index(
-	git_index **index_out,
-	git_merge_index *merge_index);
-
-/** Callback for conflict iterator */
-typedef int (*git_merge_conflict_foreach_cb)(
-	git_merge_conflict_type_t type,
-	const git_index_entry *ancestor,
-	const git_index_entry *ours,
-	const git_index_entry *theirs,
-	void *payload);
-
-/**
- * Determines if there were conflicts produced by the merge.
- *
- * @param merge_index the merge index that may have conflicts
- * @return 1 if conflicts exist, 0 otherwise
- */
-GIT_EXTERN(int) git_merge_index_has_conflicts(git_merge_index *merge_index);
-
-/**
- * Call callback 'conflict_cb' for each conflict in the merge index.
- *
- * @param merge_index the merge_index to iterate conflicts in
- * @param conflict_cb callback function
- * @param payload pointer to callback data (optional)
- * @return 0 on success, GIT_EUSER on error
- */
-GIT_EXTERN(int) git_merge_index_conflict_foreach(
-	git_merge_index *merge_index,
-	git_merge_conflict_foreach_cb conflict_cb,
-	void *payload);
-
-/**
- * Free a merge index.
- *
- * @param merge_index the merge index to free
- */
-void git_merge_index_free(git_merge_index *diff_tree);
 
 /** @} */
 GIT_END_DECL

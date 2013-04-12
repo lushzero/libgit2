@@ -1,6 +1,7 @@
 #ifndef INCLUDE_cl_merge_helpers_h__
 #define INCLUDE_cl_merge_helpers_h__
 
+#include "merge.h"
 #include "git2/merge.h"
 #include "git2/merge_branches.h"
 
@@ -39,21 +40,23 @@ struct merge_index_conflict_data {
 	struct merge_index_with_status ancestor;
 	struct merge_index_with_status ours;
 	struct merge_index_with_status theirs;
-	git_merge_conflict_type_t conflict_type;
+	git_merge_diff_type_t change_type;
 };
 
 int merge_trees_from_branches(
-	git_merge_index **result, git_index **index, git_repository *repo,
+	git_index **index, git_repository *repo,
 	const char *ours_name, const char *theirs_name,
 	git_merge_tree_opts *opts);
 
 int merge_branches(git_merge_result **result, git_repository *repo, const char *ours_branch, const char *theirs_branch, git_merge_opts *opts);
 
-int merge_test_merge_index_staged(git_merge_index *merge_index, const struct merge_index_entry expected[], size_t expected_len);
+int merge_test_diff_list(git_merge_diff_list *diff_list, const struct merge_index_entry expected[], size_t expected_len);
 
 int merge_test_merge_conflicts(git_vector *conflicts, const struct merge_index_conflict_data expected[], size_t expected_len);
 
 int merge_test_index(git_index *index, const struct merge_index_entry expected[], size_t expected_len);
+
+int merge_test_names(git_index *index, const struct merge_name_entry expected[], size_t expected_len);
 
 int merge_test_reuc(git_index *index, const struct merge_reuc_entry expected[], size_t expected_len);
 

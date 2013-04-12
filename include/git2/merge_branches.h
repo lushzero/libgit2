@@ -95,8 +95,6 @@ GIT_EXTERN(int) git_merge_result_is_fastforward(git_merge_result *merge_result);
  */
 GIT_EXTERN(int) git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_result);
 
-GIT_EXTERN(git_merge_index *) git_merge_result_index(git_merge_result *merge_result);
-
 GIT_EXTERN(void) git_merge_result_free(git_merge_result *merge_result);
 
 GIT_EXTERN(int) git_merge_head_from_ref(git_merge_head **out, git_repository *repo, git_reference *ref);

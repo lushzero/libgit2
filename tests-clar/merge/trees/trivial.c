@@ -31,7 +31,6 @@ static int merge_trivial(git_index **index, const char *ours, const char *theirs
 	git_oid our_oid, their_oid, ancestor_oid;
 	git_buf branch_buf = GIT_BUF_INIT;
 	git_merge_tree_opts opts = GIT_MERGE_TREE_OPTS_INIT;
-	git_merge_index *result;
 
 	opts.automerge_flags |= automerge ? 0 : GIT_MERGE_AUTOMERGE_NONE;
 	
@@ -51,8 +50,7 @@ static int merge_trivial(git_index **index, const char *ours, const char *theirs
 	cl_git_pass(git_commit_tree(&our_tree, our_commit));
 	cl_git_pass(git_commit_tree(&their_tree, their_commit));
 
-	cl_git_pass(git_merge_trees(&result, repo, ancestor_tree, our_tree, their_tree, &opts));
-	cl_git_pass(git_index_from_merge_index(index, result));
+	cl_git_pass(git_merge_trees(index, repo, ancestor_tree, our_tree, their_tree, &opts));
 
 	git_buf_free(&branch_buf);
 	git_tree_free(our_tree);
@@ -61,7 +59,6 @@ static int merge_trivial(git_index **index, const char *ours, const char *theirs
 	git_commit_free(our_commit);
 	git_commit_free(their_commit);
 	git_commit_free(ancestor_commit);
-	git_merge_index_free(result);
 
 	return 0;
 }

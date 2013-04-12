@@ -5,10 +5,9 @@
 #include "merge_helpers.h"
 #include "merge.h"
 #include "git2/merge.h"
-#include <dirent.h>
 
 int merge_trees_from_branches(
-	git_merge_index **result, git_index **index, git_repository *repo,
+	git_index **index, git_repository *repo,
 	const char *ours_name, const char *theirs_name,
 	git_merge_tree_opts *opts)
 {
@@ -39,8 +38,7 @@ int merge_trees_from_branches(
 	cl_git_pass(git_commit_tree(&our_tree, our_commit));
 	cl_git_pass(git_commit_tree(&their_tree, their_commit));
 
-	cl_git_pass(git_merge_trees(result, repo, ancestor_tree, our_tree, their_tree, opts));
-	cl_git_pass(git_index_from_merge_index(index, *result));
+	cl_git_pass(git_merge_trees(index, repo, ancestor_tree, our_tree, their_tree, opts));
 
 	git_buf_free(&branch_buf);
 	git_tree_free(our_tree);
@@ -92,42 +90,6 @@ static void dump_index_entries(git_vector *index_entries)
 		printf("\n");
 	}
 	printf("\n");
-}
-
-static void dump_index_conflict_entries(git_vector *conflict_entries)
-{
-	size_t i;
-	const git_merge_index_conflict *conflict;
-	const git_index_entry *ancestor, *ours, *theirs;
-	
-	printf ("\nCONFLICTS [%d]:\n", (int)conflict_entries->length);
-	for (i = 0; i < conflict_entries->length; i++) {
-		conflict = conflict_entries->contents[i];
-		
-		ancestor = &conflict->ancestor_entry;
-		ours = &conflict->our_entry;
-		theirs = &conflict->their_entry;
-		
-		printf("%o ", ancestor->mode);
-		printf("%s ", git_oid_allocfmt(&ancestor->oid));
-		printf("%d ", git_index_entry_stage(ancestor));
-		printf("%s ", ancestor->path);
-		printf("\n");
-		
-		printf("%o ", ours->mode);
-		printf("%s ", git_oid_allocfmt(&ours->oid));
-		printf("%d ", git_index_entry_stage(ours));
-		printf("%s ", ours->path);
-		printf("\n");
-
-		printf("%o ", theirs->mode);
-		printf("%s ", git_oid_allocfmt(&theirs->oid));
-		printf("%d ", git_index_entry_stage(theirs));
-		printf("%s ", theirs->path);
-		printf("\n");
-	}
-	printf("\n");
-	
 }
 
 static void dump_names(git_index *index)
@@ -189,35 +151,6 @@ static int index_entry_eq_merge_index_entry(const struct merge_index_entry *expe
 	return 1;
 }
 
-int merge_test_merge_index_staged(git_merge_index *merge_index, const struct merge_index_entry expected[], size_t expected_len)
-{
-	size_t i;
-
-	if (merge_index->staged.length != expected_len)
-		return 0;
-	
-	for (i = 0; i < expected_len; i++) {
-		if (!index_entry_eq_merge_index_entry(&expected[i], merge_index->staged.contents[i]))
-			return 0;
-	}
-	
-	return 1;
-}
-
-static int index_conflict_eq_merge_index_conflict(const struct merge_index_conflict_data *expected, git_merge_index_conflict *actual)
-{
-	if (!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->ancestor, &actual->ancestor_entry) ||
-		!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->ours, &actual->our_entry) ||
-		!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->theirs, &actual->their_entry))
-		return 0;
-	
-	if (expected->ours.status != actual->our_status ||
-		expected->theirs.status != actual->their_status)
-		return 0;
-	
-	return 1;
-}
-
 static int name_entry_eq(const char *expected, const char *actual)
 {
 	if (strlen(expected) == 0)
@@ -233,23 +166,6 @@ static int name_entry_eq_merge_name_entry(const struct merge_name_entry *expecte
 		name_entry_eq(expected->their_path, actual->theirs) == 0)
 		return 0;
 
-	return 1;
-}
-
-int merge_test_merge_conflicts(git_vector *conflicts, const struct merge_index_conflict_data expected[], size_t expected_len)
-{
-	size_t i;
-	
-	if (conflicts->length != expected_len)
-		return 0;
-	
-	for (i = 0; i < expected_len; i++) {
-		git_merge_index_conflict *actual = conflicts->contents[i];
-
-		if (!index_conflict_eq_merge_index_conflict(&expected[i], actual))
-			return 0;
-	}
-	
 	return 1;
 }
 

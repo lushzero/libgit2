@@ -347,7 +347,8 @@ static int merge_conflict_write_diff3(
 		return 0;
 	
 	/* Reject D/F conflicts */
-	if (conflict->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE)
+	if (conflict->type == GIT_MERGE_CONFLICT_DIRECTORY_FILE ||
+		conflict->type == GIT_MERGE_CONFLICT_RENAMED_ADDED)
 		return 0;
 
 	/* TODO: reject name conflicts? */
@@ -723,10 +724,11 @@ static int merge_indexes(git_repository *repo, git_index *index_new)
 	git_tree *head_tree = NULL;
 	git_index *index_repo = NULL;
 	unsigned int index_repo_caps = 0;
-	git_iterator *iter_repo = NULL, *iter_new = NULL;
+	git_iterator *iter_head = NULL, *iter_repo = NULL, *iter_new = NULL;
 	const git_index_entry *e;
+	const git_index_name_entry *name;
 	git_index_reuc_entry *reuc;
-	git_diff_list *diff_list = NULL, *index_dirty_list = NULL, *wd_dirty_list = NULL;
+	git_diff_list *merged_list = NULL, *index_dirty_list = NULL, *wd_dirty_list = NULL;
 	git_diff_delta *delta;
 	git_diff_options opts = GIT_DIFF_OPTIONS_INIT;
 	git_vector paths = GIT_VECTOR_INIT;
@@ -735,24 +737,24 @@ static int merge_indexes(git_repository *repo, git_index *index_new)
 		(error = git_repository_index(&index_repo, repo)) < 0)
 		goto done;
 
-    /* Set the index to case sensitive to handle the merge */
-    index_repo_caps = git_index_caps(index_repo);
+	/* Set the index to case sensitive to handle the merge */
+	index_repo_caps = git_index_caps(index_repo);
     
     if ((error = git_index_set_caps(index_repo, (index_repo_caps & ~GIT_INDEXCAP_IGNORE_CASE))) < 0)
         goto done;
 
-	if ((error = git_iterator_for_index(&iter_repo, index_repo, GIT_ITERATOR_DONT_IGNORE_CASE, NULL, NULL)) < 0 ||
+	if ((error = git_iterator_for_tree(&iter_head, head_tree, GIT_ITERATOR_DONT_IGNORE_CASE, NULL, NULL)) < 0 ||
 		(error = git_iterator_for_index(&iter_new, index_new, GIT_ITERATOR_DONT_IGNORE_CASE, NULL, NULL)) < 0)
 		goto done;
 
-	/* Make sure diffs don't conflict with local modifications */
-	if ((error = git_diff__from_iterators(&diff_list, repo, iter_repo, iter_new, &opts)) < 0)
+	/* Determine paths affected by this merge */
+	if ((error = git_diff__from_iterators(&merged_list, repo, iter_head, iter_new, &opts)) < 0)
 		goto done;
 
-	git_vector_foreach(&diff_list->deltas, i, delta) {
+	git_vector_foreach(&merged_list->deltas, i, delta) {
 		git_vector_insert(&paths, (void *)delta->new_file.path);
 	}
-	
+
 	for (i = 0; i < git_index_entrycount(index_new); i++) {
 		e = git_index_get_byindex(index_new, i);
 		
@@ -762,6 +764,10 @@ static int merge_indexes(git_repository *repo, git_index *index_new)
 			git_vector_insert(&paths, e->path);
 	}
 
+	/* Ensure there are no local changes to these paths */
+	opts.pathspec.count = paths.length;
+	opts.pathspec.strings = (char **)paths.contents;
+
 	git_diff_tree_to_index(&index_dirty_list, repo, head_tree, index_repo, &opts);
 	git_diff_tree_to_workdir(&wd_dirty_list, repo, head_tree, &opts);
 
@@ -770,17 +776,19 @@ static int merge_indexes(git_repository *repo, git_index *index_new)
 		
 		giterr_set(GITERR_MERGE, "%d uncommitted change%s would be overwritten by merge",
 			count, (count != 1) ? "s" : "");
-		return GIT_EMERGECONFLICT;
+
+		error = GIT_EMERGECONFLICT;
+		goto done;
 	}
-	
+
 	/* Update the new index */
-	git_vector_foreach(&diff_list->deltas, i, delta) {
+	git_vector_foreach(&merged_list->deltas, i, delta) {
 		if ((e = git_index_get_bypath(index_new, delta->new_file.path, 0)) != NULL)
 			error = git_index_add(index_repo, e);
 		else
 			error = git_index_remove(index_repo, delta->new_file.path, 0);
 	}
-	
+
 	/* Add conflicts */
 	for (i = 0; i < git_index_entrycount(index_new); i++)
 	{
@@ -788,6 +796,15 @@ static int merge_indexes(git_repository *repo, git_index *index_new)
 		
 		if (git_index_entry_stage(e) != 0 &&
 			(error = git_index_add(index_repo, e)) < 0)
+			goto done;
+	}
+
+	/* Add name entries */
+	for (i = 0; i < git_index_name_entrycount(index_new); i++)
+	{
+		name = git_index_name_get_byindex(index_new, i);
+
+		if ((error = git_index_name_add(index_repo, name->ancestor, name->ours, name->theirs)) < 0)
 			goto done;
 	}
 
@@ -811,8 +828,9 @@ done:
 	git_vector_free(&paths);
 	git_diff_list_free(wd_dirty_list);
 	git_diff_list_free(index_dirty_list);
-	git_diff_list_free(diff_list);
+	git_diff_list_free(merged_list);
 	git_iterator_free(iter_repo);
+	git_iterator_free(iter_head);
 	git_iterator_free(iter_new);
 	git_index_free(index_repo);
 
@@ -820,7 +838,7 @@ done:
 }
 
 static int merge_trees_octopus(
-	git_merge_index **result,
+	git_index **result,
 	git_repository *repo,
 	git_index *index,
 	const git_tree *ancestor_tree,
@@ -843,7 +861,7 @@ static int merge_trees_octopus(
 }
 
 int merge_trees(
-				git_merge_index **out,
+				git_index **out,
 				git_repository *repo,
 				const git_tree *ancestor_tree,
 				const git_tree *our_tree,
@@ -862,7 +880,6 @@ int git_merge(
 	git_reference *our_ref = NULL;
 	git_merge_head *ancestor_head = NULL, *our_head = NULL;
 	git_tree *ancestor_tree = NULL, *our_tree = NULL, **their_trees = NULL;
-	git_merge_index *merge_index = NULL;
 	git_index *index_new = NULL, *index_repo = NULL;
 	git_merge_index_conflict *conflict;
 	size_t i;
@@ -924,18 +941,9 @@ int git_merge(
 			goto on_error;
 	}
 
-	/* TODO: recursive */
-	if (their_heads_len == 1)
-		error = git_merge_trees(&merge_index, repo, ancestor_tree, our_tree,
-			their_trees[0], &opts.merge_tree_opts);
-	else
-		error = merge_trees_octopus(&merge_index, repo, index_new, ancestor_tree, our_tree,
-			(const git_tree **)their_trees, their_heads_len, &opts.merge_tree_opts);
+	/* TODO: recursive, octopus, etc... */
 	
-	if (error < 0)
-		goto on_error;
-	
-	if ((error = git_index_from_merge_index(&index_new, merge_index)) < 0 ||
+	if ((error = git_merge_trees(&index_new, repo, ancestor_tree, our_tree, their_trees[0], &opts.merge_tree_opts)) < 0 ||
 		(error = merge_indexes(repo, index_new)) < 0 ||
 		(error = git_repository_index(&index_repo, repo)) < 0 ||
 		(error = git_checkout_index(repo, index_repo, &opts.checkout_opts)) < 0)
@@ -951,7 +959,7 @@ int git_merge(
 		}
 	}
 	
-	result->merge_index = merge_index;
+	result->index = index_new;
 	
 	*out = result;
 	goto done;
@@ -1005,20 +1013,13 @@ int git_merge_result_fastforward_oid(git_oid *out, git_merge_result *merge_resul
 	return 0;
 }
 
-git_merge_index *git_merge_result_index(git_merge_result *merge_result)
-{
-	assert(merge_result);
-	
-	return merge_result->merge_index;
-}
-
 void git_merge_result_free(git_merge_result *merge_result)
 {
 	if (merge_result == NULL)
 		return;
 	
-	git_merge_index_free(merge_result->merge_index);
-	merge_result->merge_index = NULL;
+	git_index_free(merge_result->index);
+	merge_result->index = NULL;
 	
 	git__free(merge_result);
 }

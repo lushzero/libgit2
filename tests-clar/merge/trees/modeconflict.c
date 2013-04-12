@@ -26,7 +26,6 @@ void test_merge_trees_modeconflict__cleanup(void)
 
 void test_merge_trees_modeconflict__df_conflict(void)
 {
-	git_merge_index *result;
 	git_index *index;
 	
 	struct merge_index_entry merge_index_entries[] = {
@@ -52,10 +51,9 @@ void test_merge_trees_modeconflict__df_conflict(void)
 		{ 0100644, "f5504f36e6f4eb797a56fc5bac6c6c7f32969bf2", 3, "file-5/new" },
     };
 
-	cl_git_pass(merge_trees_from_branches(&result, &index, repo, DF_SIDE1_BRANCH, DF_SIDE2_BRANCH, NULL));
+	cl_git_pass(merge_trees_from_branches(&index, repo, DF_SIDE1_BRANCH, DF_SIDE2_BRANCH, NULL));
 
 	cl_assert(merge_test_index(index, merge_index_entries, 20));
 
 	git_index_free(index);
-	git_merge_index_free(result);
 }
