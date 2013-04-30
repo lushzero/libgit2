@@ -732,6 +732,8 @@ static int merge_indexes(git_repository *repo, git_index *index_new)
 	git_diff_delta *delta;
 	git_diff_options opts = GIT_DIFF_OPTIONS_INIT;
 	git_vector paths = GIT_VECTOR_INIT;
+	
+	opts.flags |= GIT_DIFF_INCLUDE_UNTRACKED;
 
 	if ((error = git_repository_head_tree(&head_tree, repo)) < 0 ||
 		(error = git_repository_index(&index_repo, repo)) < 0)
