@@ -172,3 +172,4 @@ int git_merge_files(
 done:
 	return error;
 }
+

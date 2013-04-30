@@ -266,7 +266,7 @@ static int merge_filediff_entry_names(char **our_path,
 	const git_merge_diff *conflict)
 {
 	bool rename;
-	
+
 	*our_path = NULL;
 	*their_path = NULL;
 
@@ -496,7 +496,7 @@ static int merge_conflict_write_sides(
 
 	GIT_UNUSED(ancestor_head);
 	
-	assert(conflict_written && repo);
+	assert(conflict_written && repo && our_head && their_head && conflict);
 	
 	*conflict_written = 0;
 
@@ -599,7 +599,7 @@ int merge_conflict_write(int *out,
 	int conflict_written = 0;
 	int error = 0;
 
-	assert(out && repo);
+	assert(out && repo && our_head && their_head && conflict);
 	
 	*out = 0;
 
@@ -695,8 +695,6 @@ static int merge_normalize_opts(
 {
 	int error = 0;
 	unsigned int default_checkout_strategy = GIT_CHECKOUT_SAFE_CREATE |
-		GIT_CHECKOUT_FORCE |
-		GIT_CHECKOUT_REMOVE_UNTRACKED |
 		GIT_CHECKOUT_ALLOW_CONFLICTS |
 		GIT_CHECKOUT_MAINTAIN_REUC;
 
