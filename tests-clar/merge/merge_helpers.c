@@ -51,6 +51,58 @@ int merge_trees_from_branches(
 	return 0;
 }
 
+static void dump_index_entries(git_vector *index_entries)
+{
+	size_t i;
+	const git_index_entry *index_entry;
+	
+	printf ("\nINDEX [%d]:\n", (int)index_entries->length);
+	for (i = 0; i < index_entries->length; i++) {
+		index_entry = index_entries->contents[i];
+		
+		printf("%o ", index_entry->mode);
+		printf("%s ", git_oid_allocfmt(&index_entry->oid));
+		printf("%d ", git_index_entry_stage(index_entry));
+		printf("%s ", index_entry->path);
+		printf("\n");
+	}
+	printf("\n");
+}
+
+static void dump_names(git_index *index)
+{
+	size_t i;
+	const git_index_name_entry *conflict_name;
+
+	for (i = 0; i < git_index_name_entrycount(index); i++) {
+		conflict_name = git_index_name_get_byindex(index, i);
+		
+		printf("%s %s %s\n", conflict_name->ancestor, conflict_name->ours, conflict_name->theirs);
+	}
+	printf("\n");
+}
+
+static void dump_reuc(git_index *index)
+{
+	size_t i;
+	const git_index_reuc_entry *reuc;
+
+	printf ("\nREUC:\n");
+	for (i = 0; i < git_index_reuc_entrycount(index); i++) {
+		reuc = git_index_reuc_get_byindex(index, i);
+		
+		printf("%s ", reuc->path);
+		printf("%o ", reuc->mode[0]);
+		printf("%s\n", git_oid_allocfmt(&reuc->oid[0]));
+		printf("          %o ", reuc->mode[1]);
+		printf("          %s\n", git_oid_allocfmt(&reuc->oid[1]));
+		printf("          %o ", reuc->mode[2]);
+		printf("          %s ", git_oid_allocfmt(&reuc->oid[2]));
+		printf("\n");
+	}
+	printf("\n");
+}
+
 static int index_entry_eq_merge_index_entry(const struct merge_index_entry *expected, const git_index_entry *actual)
 {
 	git_oid expected_oid;
