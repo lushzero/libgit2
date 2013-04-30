@@ -1002,7 +1002,7 @@ static void merge_index_count_candidates(
 	}
 }
 
-int git_merge_index__find_renames(
+int git_merge_diff_list__find_renames(
 	git_repository *repo,
 	git_merge_diff_list *diff_list,
 	const git_merge_tree_opts *opts)
@@ -1260,7 +1260,7 @@ static int merge_index_insert_unmodified(
 	return error;
 }
 
-int git_merge_index__find_differences(
+int git_merge_diff_list__find_differences(
 	git_merge_diff_list *diff_list,
 	const git_tree *ancestor_tree,
 	const git_tree *our_tree,
@@ -1349,7 +1349,7 @@ done:
 	return error;
 }
 
-git_merge_diff_list *git_merge_index__alloc(git_repository *repo)
+git_merge_diff_list *git_merge_diff_list__alloc(git_repository *repo)
 {
 	git_merge_diff_list *diff_list = git__calloc(1, sizeof(git_merge_diff_list));
 	
@@ -1573,11 +1573,11 @@ int git_merge_trees(
 	if ((error = merge_tree_normalize_opts(repo, &opts, given_opts)) < 0)
 		return error;
 
-	diff_list = git_merge_index__alloc(repo);
+	diff_list = git_merge_diff_list__alloc(repo);
 	GITERR_CHECK_ALLOC(diff_list);
 	
-	if ((error = git_merge_index__find_differences(diff_list, ancestor_tree, our_tree, their_tree)) < 0 ||
-		(error = git_merge_index__find_renames(repo, diff_list, &opts)) < 0)
+	if ((error = git_merge_diff_list__find_differences(diff_list, ancestor_tree, our_tree, their_tree)) < 0 ||
+		(error = git_merge_diff_list__find_renames(repo, diff_list, &opts)) < 0)
 		goto done;
 	
 	memcpy(&changes, &diff_list->conflicts, sizeof(git_vector));
@@ -1599,12 +1599,12 @@ int git_merge_trees(
 	error = index_from_diff_list(out, diff_list);
 
 done:
-	git_merge_diff_list_free(diff_list);
+	git_merge_diff_list__free(diff_list);
 
 	return error;
 }
 
-void git_merge_diff_list_free(git_merge_diff_list *diff_list)
+void git_merge_diff_list__free(git_merge_diff_list *diff_list)
 {
 	if (!diff_list)
 		return;

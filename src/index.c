@@ -971,15 +971,57 @@ on_error:
 	return ret;
 }
 
+int git_index__conflict_read(git_index_entry **ancestor_out,
+	git_index_entry **our_out,
+	git_index_entry **their_out,
+	git_index *index,
+	size_t idx)
+{
+	size_t count;
+	int stage;
+	git_index_entry *entry;
+	const char *path = NULL;
+	int error = GIT_ENOTFOUND;
+
+	*ancestor_out = NULL;
+	*our_out = NULL;
+	*their_out = NULL;
+	
+	for (count = git_index_entrycount(index); idx < count; ++idx) {
+		entry = git_vector_get(&index->entries, idx);
+
+		if (path != NULL && index->entries_cmp_path(entry->path, path) != 0)
+			break;
+		
+		stage = index_entry_stage(entry);
+		
+		switch (stage) {
+			case 3:
+				*their_out = entry;
+				error = 0;
+				break;
+			case 2:
+				*our_out = entry;
+				error = 0;
+				break;
+			case 1:
+				*ancestor_out = entry;
+				error = 0;
+				break;
+			default:
+				break;
+		};
+	}
+	
+	return error;
+}
+
 int git_index_conflict_get(git_index_entry **ancestor_out,
 	git_index_entry **our_out,
 	git_index_entry **their_out,
 	git_index *index, const char *path)
 {
-	size_t pos, posmax;
-	int stage;
-	git_index_entry *conflict_entry;
-	int error = GIT_ENOTFOUND;
+	size_t pos;
 
 	assert(ancestor_out && our_out && their_out && index && path);
 
@@ -990,34 +1032,7 @@ int git_index_conflict_get(git_index_entry **ancestor_out,
 	if (git_index_find(&pos, index, path) < 0)
 		return GIT_ENOTFOUND;
 
-	for (posmax = git_index_entrycount(index); pos < posmax; ++pos) {
-
-		conflict_entry = git_vector_get(&index->entries, pos);
-
-		if (index->entries_cmp_path(conflict_entry->path, path) != 0)
-			break;
-
-		stage = index_entry_stage(conflict_entry);
-
-		switch (stage) {
-		case 3:
-			*their_out = conflict_entry;
-			error = 0;
-			break;
-		case 2:
-			*our_out = conflict_entry;
-			error = 0;
-			break;
-		case 1:
-			*ancestor_out = conflict_entry;
-			error = 0;
-			break;
-		default:
-			break;
-		};
-	}
-
-	return error;
+	return git_index__conflict_read(ancestor_out, our_out, their_out, index, pos);
 }
 
 int git_index_conflict_remove(git_index *index, const char *path)

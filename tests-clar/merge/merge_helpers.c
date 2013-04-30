@@ -169,6 +169,38 @@ static int name_entry_eq_merge_name_entry(const struct merge_name_entry *expecte
 	return 1;
 }
 
+static int index_conflict_data_eq_merge_diff(const struct merge_index_conflict_data *expected, git_merge_diff *actual)
+{
+	if (!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->ancestor, &actual->ancestor_entry) ||
+		!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->ours, &actual->our_entry) ||
+		!index_entry_eq_merge_index_entry((const struct merge_index_entry *)&expected->theirs, &actual->their_entry))
+		return 0;
+	
+	if (expected->ours.status != actual->our_status ||
+		expected->theirs.status != actual->their_status)
+		return 0;
+    
+	return 1;
+}
+
+int merge_test_merge_conflicts(git_vector *conflicts, const struct merge_index_conflict_data expected[], size_t expected_len)
+{
+	git_merge_diff *actual;
+	size_t i;
+	
+	if (conflicts->length != expected_len)
+		return 0;
+
+	for (i = 0; i < expected_len; i++) {
+		actual = conflicts->contents[i];
+		
+		if (!index_conflict_data_eq_merge_diff(&expected[i], actual))
+			return 0;
+	}
+
+    return 1;
+}
+
 int merge_test_index(git_index *index, const struct merge_index_entry expected[], size_t expected_len)
 {
     size_t i;
