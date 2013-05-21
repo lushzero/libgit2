@@ -177,6 +177,27 @@ typedef struct {
 #define GIT_STATUS_OPTIONS_VERSION 1
 #define GIT_STATUS_OPTIONS_INIT {GIT_STATUS_OPTIONS_VERSION}
 
+GIT_EXTERN(int) git_status_list_new(
+	git_status_list **out,
+	git_repository *repo,
+	const git_status_options *opts);
+
+GIT_EXTERN(size_t) git_status_list_entrycount(
+	git_status_list *status);
+
+typedef struct {
+	git_status_t status;
+	git_diff_delta *head_to_index;
+	git_diff_delta *index_to_workdir;
+} git_status_entry;
+
+GIT_EXTERN(const git_status_entry *) git_status_byindex(
+	git_status_list *status,
+	size_t idx);
+
+GIT_EXTERN(void) git_status_list_free(
+	git_status_list *status);
+
 /**
  * Gather file status information and run callbacks as requested.
  *

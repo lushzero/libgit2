@@ -168,6 +168,9 @@ typedef struct git_reference git_reference;
 /** Iterator for references */
 typedef struct git_reference_iterator  git_reference_iterator;
 
+/** Representation of a status collection */
+typedef struct git_status_list git_status_list;
+
 
 /** Basic type of any Git reference. */
 typedef enum {
