@@ -713,7 +713,7 @@ static int blob_content_to_file(
 	mode_t entry_filemode,
 	git_checkout_opts *opts)
 {
-	int error = -1, nb_filters = 0;
+	int error = -1;
 	mode_t file_mode = opts->file_mode;
 	git_buf content = GIT_BUF_INIT;
 	git_filterbuf *filtered = NULL;

@@ -15,7 +15,7 @@
 # define NEWLINE "\n"
 #endif
 
-static unsigned char workdir_data[] =
+static char workdir_data[] =
 	"some simple" NEWLINE
 	"data" NEWLINE
 	"that will be" NEWLINE
@@ -49,6 +49,9 @@ static int custom_filter_should_apply(
 	const char *path,
 	git_filter_mode_t mode)
 {
+	GIT_UNUSED(filter);
+	GIT_UNUSED(mode);
+
 	return (git__strncmp("hero", path, 4) == 0);
 }
 
@@ -115,7 +118,6 @@ void test_filter_custom__to_odb(void)
 {
 	git_config *cfg;
 	git_filter *filter;
-	git_vector filters = GIT_VECTOR_INIT;
 	git_filterbuf *out;
 	unsigned char *filtered;
 	size_t i;
@@ -144,7 +146,6 @@ void test_filter_custom__to_workdir(void)
 {
 	git_config *cfg;
 	git_filter *filter;
-	git_vector filters = GIT_VECTOR_INIT;
 	git_filterbuf *out;
 	unsigned char *filtered;
 	size_t i;

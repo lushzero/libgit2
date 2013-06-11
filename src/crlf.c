@@ -84,7 +84,10 @@ static int crlf_input_action(struct crlf_attrs *ca)
 	return ca->crlf_action;
 }
 
-static int crlf_load_attributes(struct crlf_attrs *ca, git_repository *repo, const char *path)
+static int crlf_load_attributes(
+	struct crlf_attrs *ca,
+	git_repository *repo,
+	const char *path)
 {
 #define NUM_CONV_ATTRS 3
 
@@ -127,7 +130,8 @@ static int crlf_load_attributes(struct crlf_attrs *ca, git_repository *repo, con
 	if (ca->crlf_action == GIT_CRLF_GUESS) {
 		int auto_crlf;
 
-		if ((error = git_repository__cvar(&auto_crlf, repo, GIT_CVAR_AUTO_CRLF)) < 0)
+		if ((error = git_repository__cvar(
+			&auto_crlf, repo, GIT_CVAR_AUTO_CRLF)) < 0)
 			return error;
 
 		if (auto_crlf == GIT_AUTO_CRLF_FALSE)
@@ -175,7 +179,12 @@ static int has_cr_in_index(git_filter_crlf *filter, const char *path)
 }
 
 static int crlf_apply_to_odb(
-	void **out, size_t *out_len, git_filter_crlf *filter, const char *path, const void *in, size_t in_len)
+	void **out,
+	size_t *out_len,
+	git_filter_crlf *filter,
+	const char *path,
+	const void *in,
+	size_t in_len)
 {
 	struct crlf_attrs ca;
 	git_buf source = GIT_BUF_INIT, dest = GIT_BUF_INIT;
@@ -255,7 +264,7 @@ cleanup:
 	return error;
 }
 
-static const char *line_ending(git_filter_crlf *filter, struct crlf_attrs *ca)
+static const char *line_ending(struct crlf_attrs *ca)
 {
 	switch (ca->crlf_action) {
 	case GIT_CRLF_BINARY:
@@ -296,7 +305,12 @@ line_ending_error:
 }
 
 static int crlf_apply_to_workdir(
-	void **out, size_t *out_len, git_filter_crlf *filter, const char *path, const void *in, size_t in_len)
+	void **out,
+	size_t *out_len,
+	git_filter_crlf *filter,
+	const char *path,
+	const void *in,
+	size_t in_len)
 {
 	struct crlf_attrs ca;
 	git_buf source = GIT_BUF_INIT, dest = GIT_BUF_INIT;
@@ -320,7 +334,7 @@ static int crlf_apply_to_workdir(
 		return 0;
 
 	/* Determine proper line ending */
-	workdir_ending = line_ending(filter, &ca);
+	workdir_ending = line_ending(&ca);
 
 	if (!workdir_ending)
 		return 0;
@@ -353,10 +367,15 @@ static int crlf_apply_to_workdir(
 	return 1;
 }
 
-static int crlf_should_apply(git_filter *f, const char *path, git_filter_mode_t mode)
+static int crlf_should_apply(
+	git_filter *f,
+	const char *path,
+	git_filter_mode_t mode)
 {
 	struct crlf_attrs ca;
 	git_filter_crlf *filter = (git_filter_crlf *)f;
+
+	GIT_UNUSED(mode);
 
 	return crlf_load_attributes(&ca, filter->repo, path);
 }

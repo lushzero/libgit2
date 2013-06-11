@@ -95,7 +95,6 @@ int git_filters__apply(
 	size_t src_len)
 {
 	filter_internal *f;
-	git_filterbuf filterbuf = {0};
 	void *cur;
 	void *dst = NULL;
 	size_t cur_len, dst_len = 0;
