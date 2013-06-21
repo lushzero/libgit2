@@ -55,7 +55,7 @@ void test_filter_custom_filters__stats(void)
 		"\xEF\xBB\xBFThis is UTF-8\n",
 		"\xFE\xFF\x00T\x00h\x00i\x00s\x00!"
 	};
-	git_off_t len_raw[8] =
+	size_t len_raw[8] =
 		{ 0, 8, 8, 10, 39, 17, 17, 12 };
 	git_buf_text_stats expected_stats[8] = {
 		{ 0, 0, 0, 0, 0, 0, 0 },
@@ -95,7 +95,7 @@ void test_filter_custom_filters__crlf_filter_is_available_by_default(void)
 
 	cl_git_pass(git_blob_lookup(&blob, g_repo, &oid));
 	cl_assert_equal_s("pong\n", (char *)git_blob_rawcontent(blob));
-	
+
 	git_blob_free(blob);
 }
 

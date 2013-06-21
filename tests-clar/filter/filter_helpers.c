@@ -17,7 +17,7 @@ static int should_apply_to_path(
 
 	if (!strncmp("hero", path, 4))
 		return 1;
-		
+
 	return 0;
 }
 
