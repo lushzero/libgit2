@@ -46,49 +46,52 @@ void git_filters_free(git_vector *filters)
 	git_vector_free(filters);
 }
 
-int git_filters_apply(git_buf *dest, git_buf *source, git_vector *filters)
+int git_filters_apply(void **dst, size_t *dst_len, git_vector *filters, const char *path, const void *src, size_t src_len)
 {
+	git_filter *filter;
+	const char *in;
+	char *out = NULL;
+	size_t in_len, out_len;
 	size_t i;
-	unsigned int src;
-	git_buf *dbuffer[2];
+	int error = 0;
+	int filtered = 0;
 
-	dbuffer[0] = source;
-	dbuffer[1] = dest;
+	*dst = NULL;
+	*dst_len = 0;
 
-	src = 0;
-
-	if (git_buf_len(source) == 0) {
-		git_buf_clear(dest);
+	if (src_len == 0)
 		return 0;
+
+	in = src;
+	in_len = src_len;
+
+	git_vector_foreach(filters, i, filter) {
+		if ((error = filter->apply(&out, &out_len, filter, path, in, in_len)) < 0)
+			goto on_error;
+
+		/* Filter cancelled application; do nothing. */
+		if (error == 0)
+			continue;
+
+		if (filtered)
+			git__free(out);
+
+		in = out;
+		in_len = out_len;
+
+		filtered++;
 	}
 
-	/* Pre-grow the destination buffer to more or less the size
-	 * we expect it to have */
-	if (git_buf_grow(dest, git_buf_len(source)) < 0)
-		return -1;
-
-	for (i = 0; i < filters->length; ++i) {
-		git_filter *filter = git_vector_get(filters, i);
-		unsigned int dst = 1 - src;
-
-		git_buf_clear(dbuffer[dst]);
-
-		/* Apply the filter from dbuffer[src] to the other buffer;
-		 * if the filtering is canceled by the user mid-filter,
-		 * we skip to the next filter without changing the source
-		 * of the double buffering (so that the text goes through
-		 * cleanly).
-		 */
-		if (filter->apply(filter, dbuffer[dst], dbuffer[src]) == 0)
-			src = dst;
-
-		if (git_buf_oom(dbuffer[dst]))
-			return -1;
+	if (filtered > 0) {
+		*dst = out;
+		*dst_len = out_len;
 	}
 
-	/* Ensure that the output ends up in dbuffer[1] (i.e. the dest) */
-	if (src != 1)
-		git_buf_swap(dest, source);
+	return filtered;
 
-	return 0;
+on_error:
+	if (filtered)
+		git__free(out);
+
+	return error;
 }

@@ -16,6 +16,15 @@
 #include "buf_text.h"
 #include "repository.h"
 
+typedef enum {
+	GIT_CRLF_GUESS = -1,
+	GIT_CRLF_BINARY = 0,
+	GIT_CRLF_TEXT,
+	GIT_CRLF_INPUT,
+	GIT_CRLF_CRLF,
+	GIT_CRLF_AUTO,
+} git_crlf_t;
+
 struct crlf_attrs {
 	int crlf_action;
 	int eol;
@@ -108,9 +117,8 @@ static int crlf_load_attributes(struct crlf_attrs *ca, git_repository *repo, con
 	return -1;
 }
 
-static int has_cr_in_index(git_filter *self)
+static int has_cr_in_index(struct crlf_filter *filter)
 {
-	struct crlf_filter *filter = (struct crlf_filter *)self;
 	git_index *index;
 	const git_index_entry *entry;
 	git_blob *blob;
@@ -147,15 +155,24 @@ static int has_cr_in_index(git_filter *self)
 }
 
 static int crlf_apply_to_odb(
-	git_filter *self, git_buf *dest, const git_buf *source)
+	void **out, size_t *out_len, git_filter *f, const char *path, const void *in, size_t in_len)
 {
-	struct crlf_filter *filter = (struct crlf_filter *)self;
+	git_buf source = GIT_BUF_INIT, dest = GIT_BUF_INIT;
+	struct crlf_filter *filter = (struct crlf_filter *)f;
+	int error = 0;
 
-	assert(self && dest && source);
+	assert(out && out_len && filter && path && in);
+
+	*out = NULL;
+	*out_len = 0;
 
 	/* Empty file? Nothing to do */
-	if (git_buf_len(source) == 0)
-		return 0;
+	if (in_len == 0)
+		goto cleanup;
+		
+	/* Create a fake git_buf */
+	source.ptr = (void *)in;
+	source.size = in_len;
 
 	/* Heuristics to see if we can skip the conversion.
 	 * Straight from Core Git.
@@ -166,8 +183,8 @@ static int crlf_apply_to_odb(
 		git_buf_text_stats stats;
 
 		/* Check heuristics for binary vs text... */
-		if (git_buf_text_gather_stats(&stats, source, false))
-			return -1;
+		if ((error = git_buf_text_gather_stats(&stats, &source, false)) < 0)
+			goto cleanup;
 
 		/*
 		 * We're currently not going to even try to convert stuff
@@ -175,23 +192,40 @@ static int crlf_apply_to_odb(
 		 * stuff?
 		 */
 		if (stats.cr != stats.crlf)
-			return -1;
+			goto cleanup;
 
 		if (filter->attrs.crlf_action == GIT_CRLF_GUESS) {
 			/*
 			 * If the file in the index has any CR in it, do not convert.
 			 * This is the new safer autocrlf handling.
 			 */
-			if (has_cr_in_index(self))
-				return -1;
+			if (has_cr_in_index(filter))
+				goto cleanup;
 		}
 
 		if (!stats.cr)
-			return -1;
+			goto cleanup;
 	}
 
 	/* Actually drop the carriage returns */
-	return git_buf_text_crlf_to_lf(dest, source);
+	if ((error = git_buf_grow(&dest, in_len)) < 0 ||
+		(error = git_buf_text_crlf_to_lf(&dest, &source)) < 0) {
+		if (error == GIT_ENOTFOUND) {
+			giterr_clear();
+			error = 0;
+		}
+
+		goto cleanup;
+	}
+
+	*out_len = git_buf_len(&dest);
+	*out = git_buf_detach(&dest);
+
+	return 1;
+
+cleanup:
+	git_buf_free(&dest);
+	return error;
 }
 
 static const char *line_ending(struct crlf_filter *filter)
@@ -235,32 +269,59 @@ line_ending_error:
 }
 
 static int crlf_apply_to_workdir(
-	git_filter *self, git_buf *dest, const git_buf *source)
+	void **out, size_t *out_len, git_filter *f, const char *path, const void *in, size_t in_len)
 {
-	struct crlf_filter *filter = (struct crlf_filter *)self;
+	git_buf source = GIT_BUF_INIT, dest = GIT_BUF_INIT;
+	struct crlf_filter *filter = (struct crlf_filter *)f;
 	const char *workdir_ending = NULL;
+	int error = 0;
 
-	assert(self && dest && source);
+	assert(out && out_len && filter && path && in);
+
+	*out = NULL;
+	*out_len = 0;
 
 	/* Empty file? Nothing to do. */
-	if (git_buf_len(source) == 0)
-		return -1;
+	if (in_len == 0)
+		return 0;
 
 	/* Determine proper line ending */
 	workdir_ending = line_ending(filter);
+
 	if (!workdir_ending)
-		return -1;
+		return 0;
+
 	if (!strcmp("\n", workdir_ending)) /* do nothing for \n ending */
-		return -1;
+		return 0;
 
 	/* for now, only lf->crlf conversion is supported here */
 	assert(!strcmp("\r\n", workdir_ending));
-	return git_buf_text_lf_to_crlf(dest, source);
+
+	source.ptr = (void *)in;
+	source.size = in_len;
+
+	/* Actually drop the carriage returns */
+	if ((error = git_buf_grow(&dest, in_len)) < 0 ||
+		(error = git_buf_text_lf_to_crlf(&dest, &source)) < 0) {
+
+		if (error == GIT_ENOTFOUND) {
+			giterr_clear();
+			error = 0;
+		}
+
+		git_buf_free(&dest);
+		return error;
+	}
+
+	*out_len = git_buf_len(&dest);
+	*out = git_buf_detach(&dest);
+
+	return 1;
 }
 
 static int find_and_add_filter(
 	git_vector *filters, git_repository *repo, const char *path,
-	int (*apply)(struct git_filter *self, git_buf *dest, const git_buf *source))
+	int (*apply)(void **dest, size_t *dest_len, struct git_filter *filter, const char *path, const void *source, size_t source_len))
 {
 	struct crlf_attrs ca;
 	struct crlf_filter *filter;

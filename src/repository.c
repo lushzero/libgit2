@@ -1699,7 +1699,7 @@ int git_repository_hashfile(
 		goto cleanup;
 	}
 
-	error = git_odb__hashfd_filtered(out, fd, (size_t)len, type, &filters);
+	error = git_odb__hashfd_filtered(out, fd, (size_t)len, type, &filters, as_path);
 
 cleanup:
 	if (fd >= 0)

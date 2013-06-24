@@ -550,7 +550,7 @@ int git_diff__oid_for_file(
 				result = fd;
 			else {
 				result = git_odb__hashfd_filtered(
-					oid, fd, (size_t)size, GIT_OBJ_BLOB, &filters);
+					oid, fd, (size_t)size, GIT_OBJ_BLOB, &filters, path);
 				p_close(fd);
 			}
 		}
