@@ -339,7 +339,12 @@ static int diff_file_content_load_workdir_file(
 			goto cleanup;
 
 		if (filters.length > 0) {
-			if ((error = git_filters_apply(&filtered, &filters, fc->file->path, git_buf_cstr(&raw), git_buf_len(&raw))) < 0)
+			if ((error = git_filters_apply(&filtered,
+				&filters,
+				fc->file->path,
+				GIT_FILTER_TO_ODB,
+				git_buf_cstr(&raw),
+				git_buf_len(&raw))) < 0)
 				goto cleanup;
 
 			if (error > 0) {
@@ -363,7 +368,7 @@ static int diff_file_content_load_workdir_file(
 	}
 
 cleanup:
-	git_filters_free(&filters);
+	git_vector_free(&filters);
 	git_filterbuf_free(filtered);
 	p_close(fd);
 

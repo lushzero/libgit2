@@ -177,6 +177,9 @@ typedef struct git_merge_head git_merge_head;
 /** Representation of a status collection */
 typedef struct git_status_list git_status_list;
 
+/** A custom blob filter */
+typedef struct git_filter git_filter;
+
 
 /** Basic type of any Git reference. */
 typedef enum {

@@ -555,7 +555,7 @@ int git_diff__oid_for_file(
 			}
 		}
 
-		git_filters_free(&filters);
+		git_vector_free(&filters);
 	}
 
 cleanup:

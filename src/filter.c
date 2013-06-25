@@ -10,43 +10,35 @@
 #include "hash.h"
 #include "filter.h"
 #include "repository.h"
-#include "git2/config.h"
 #include "blob.h"
+#include "git2/config.h"
+#include "git2/sys/filter.h"
 
 int git_filters_load(git_vector *filters, git_repository *repo, const char *path, int mode)
 {
-	int error;
-
-	if (mode == GIT_FILTER_TO_ODB) {
-		/* Load the CRLF cleanup filter when writing to the ODB */
-		error = git_filter_add__crlf_to_odb(filters, repo, path);
-		if (error < 0)
-			return error;
-	} else {
-		error = git_filter_add__crlf_to_workdir(filters, repo, path);
-		if (error < 0)
-			return error;
-	}
-
-	return (int)filters->length;
-}
-
-void git_filters_free(git_vector *filters)
-{
-	size_t i;
 	git_filter *filter;
+	size_t i;
+	int error, count = 0;
 
-	git_vector_foreach(filters, i, filter) {
-		if (filter->do_free != NULL)
-			filter->do_free(filter);
-		else
-			git__free(filter);
+	git_vector_foreach(&repo->filters, i, filter) {
+		if (filter->should_apply(filter, path, mode)) {
+			if ((error = git_vector_insert(filters, filter)) < 0)
+				return error;
+			
+			++count;
+		}
 	}
 
-	git_vector_free(filters);
+	return count;
 }
 
-int git_filters_apply(git_filterbuf **out, git_vector *filters, const char *path, const void *src, size_t src_len)
+int git_filters_apply(
+	git_filterbuf **out,
+	git_vector *filters,
+	const char *path,
+	git_filter_mode_t mode,
+	const void *src,
+	size_t src_len)
 {
 	git_filter *filter;
 	git_filterbuf *filterbuf;
@@ -69,7 +61,7 @@ int git_filters_apply(git_filterbuf **out, git_vector *filters, const char *path
 	in_len = src_len;
 
 	git_vector_foreach(filters, i, filter) {
-		if ((error = filter->apply(&dst, &dst_len, filter, path, in, in_len)) < 0)
+		if ((error = filter->apply(&dst, &dst_len, filter, path, mode, in, in_len)) < 0)
 			goto on_error;
 
 		/* Filter cancelled application; do nothing. */

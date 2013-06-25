@@ -107,6 +107,7 @@ static int write_file_filtered(
 	git_oid *oid,
 	git_odb *odb,
 	const char *full_path,
+	const char *hint_path,
 	git_vector *filters)
 {
 	git_buf source = GIT_BUF_INIT;
@@ -121,7 +122,12 @@ static int write_file_filtered(
 	content = git_buf_cstr(&source);
 	content_len = git_buf_len(&source);
 
-	if ((error = git_filters_apply(&filtered, filters, full_path, git_buf_cstr(&source), git_buf_len(&source))) < 0)
+	if ((error = git_filters_apply(&filtered,
+		filters,
+		hint_path,
+		GIT_FILTER_TO_ODB,
+		git_buf_cstr(&source),
+		git_buf_len(&source))) < 0)
 		goto done;
 
 	if (error > 0) {		
@@ -198,10 +204,10 @@ static int blob_create_internal(git_oid *oid, git_repository *repo, const char *
 			error = write_file_stream(oid, odb, content_path, size);
 		} else {
 			/* We need to apply one or more filters */
-			error = write_file_filtered(oid, odb, content_path, &write_filters);
+			error = write_file_filtered(oid, odb, content_path, hint_path, &write_filters);
 		}
 
-		git_filters_free(&write_filters);
+		git_vector_free(&write_filters);
 
 		/*
 		 * TODO: eventually support streaming filtered files, for files

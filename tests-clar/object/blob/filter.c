@@ -121,7 +121,7 @@ void test_object_blob_filter__to_odb(void)
 		cl_git_pass(git_blob_lookup(&blob, g_repo, &g_oids[i]));
 		cl_git_pass(git_blob__getbuf(&orig, blob));
 
-		cl_assert((nb_filtered = git_filters_apply(&filtered, &filters, "filename.txt", orig.ptr, orig.size)) >= 0);
+		cl_assert((nb_filtered = git_filters_apply(&filtered, &filters, "filename.txt", GIT_FILTER_TO_ODB, orig.ptr, orig.size)) >= 0);
 
 		if (nb_filtered) {
 			cl_assert(g_crlf_filtered[i].size == filtered->len);
@@ -135,7 +135,7 @@ void test_object_blob_filter__to_odb(void)
 		git_filterbuf_free(filtered);
 	}
 
-	git_filters_free(&filters);
+	git_vector_free(&filters);
 	git_buf_free(&orig);
 	git_config_free(cfg);
 }

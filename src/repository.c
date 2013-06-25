@@ -10,6 +10,7 @@
 #include "git2/object.h"
 #include "git2/refdb.h"
 #include "git2/sys/repository.h"
+#include "git2/sys/filter.h"
 
 #include "common.h"
 #include "repository.h"
@@ -102,6 +103,19 @@ void git_repository__cleanup(git_repository *repo)
 	set_refdb(repo, NULL);
 }
 
+static void filters_free(git_repository *repo)
+{
+	git_filter *filter;
+	size_t i;
+
+	git_vector_foreach(&repo->filters, i, filter) {
+		if (filter->free)
+			filter->free(filter);
+	}
+
+	git_vector_free(&repo->filters);
+}
+
 void git_repository_free(git_repository *repo)
 {
 	if (repo == NULL)
@@ -109,6 +123,7 @@ void git_repository_free(git_repository *repo)
 
 	git_repository__cleanup(repo);
 
+	filters_free(repo);
 	git_cache_free(&repo->objects);
 	git_submodule_config_free(repo);
 
@@ -222,6 +237,17 @@ static int load_workdir(git_repository *repo, git_buf *parent_path)
 	GITERR_CHECK_ALLOC(repo->workdir);
 
 	return 0;
+}
+
+static int load_filters(git_repository *repo)
+{
+	git_filter *filter;
+	int error = -1;
+
+	if ((filter = git_filter_crlf_init(repo)) != NULL)
+		error = git_vector_insert(&repo->filters, filter);
+
+	return error;
 }
 
 /*
@@ -461,7 +487,8 @@ int git_repository_open_ext(
 	GITERR_CHECK_ALLOC(repo->path_repository);
 
 	if ((error = load_config_data(repo)) < 0 ||
-		(error = load_workdir(repo, &parent)) < 0)
+		(error = load_workdir(repo, &parent)) < 0 ||
+		(error = load_filters(repo)) < 0)
 	{
 		git_repository_free(repo);
 		return error;
@@ -1704,7 +1731,7 @@ int git_repository_hashfile(
 cleanup:
 	if (fd >= 0)
 		p_close(fd);
-	git_filters_free(&filters);
+	git_vector_free(&filters);
 	git_buf_free(&full_path);
 
 	return error;

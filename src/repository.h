@@ -17,6 +17,7 @@
 #include "cache.h"
 #include "refs.h"
 #include "buffer.h"
+#include "vector.h"
 #include "object.h"
 #include "attrcache.h"
 #include "strmap.h"
@@ -103,6 +104,7 @@ struct git_repository {
 	git_config *_config;
 	git_index *_index;
 
+	git_vector filters;
 	git_cache objects;
 	git_attr_cache attrcache;
 	git_strmap *submodules;

@@ -733,7 +733,12 @@ static int blob_content_to_file(
 	}
 
 	if (nb_filters > 0)	 {
-		if ((error = git_filters_apply(&filtered, &filters, path, content.ptr, content.size)) < 0)
+		if ((error = git_filters_apply(&filtered,
+			&filters,
+			path,
+			GIT_FILTER_TO_WORKTREE,
+			content.ptr,
+			content.size)) < 0)
 			goto cleanup;
 
 		if (error > 0) {
@@ -753,7 +758,7 @@ static int blob_content_to_file(
 		st->st_mode = entry_filemode;
 
 cleanup:
-	git_filters_free(&filters);
+	git_vector_free(&filters);
 	git_filterbuf_free(filtered);
 
 	return error;
