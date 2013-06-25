@@ -118,7 +118,23 @@ static int crlf_load_attributes(struct crlf_attrs *ca, git_repository *repo, con
 	 */
 	ca->crlf_action = crlf_input_action(ca);
 
-	return 0;
+	/*
+	 * Determine if we should apply a filter based on this.
+	 */
+	if (ca->crlf_action == GIT_CRLF_BINARY)
+		return 0;
+
+	if (ca->crlf_action == GIT_CRLF_GUESS) {
+		int auto_crlf;
+
+		if ((error = git_repository__cvar(&auto_crlf, repo, GIT_CVAR_AUTO_CRLF)) < 0)
+			return error;
+
+		if (auto_crlf == GIT_AUTO_CRLF_FALSE)
+			return 0;
+	}
+
+	return 1;
 }
 
 static int has_cr_in_index(git_filter_crlf *filter, const char *path)
@@ -163,7 +179,7 @@ static int crlf_apply_to_odb(
 {
 	struct crlf_attrs ca;
 	git_buf source = GIT_BUF_INIT, dest = GIT_BUF_INIT;
-	int error = 0;
+	int should_apply, error = 0;
 
 	assert(out && out_len && filter && path && in);
 
@@ -179,8 +195,11 @@ static int crlf_apply_to_odb(
 	source.size = in_len;
 
 	/* Load gitattributes for the path */
-	if ((error = crlf_load_attributes(&ca, filter->repo, path)) < 0)
-		return error;
+	if ((should_apply = crlf_load_attributes(&ca, filter->repo, path)) < 0)
+		return should_apply;
+
+	if (!should_apply)
+		return 0;
 
 	/* Heuristics to see if we can skip the conversion.
 	 * Straight from Core Git.
@@ -282,7 +301,7 @@ static int crlf_apply_to_workdir(
 	struct crlf_attrs ca;
 	git_buf source = GIT_BUF_INIT, dest = GIT_BUF_INIT;
 	const char *workdir_ending = NULL;
-	int error = 0;
+	int should_apply, error = 0;
 
 	assert(out && out_len && filter && path && in);
 
@@ -294,8 +313,11 @@ static int crlf_apply_to_workdir(
 		return 0;
 		
 	/* Load gitattributes for the path */
-	if ((error = crlf_load_attributes(&ca, filter->repo, path)) < 0)
-		return error;
+	if ((should_apply = crlf_load_attributes(&ca, filter->repo, path)) < 0)
+		return should_apply;
+
+	if (!should_apply)
+		return 0;
 
 	/* Determine proper line ending */
 	workdir_ending = line_ending(filter, &ca);
@@ -335,26 +357,8 @@ static int crlf_should_apply(git_filter *f, const char *path, git_filter_mode_t 
 {
 	struct crlf_attrs ca;
 	git_filter_crlf *filter = (git_filter_crlf *)f;
-	int error;
 
-	/* Load gitattributes for the path */
-	if ((error = crlf_load_attributes(&ca, filter->repo, path)) < 0)
-		return error;
-
-	if (ca.crlf_action == GIT_CRLF_BINARY)
-		return 0;
-
-	if (ca.crlf_action == GIT_CRLF_GUESS) {
-		int auto_crlf;
-
-		if ((error = git_repository__cvar(&auto_crlf, filter->repo, GIT_CVAR_AUTO_CRLF)) < 0)
-			return error;
-
-		if (auto_crlf == GIT_AUTO_CRLF_FALSE)
-			return 0;
-	}
-
-	return 1;
+	return crlf_load_attributes(&ca, filter->repo, path);
 }
 
 static int crlf_apply(

@@ -724,17 +724,10 @@ static int blob_content_to_file(
 	content.size = (size_t)git_blob_rawsize(blob);
 
 	if (!opts->disable_filters && !git_buf_text_is_binary(&content)) {
-		if ((nb_filters = git_filters_load(
-			&filters,
-			git_object_owner((git_object *)blob),
-			path,
-			GIT_FILTER_TO_WORKTREE)) < 0)
-			return nb_filters;
-	}
+		git_repository *repo = git_blob_owner(blob);
 
-	if (nb_filters > 0)	 {
 		if ((error = git_filters_apply(&filtered,
-			&filters,
+			&repo->filters,
 			path,
 			GIT_FILTER_TO_WORKTREE,
 			content.ptr,
