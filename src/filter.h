@@ -20,9 +20,7 @@ typedef struct {
 	void (*free)(void *buf);
 } git_filterbuf;
 
-/*
- * FILTER API
- */
+int git_filters_add(git_vector *filters, git_filter *filter, int priority);
 
 /*
  * For any given path in the working directory, fill the `filters`
@@ -43,7 +41,7 @@ typedef struct {
  * @return the number of filters loaded for the file (0 if the file
  *	doesn't need filtering), or a negative error code
  */
-extern int git_filters_load(git_vector *filters, git_repository *repo, const char *path, int mode);
+int git_filters_load(git_vector *filters, git_repository *repo, const char *path, int mode);
 
 /*
  * Apply one or more filters to a file.
@@ -60,6 +58,13 @@ extern int git_filters_load(git_vector *filters, git_repository *repo, const cha
  *  negative error code
  */
 int git_filters_apply(git_filterbuf **out, git_vector *filters, const char *path, git_filter_mode_t mode, const void *src, size_t src_len);
+
+/**
+ * Frees the associated filters.
+ */
+void git_filters_free(git_vector *filters);
+
+#define GIT_FILTER_CRLF_PRIORITY 1
 
 git_filter *git_filter_crlf_init(git_repository *repo);
 

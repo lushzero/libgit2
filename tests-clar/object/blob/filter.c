@@ -139,4 +139,3 @@ void test_object_blob_filter__to_odb(void)
 	git_buf_free(&orig);
 	git_config_free(cfg);
 }
-

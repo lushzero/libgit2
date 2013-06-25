@@ -103,19 +103,6 @@ void git_repository__cleanup(git_repository *repo)
 	set_refdb(repo, NULL);
 }
 
-static void filters_free(git_repository *repo)
-{
-	git_filter *filter;
-	size_t i;
-
-	git_vector_foreach(&repo->filters, i, filter) {
-		if (filter->free)
-			filter->free(filter);
-	}
-
-	git_vector_free(&repo->filters);
-}
-
 void git_repository_free(git_repository *repo)
 {
 	if (repo == NULL)
@@ -123,7 +110,7 @@ void git_repository_free(git_repository *repo)
 
 	git_repository__cleanup(repo);
 
-	filters_free(repo);
+	git_filters_free(&repo->filters);
 	git_cache_free(&repo->objects);
 	git_submodule_config_free(repo);
 
@@ -165,7 +152,8 @@ static git_repository *repository_alloc(void)
 	if (!repo)
 		return NULL;
 
-	if (git_cache_init(&repo->objects) < 0) {
+	if (git_filters_init(&repo->filters) < 0 ||
+		git_cache_init(&repo->objects) < 0) {
 		git__free(repo);
 		return NULL;
 	}
@@ -245,7 +233,7 @@ static int load_filters(git_repository *repo)
 	int error = -1;
 
 	if ((filter = git_filter_crlf_init(repo)) != NULL)
-		error = git_vector_insert(&repo->filters, filter);
+		error = git_filters_add(&repo->filters, filter, GIT_FILTER_CRLF_PRIORITY);
 
 	return error;
 }
