@@ -716,12 +716,11 @@ static int blob_content_to_file(
 	int error = -1, nb_filters = 0;
 	mode_t file_mode = opts->file_mode;
 	git_buf content = GIT_BUF_INIT;
-	void *filtered = NULL;
-	size_t filtered_len;
+	git_filterbuf *filtered = NULL;
 	git_vector filters = GIT_VECTOR_INIT;
 
 	/* Create a fake git_buf from the blob raw data... */
-	content.ptr  = (void *)git_blob_rawcontent(blob);
+	content.ptr = (void *)git_blob_rawcontent(blob);
 	content.size = (size_t)git_blob_rawsize(blob);
 
 	if (!opts->disable_filters && !git_buf_text_is_binary(&content)) {
@@ -734,12 +733,12 @@ static int blob_content_to_file(
 	}
 
 	if (nb_filters > 0)	 {
-		if ((error = git_filters_apply(&filtered, &filtered_len, &filters, path, content.ptr, content.size)) < 0)
+		if ((error = git_filters_apply(&filtered, &filters, path, content.ptr, content.size)) < 0)
 			goto cleanup;
 
 		if (error > 0) {
-			content.ptr = filtered;
-			content.size = filtered_len;
+			content.ptr = filtered->ptr;
+			content.size = filtered->len;
 		}
 	}
 
@@ -755,7 +754,7 @@ static int blob_content_to_file(
 
 cleanup:
 	git_filters_free(&filters);
-	git__free(filtered);
+	git_filterbuf_free(filtered);
 
 	return error;
 }

@@ -183,8 +183,8 @@ int git_odb__hashfd_filtered(
 {
 	git_buf raw = GIT_BUF_INIT;
 	const void *content;
-	void *filtered = NULL;
-	size_t content_len, filtered_len;
+	size_t content_len;
+	git_filterbuf *filtered;
 	int error;
 
 	if (!filters || !filters->length)
@@ -200,21 +200,21 @@ int git_odb__hashfd_filtered(
 	content = git_buf_cstr(&raw);
 	content_len = git_buf_len(&raw);
 
-	if ((error = git_filters_apply(&filtered, &filtered_len, filters, path, content, content_len)) < 0)
+	if ((error = git_filters_apply(&filtered, filters, path, content, content_len)) < 0)
 		goto done;
 
 	if (error > 0) {
 		git_buf_free(&raw);
 
-		content = filtered;
-		content_len = filtered_len;
+		content = filtered->ptr;
+		content_len = filtered->len;
 	}
 	
 	error = git_odb_hash(out, content, content_len, type);
 
 done:
 	git_buf_free(&raw);
-	git__free(filtered);
+	git_filterbuf_free(filtered);
 
 	return error;
 }

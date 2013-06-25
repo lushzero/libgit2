@@ -319,6 +319,11 @@ static int crlf_apply_to_workdir(
 	return 1;
 }
 
+static void crlf_free_buf(void *buf)
+{
+	git__free(buf);
+}
+
 static int find_and_add_filter(
 	git_vector *filters, git_repository *repo, const char *path,
 	int (*apply)(void **dest, size_t *dest_len, struct git_filter *filter, const char *path, const void *source, size_t source_len))
@@ -357,6 +362,7 @@ static int find_and_add_filter(
 	filter = git__malloc(sizeof(struct crlf_filter) + pathlen + 1);
 	GITERR_CHECK_ALLOC(filter);
 
+	filter->f.free_buf = crlf_free_buf;
 	filter->f.apply = apply;
 	filter->f.do_free = NULL;
 	memcpy(&filter->attrs, &ca, sizeof(struct crlf_attrs));

@@ -46,52 +46,52 @@ void git_filters_free(git_vector *filters)
 	git_vector_free(filters);
 }
 
-int git_filters_apply(void **dst, size_t *dst_len, git_vector *filters, const char *path, const void *src, size_t src_len)
+int git_filters_apply(git_filterbuf **out, git_vector *filters, const char *path, const void *src, size_t src_len)
 {
 	git_filter *filter;
-	const char *in;
-	char *out = NULL;
-	size_t in_len, out_len;
+	git_filterbuf *filterbuf;
+	const void *in;
+	void *dst = NULL;
+	size_t in_len, dst_len;
 	size_t i;
 	int error = 0;
 	int filtered = 0;
 
-	*dst = NULL;
-	*dst_len = 0;
+	*out = NULL;
 
 	if (src_len == 0)
 		return 0;
+
+	if ((filterbuf = git__calloc(1, sizeof(git_filterbuf))) == NULL)
+		return -1;
 
 	in = src;
 	in_len = src_len;
 
 	git_vector_foreach(filters, i, filter) {
-		if ((error = filter->apply(&out, &out_len, filter, path, in, in_len)) < 0)
+		if ((error = filter->apply(&dst, &dst_len, filter, path, in, in_len)) < 0)
 			goto on_error;
 
 		/* Filter cancelled application; do nothing. */
 		if (error == 0)
 			continue;
 
-		if (filtered)
-			git__free(out);
+		if (filterbuf->ptr)
+			filterbuf->free(filterbuf->ptr);
 
-		in = out;
-		in_len = out_len;
+		filterbuf->ptr = dst;
+		filterbuf->len = dst_len;
+		filterbuf->free = filter->free_buf;
 
 		filtered++;
 	}
 
-	if (filtered > 0) {
-		*dst = out;
-		*dst_len = out_len;
-	}
+	if (filtered > 0)
+		*out = filterbuf;
 
 	return filtered;
 
 on_error:
-	if (filtered)
-		git__free(out);
-
+	git_filterbuf_free(filterbuf);
 	return error;
 }

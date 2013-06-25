@@ -111,8 +111,8 @@ static int write_file_filtered(
 {
 	git_buf source = GIT_BUF_INIT;
 	const void *content;
-	void *filtered = NULL;
-	size_t content_len, filtered_len;
+	git_filterbuf *filtered = NULL;
+	size_t content_len;
 	int error;
 
 	if ((error = git_futils_readbuffer(&source, full_path)) < 0)
@@ -121,22 +121,23 @@ static int write_file_filtered(
 	content = git_buf_cstr(&source);
 	content_len = git_buf_len(&source);
 
-	if ((error = git_filters_apply(&filtered, &filtered_len, filters, full_path, git_buf_cstr(&source), git_buf_len(&source))) < 0)
+	if ((error = git_filters_apply(&filtered, filters, full_path, git_buf_cstr(&source), git_buf_len(&source))) < 0)
 		goto done;
-	else if (error > 0) {		
+
+	if (error > 0) {		
 		/* Free the source as soon as possible. This can be big in memory,
 		 * and we don't want to ODB write to choke */
 		git_buf_free(&source);
 
-		content = filtered;
-		content_len = filtered_len;
+		content = filtered->ptr;
+		content_len = filtered->len;
 	}
 
 	error = git_odb_write(oid, odb, content, content_len, GIT_OBJ_BLOB);
 
 done:
 	git_buf_free(&source);
-	git__free(filtered);
+	git_filterbuf_free(filtered);
 	return error;
 }
 

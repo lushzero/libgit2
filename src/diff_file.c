@@ -308,8 +308,7 @@ static int diff_file_content_load_workdir_file(
 	int error = 0;
 	git_vector filters = GIT_VECTOR_INIT;
 	git_buf raw = GIT_BUF_INIT;
-	void *filtered = NULL;
-	size_t filtered_len;
+	git_filterbuf *filtered = NULL;
 	git_file fd = git_futils_open_ro(git_buf_cstr(path));
 
 	if (fd < 0)
@@ -340,15 +339,18 @@ static int diff_file_content_load_workdir_file(
 			goto cleanup;
 
 		if (filters.length > 0) {
-			if ((error = git_filters_apply(&filtered, &filtered_len, &filters, fc->file->path, git_buf_cstr(&raw), git_buf_len(&raw))) < 0)
+			if ((error = git_filters_apply(&filtered, &filters, fc->file->path, git_buf_cstr(&raw), git_buf_len(&raw))) < 0)
 				goto cleanup;
 
 			if (error > 0) {
 				git_buf_free(&raw);
 
-				fc->map.len = filtered_len;
-				fc->map.data = filtered;
 				fc->flags |= GIT_DIFF_FLAG__FREE_DATA;
+				fc->map.len = filtered->len;
+				fc->map.data = git__malloc(filtered->len);
+				GITERR_CHECK_ALLOC(fc->map.data);
+
+				memcpy(fc->map.data, filtered->ptr, filtered->len);
 			}
 		}
 
@@ -362,6 +364,7 @@ static int diff_file_content_load_workdir_file(
 
 cleanup:
 	git_filters_free(&filters);
+	git_filterbuf_free(filtered);
 	p_close(fd);
 
 	return error;

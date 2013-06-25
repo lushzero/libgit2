@@ -100,11 +100,10 @@ void test_object_blob_filter__to_odb(void)
 {
 	git_vector filters = GIT_VECTOR_INIT;
 	git_config *cfg;
-	int i, filtered;
+	int i, nb_filtered;
 	git_blob *blob;
 	git_buf orig = GIT_BUF_INIT;
-	void *out;
-	size_t out_len;
+	git_filterbuf *filtered;
 
 	cl_git_pass(git_repository_config(&cfg, g_repo));
 	cl_assert(cfg);
@@ -117,23 +116,23 @@ void test_object_blob_filter__to_odb(void)
 	cl_assert(filters.length == 1);
 
 	for (i = 0; i < NUM_TEST_OBJECTS; i++) {
-		out = NULL;
+		filtered = NULL;
 
 		cl_git_pass(git_blob_lookup(&blob, g_repo, &g_oids[i]));
 		cl_git_pass(git_blob__getbuf(&orig, blob));
 
-		cl_assert((filtered = git_filters_apply(&out, &out_len, &filters, "filename.txt", orig.ptr, orig.size)) >= 0);
+		cl_assert((nb_filtered = git_filters_apply(&filtered, &filters, "filename.txt", orig.ptr, orig.size)) >= 0);
 
-		if (filtered) {
-			cl_assert(g_crlf_filtered[i].size == out_len);
-			cl_assert(memcmp(g_crlf_filtered[i].ptr, out, out_len) == 0);
+		if (nb_filtered) {
+			cl_assert(g_crlf_filtered[i].size == filtered->len);
+			cl_assert(memcmp(g_crlf_filtered[i].ptr, filtered->ptr, filtered->len) == 0);
 		} else {
 			cl_assert(g_crlf_filtered[i].size == orig.size);
 			cl_assert(memcmp(g_crlf_filtered[i].ptr, orig.ptr, orig.size) == 0);
 		}
 
 		git_blob_free(blob);
-		git__free(out);
+		git_filterbuf_free(filtered);
 	}
 
 	git_filters_free(&filters);
