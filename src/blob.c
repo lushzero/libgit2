@@ -122,7 +122,7 @@ static int write_file_filtered(
 	content = git_buf_cstr(&source);
 	content_len = git_buf_len(&source);
 
-	if ((error = git_filters_apply(&filtered,
+	if ((error = git_filters__apply(&filtered,
 		filters,
 		hint_path,
 		GIT_FILTER_TO_ODB,
@@ -191,7 +191,7 @@ static int blob_create_internal(git_oid *oid, git_repository *repo, const char *
 
 		if (try_load_filters) {
 			/* Load the filters for writing this file to the ODB */
-			filter_count = git_filters_load(
+			filter_count = git_filters__load(
 				&write_filters, repo, hint_path, GIT_FILTER_TO_ODB);
 		}
 

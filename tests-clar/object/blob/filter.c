@@ -111,7 +111,7 @@ void test_object_blob_filter__to_odb(void)
 	git_attr_cache_flush(g_repo);
 	cl_git_append2file("empty_standard_repo/.gitattributes", "*.txt text\n");
 
-	cl_assert(git_filters_load(
+	cl_assert(git_filters__load(
 		&filters, g_repo, "filename.txt", GIT_FILTER_TO_ODB) > 0);
 	cl_assert(filters.length == 1);
 
@@ -121,7 +121,7 @@ void test_object_blob_filter__to_odb(void)
 		cl_git_pass(git_blob_lookup(&blob, g_repo, &g_oids[i]));
 		cl_git_pass(git_blob__getbuf(&orig, blob));
 
-		cl_assert((nb_filtered = git_filters_apply(&filtered, &filters, "filename.txt", GIT_FILTER_TO_ODB, orig.ptr, orig.size)) >= 0);
+		cl_assert((nb_filtered = git_filters__apply(&filtered, &filters, "filename.txt", GIT_FILTER_TO_ODB, orig.ptr, orig.size)) >= 0);
 
 		if (nb_filtered) {
 			cl_assert(g_crlf_filtered[i].size == filtered->len);

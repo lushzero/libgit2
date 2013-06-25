@@ -200,7 +200,7 @@ int git_odb__hashfd_filtered(
 	content = git_buf_cstr(&raw);
 	content_len = git_buf_len(&raw);
 
-	if ((error = git_filters_apply(&filtered,
+	if ((error = git_filters__apply(&filtered,
 		filters,
 		path,
 		GIT_FILTER_TO_ODB,

@@ -726,7 +726,7 @@ static int blob_content_to_file(
 	if (!opts->disable_filters && !git_buf_text_is_binary(&content)) {
 		git_repository *repo = git_blob_owner(blob);
 
-		if ((error = git_filters_apply(&filtered,
+		if ((error = git_filters__apply(&filtered,
 			&repo->filters,
 			path,
 			GIT_FILTER_TO_WORKTREE,

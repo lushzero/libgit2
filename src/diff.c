@@ -543,7 +543,7 @@ int git_diff__oid_for_file(
 	} else {
 		git_vector filters = GIT_VECTOR_INIT;
 
-		result = git_filters_load(&filters, repo, path, GIT_FILTER_TO_ODB);
+		result = git_filters__load(&filters, repo, path, GIT_FILTER_TO_ODB);
 		if (result >= 0) {
 			int fd = git_futils_open_ro(full_path.ptr);
 			if (fd < 0)

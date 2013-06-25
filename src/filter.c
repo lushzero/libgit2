@@ -38,13 +38,13 @@ static int filter_cmp(const void *a, const void *b)
 	return 0;
 }
 
-int git_filters_init(git_vector *filters)
+int git_filters__init(git_vector *filters)
 {
 	filters->_cmp = filter_cmp;
 	return 0;
 }
 
-int git_filters_add(git_vector *filters, git_filter *filter, int priority)
+int git_filters__add(git_vector *filters, git_filter *filter, int priority)
 {
 	filter_internal *f;
 
@@ -62,7 +62,7 @@ int git_filters_add(git_vector *filters, git_filter *filter, int priority)
 	return 0;
 }
 
-int git_filters_load(git_vector *filters, git_repository *repo, const char *path, int mode)
+int git_filters__load(git_vector *filters, git_repository *repo, const char *path, int mode)
 {
 	filter_internal *f;
 	size_t i;
@@ -80,7 +80,7 @@ int git_filters_load(git_vector *filters, git_repository *repo, const char *path
 	return count;
 }
 
-int git_filters_apply(
+int git_filters__apply(
 	git_filterbuf **out,
 	git_vector *filters,
 	const char *path,
@@ -136,7 +136,7 @@ on_error:
 	return error;
 }
 
-void git_filters_free(git_vector *filters)
+void git_filters__free(git_vector *filters)
 {
 	filter_internal *f;
 	size_t i;

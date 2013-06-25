@@ -110,7 +110,7 @@ void git_repository_free(git_repository *repo)
 
 	git_repository__cleanup(repo);
 
-	git_filters_free(&repo->filters);
+	git_filters__free(&repo->filters);
 	git_cache_free(&repo->objects);
 	git_submodule_config_free(repo);
 
@@ -152,7 +152,7 @@ static git_repository *repository_alloc(void)
 	if (!repo)
 		return NULL;
 
-	if (git_filters_init(&repo->filters) < 0 ||
+	if (git_filters__init(&repo->filters) < 0 ||
 		git_cache_init(&repo->objects) < 0) {
 		git__free(repo);
 		return NULL;
@@ -233,7 +233,7 @@ static int load_filters(git_repository *repo)
 	int error = -1;
 
 	if ((filter = git_filter_crlf_init(repo)) != NULL)
-		error = git_filters_add(&repo->filters, filter, GIT_FILTER_CRLF_PRIORITY);
+		error = git_filters__add(&repo->filters, filter, GIT_FILTER_CRLF_PRIORITY);
 
 	return error;
 }
@@ -1687,7 +1687,7 @@ int git_repository_hashfile(
 
 	/* passing empty string for "as_path" indicated --no-filters */
 	if (strlen(as_path) > 0) {
-		error = git_filters_load(&filters, repo, as_path, GIT_FILTER_TO_ODB);
+		error = git_filters__load(&filters, repo, as_path, GIT_FILTER_TO_ODB);
 		if (error < 0)
 			return error;
 	} else {
