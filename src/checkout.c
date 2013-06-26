@@ -729,7 +729,7 @@ static int blob_content_to_file(
 		if ((error = git_filters__apply(&filtered,
 			&repo->filters,
 			path,
-			GIT_FILTER_TO_WORKTREE,
+			GIT_FILTER_TO_WORKDIR,
 			content.ptr,
 			content.size)) < 0)
 			goto cleanup;

@@ -43,7 +43,7 @@ int git_filters__add(git_vector *filters, git_filter *filter, int priority);
  * @return the number of filters loaded for the file (0 if the file
  *	doesn't need filtering), or a negative error code
  */
-int git_filters__load(git_vector *filters, git_repository *repo, const char *path, int mode);
+int git_filters__load(git_vector *filters, git_repository *repo, const char *path, git_filter_mode_t mode);
 
 /*
  * Apply one or more filters to a file.

@@ -806,6 +806,18 @@ const char *git_repository_get_namespace(git_repository *repo)
 	return repo->namespace;
 }
 
+int git_repository_add_filter(git_repository *repo, git_filter *filter, int priority)
+{
+	assert(repo && filter);
+
+	if (filter->version != GIT_FILTER_VERSION) {
+		giterr_set(GITERR_REPOSITORY, "Invalid filter version %d.", filter->version);
+		return -1;
+	}
+
+	return git_filters__add(&repo->filters, filter, priority);
+}
+
 static int check_repositoryformatversion(git_config *config)
 {
 	int version;

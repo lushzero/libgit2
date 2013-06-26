@@ -20,7 +20,7 @@
 GIT_BEGIN_DECL
 
 typedef enum {
-	GIT_FILTER_TO_WORKTREE,
+	GIT_FILTER_TO_WORKDIR,
 	GIT_FILTER_TO_ODB
 } git_filter_mode_t;
 

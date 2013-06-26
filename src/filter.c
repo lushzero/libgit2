@@ -54,15 +54,21 @@ int git_filters__add(git_vector *filters, git_filter *filter, int priority)
 	f->filter = filter;
 	f->priority = priority;
 
-	if (git_vector_insert_sorted(filters, f, NULL) < 0) {
+	if (git_vector_insert(filters, f) < 0) {
 		git__free(f);
 		return -1;
 	}
 
+	git_vector_sort(filters);
+
 	return 0;
 }
 
-int git_filters__load(git_vector *filters, git_repository *repo, const char *path, int mode)
+int git_filters__load(
+	git_vector *filters,
+	git_repository *repo,
+	const char *path,
+	git_filter_mode_t mode)
 {
 	filter_internal *f;
 	size_t i;
@@ -89,10 +95,11 @@ int git_filters__apply(
 	size_t src_len)
 {
 	filter_internal *f;
-	git_filterbuf *filterbuf;
-	const void *in;
+	git_filterbuf filterbuf = {0};
+	void *cur;
 	void *dst = NULL;
-	size_t in_len, dst_len;
+	size_t cur_len, dst_len = 0;
+	void (*cur_free)(void *);
 	size_t i;
 	int error = 0;
 	int filtered = 0;
@@ -102,38 +109,37 @@ int git_filters__apply(
 	if (src_len == 0)
 		return 0;
 
-	if ((filterbuf = git__calloc(1, sizeof(git_filterbuf))) == NULL)
-		return -1;
-
-	in = src;
-	in_len = src_len;
+	cur = (void *)src;
+	cur_len = src_len;
 
 	filter_foreach(filters, mode, i, f) {
-		if ((error = f->filter->apply(&dst, &dst_len, f->filter, path, mode, in, in_len)) < 0)
-			goto on_error;
+		if ((error = f->filter->apply(&dst, &dst_len, f->filter, path, mode, cur, cur_len)) < 0)
+			return error;
 
 		/* Filter cancelled application; do nothing. */
 		if (error == 0)
 			continue;
 
-		if (filterbuf->ptr)
-			filterbuf->free(filterbuf->ptr);
-
-		filterbuf->ptr = dst;
-		filterbuf->len = dst_len;
-		filterbuf->free = f->filter->free_buf;
+		if (filtered)
+			cur_free(cur);
 
 		filtered++;
+
+		cur = dst;
+		cur_len = dst_len;
+		cur_free = f->filter->free_buf;
 	}
 
-	if (filtered > 0)
-		*out = filterbuf;
+	if (filtered) {
+		if ((*out = git__calloc(1, sizeof(git_filterbuf))) == NULL)
+			return -1;
+
+		(*out)->ptr = cur;
+		(*out)->len = cur_len;
+		(*out)->free = cur_free;
+	}
 
 	return filtered;
-
-on_error:
-	git_filterbuf_free(filterbuf);
-	return error;
 }
 
 void git_filters__free(git_vector *filters)
