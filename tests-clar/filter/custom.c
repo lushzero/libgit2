@@ -9,9 +9,18 @@
 #define CUSTOM_FILTER_PRIORITY 20
 #define VERY_SECURE_ENCRYPTION(b) ((b) ^ 0xff)
 
+#ifdef GIT_WIN32
+# define NEWLINE "\r\n"
+#else
+# define NEWLINE "\n"
+#endif
+
 static unsigned char workdir_data[] =
-	"some simple\r\ndata\r\nthat will be\r\ntrivially\r\nscrambled.\r\n";
-#define WORKDIR_DATA_LEN 56
+	"some simple" NEWLINE
+	"data" NEWLINE
+	"that will be" NEWLINE
+	"trivially" NEWLINE
+	"scrambled." NEWLINE;
 
 /* Represents the data above scrambled after \r\n -> \n conversion */
 static unsigned char odb_data[] = 
@@ -120,7 +129,7 @@ void test_filter_custom__to_odb(void)
 	cl_assert(filter = create_custom_filter());
 	cl_git_pass(git_repository_add_filter(g_repo, filter, CUSTOM_FILTER_PRIORITY));
 
-	git_filters__apply(&out, &g_repo->filters, "herofile", GIT_FILTER_TO_ODB, workdir_data, WORKDIR_DATA_LEN);
+	git_filters__apply(&out, &g_repo->filters, "herofile", GIT_FILTER_TO_ODB, workdir_data, strlen(workdir_data));
 
 	cl_assert_equal_i(ODB_DATA_LEN, out->len);
 
@@ -151,7 +160,7 @@ void test_filter_custom__to_workdir(void)
 
 	git_filters__apply(&out, &g_repo->filters, "herofile", GIT_FILTER_TO_WORKDIR, odb_data, ODB_DATA_LEN);
 
-	cl_assert_equal_i(WORKDIR_DATA_LEN, out->len);
+	cl_assert_equal_i(strlen(workdir_data), out->len);
 
 	for (i = 0, filtered = out->ptr; i < out->len; i++)
 		cl_assert(filtered[i] == workdir_data[i]);
