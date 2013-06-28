@@ -137,6 +137,18 @@ typedef enum {
 	/** Ignore directories in use, they will be left empty */
 	GIT_CHECKOUT_SKIP_LOCKED_DIRECTORIES = (1u << 18),
 
+	/** Ignore conflicts entirely */
+	GIT_CHECKOUT_CONFLICT_IGNORED = (1u << 19),
+
+	/** Apply the ours side of a conflict */
+	GIT_CHECKOUT_CONFLICT_OURS = (1u << 20),
+
+	/** Apply the theirs side of a conflict */
+	GIT_CHECKOUT_CONFLICT_THEIRS = (1u << 21),
+
+	/** Apply the merge result of a conflict */
+	GIT_CHECKOUT_CONFLICT_MERGE = (1u << 22),
+
 	/**
 	 * THE FOLLOWING OPTIONS ARE NOT YET IMPLEMENTED
 	 */
