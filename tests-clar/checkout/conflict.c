@@ -42,6 +42,10 @@ void test_checkout_conflict__initialize(void)
 {
 	g_repo = cl_git_sandbox_init(TEST_REPO_PATH);
 	git_repository_index(&g_index, g_repo);
+
+	cl_git_rewritefile(
+		TEST_REPO_PATH "/.gitattributes",
+		"* text eol=lf\n");
 }
 
 void test_checkout_conflict__cleanup(void)
@@ -113,7 +117,7 @@ void test_checkout_conflict__fails(void)
 	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
-	opts.checkout_strategy |= GIT_CHECKOUT_CONFLICT_OURS;
+	opts.checkout_strategy |= GIT_CHECKOUT_USE_OURS;
 
 	create_conflicting_index();
 
@@ -130,7 +134,7 @@ void test_checkout_conflict__ignored(void)
 	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
-	opts.checkout_strategy |= GIT_CHECKOUT_CONFLICT_IGNORED;
+	opts.checkout_strategy |= GIT_CHECKOUT_SKIP_UNMERGED;
 
 	create_conflicting_index();
 
@@ -144,7 +148,7 @@ void test_checkout_conflict__ours(void)
 	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
-	opts.checkout_strategy |= GIT_CHECKOUT_CONFLICT_OURS;
+	opts.checkout_strategy |= GIT_CHECKOUT_USE_OURS;
 
 	create_conflicting_index();
 
@@ -161,7 +165,7 @@ void test_checkout_conflict__theirs(void)
 	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
-	opts.checkout_strategy |= GIT_CHECKOUT_CONFLICT_THEIRS;
+	opts.checkout_strategy |= GIT_CHECKOUT_USE_THEIRS;
 
 	create_conflicting_index();
 
@@ -177,8 +181,6 @@ void test_checkout_conflict__diff3(void)
 {
 	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
-
-	opts.checkout_strategy |= GIT_CHECKOUT_CONFLICT_MERGE;
 
 	create_conflicting_index();
 
