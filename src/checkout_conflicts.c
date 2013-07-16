@@ -12,6 +12,7 @@
 #include "vector.h"
 #include "index.h"
 #include "merge_file.h"
+#include "git2/repository.h"
 #include "git2/types.h"
 #include "git2/index.h"
 #include "git2/sys/index.h"
@@ -382,18 +383,26 @@ static int conflict_path_suffixed(
 static int checkout_write_entry(
 	checkout_data *data,
 	checkout_conflictdata *conflict,
-	const git_index_entry *side,
-	const char *side_label)
+	const git_index_entry *side)
 {
-	const char *hint_path = NULL;
+	const char *hint_path = NULL, *side_label;
 	struct stat st;
-	int error = 0;
+
+	assert (side == conflict->ours ||
+		side == conflict->theirs);
 
 	git_buf_truncate(&data->path, data->workdir_len);
 	if (git_buf_puts(&data->path, side->path) < 0)
 		return -1;
 
-	if ((conflict->name_collision || conflict->directoryfile) && side_label) {
+	if (conflict->name_collision || conflict->directoryfile) {
+		if (side == conflict->ours)
+			side_label = data->opts.our_label ? data->opts.our_label :
+				"ours";
+		else if (side == conflict->theirs)
+			side_label = data->opts.their_label ? data->opts.their_label :
+				"theirs";
+
 		if (git_buf_putc(&data->path, '~') < 0 ||
 			git_buf_puts(&data->path, side_label) < 0)
 			return -1;
@@ -411,10 +420,8 @@ static int checkout_write_entries(
 {
 	int error = 0;
 
-	if ((error = checkout_write_entry(data, conflict,
-		conflict->ours, data->opts.our_label)) >= 0)
-		error = checkout_write_entry(data, conflict,
-			conflict->theirs, data->opts.their_label);
+	if ((error = checkout_write_entry(data, conflict, conflict->ours)) >= 0)
+		error = checkout_write_entry(data, conflict, conflict->theirs);
 
 	return error;
 }
@@ -433,9 +440,13 @@ static int checkout_write_merge(
 	const char *our_label_raw, *their_label_raw, *path;
 	int error = 0;
 
-	if ((error = git_merge_file_input_from_index_entry(&ancestor, data->repo, conflict->ancestor)) < 0 ||
-		(error = git_merge_file_input_from_index_entry(&ours, data->repo, conflict->ours)) < 0 ||
-		(error = git_merge_file_input_from_index_entry(&theirs, data->repo, conflict->theirs)) < 0)
+	if ((conflict->ancestor &&
+		(error = git_merge_file_input_from_index_entry(
+		&ancestor, data->repo, conflict->ancestor)) < 0) ||
+		(error = git_merge_file_input_from_index_entry(
+		&ours, data->repo, conflict->ours)) < 0 ||
+		(error = git_merge_file_input_from_index_entry(
+		&theirs, data->repo, conflict->theirs)) < 0)
 		goto done;
 
 	ancestor.label = NULL;
@@ -531,12 +542,10 @@ int git_checkout__conflicts(checkout_data *data)
 
 		else if ((data->strategy & GIT_CHECKOUT_USE_OURS) &&
 			conflict->ours)
-			error = checkout_write_entry(data, conflict,
-				conflict->ours, NULL);
+			error = checkout_write_entry(data, conflict, conflict->ours);
 		else if ((data->strategy & GIT_CHECKOUT_USE_THEIRS) &&
 			conflict->theirs)
-			error = checkout_write_entry(data, conflict,
-				conflict->theirs, NULL);
+			error = checkout_write_entry(data, conflict, conflict->theirs);
 
 		/* Ignore the other side of name collisions. */
 		else if ((data->strategy & GIT_CHECKOUT_USE_OURS) &&
@@ -550,23 +559,25 @@ int git_checkout__conflicts(checkout_data *data)
 		 * the file (potentially with the name mangled.
 		 */
 		else if (conflict->ours != NULL && conflict->theirs == NULL)
-			error = checkout_write_entry(data, conflict,
-				conflict->ours, data->opts.our_label);
+			error = checkout_write_entry(data, conflict, conflict->ours);
 		else if (conflict->ours == NULL && conflict->theirs != NULL)
-			error = checkout_write_entry(data, conflict,
-				conflict->theirs, data->opts.their_label);
+			error = checkout_write_entry(data, conflict, conflict->theirs);
 
 		/* Add/add conflicts and rename 1->2 conflicts, write the
 		 * ours/theirs sides (potentially name mangled).
 		 */
-		else if (!conflict->ancestor || conflict_is_1_to_2(conflict))
+		else if (conflict_is_1_to_2(conflict))
 			error = checkout_write_entries(data, conflict);
 
-		/* If any side is a link, write the ours side */
-		else if (S_ISLNK(conflict->ours->mode) ||
+		/* If all sides are links, write the ours side */
+		else if (S_ISLNK(conflict->ours->mode) &&
 			S_ISLNK(conflict->theirs->mode))
-			error = checkout_write_entry(data, conflict,
-				conflict->ours, data->opts.their_label);
+			error = checkout_write_entry(data, conflict, conflict->ours);
+		/* Link/file conflicts, write the file side */
+		else if (S_ISLNK(conflict->ours->mode))
+			error = checkout_write_entry(data, conflict, conflict->theirs);
+		else if (S_ISLNK(conflict->theirs->mode))
+			error = checkout_write_entry(data, conflict, conflict->ours);
 
 		else
 			error = checkout_write_merge(data, conflict);
