@@ -440,9 +440,13 @@ static int checkout_write_merge(
 	const char *our_label_raw, *their_label_raw, *path;
 	int error = 0;
 
-	if ((error = git_merge_file_input_from_index_entry(&ancestor, data->repo, conflict->ancestor)) < 0 ||
-		(error = git_merge_file_input_from_index_entry(&ours, data->repo, conflict->ours)) < 0 ||
-		(error = git_merge_file_input_from_index_entry(&theirs, data->repo, conflict->theirs)) < 0)
+	if ((conflict->ancestor &&
+		(error = git_merge_file_input_from_index_entry(
+		&ancestor, data->repo, conflict->ancestor)) < 0) ||
+		(error = git_merge_file_input_from_index_entry(
+		&ours, data->repo, conflict->ours)) < 0 ||
+		(error = git_merge_file_input_from_index_entry(
+		&theirs, data->repo, conflict->theirs)) < 0)
 		goto done;
 
 	ancestor.label = NULL;
@@ -562,12 +566,17 @@ int git_checkout__conflicts(checkout_data *data)
 		/* Add/add conflicts and rename 1->2 conflicts, write the
 		 * ours/theirs sides (potentially name mangled).
 		 */
-		else if (!conflict->ancestor || conflict_is_1_to_2(conflict))
+		else if (conflict_is_1_to_2(conflict))
 			error = checkout_write_entries(data, conflict);
 
-		/* If any side is a link, write the ours side */
-		else if (S_ISLNK(conflict->ours->mode) ||
+		/* If all sides are links, write the ours side */
+		else if (S_ISLNK(conflict->ours->mode) &&
 			S_ISLNK(conflict->theirs->mode))
+			error = checkout_write_entry(data, conflict, conflict->ours);
+		/* Link/file conflicts, write the file side */
+		else if (S_ISLNK(conflict->ours->mode))
+			error = checkout_write_entry(data, conflict, conflict->theirs);
+		else if (S_ISLNK(conflict->theirs->mode))
 			error = checkout_write_entry(data, conflict, conflict->ours);
 
 		else

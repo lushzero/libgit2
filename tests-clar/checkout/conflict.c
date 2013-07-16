@@ -16,6 +16,10 @@ static git_index *g_index;
 #define AUTOMERGEABLE_OURS_OID     "ee3fa1b8c00aff7fe02065fdb50864bb0d932ccf"
 #define AUTOMERGEABLE_THEIRS_OID   "058541fc37114bfc1dddf6bd6bffc7fae5c2e6fe"
 
+#define LINK_ANCESTOR_OID          "1a010b1c0f081b2e8901d55307a15c29ff30af0e"
+#define LINK_OURS_OID              "72ea499e108df5ff0a4a913e7655bbeeb1fb69f2"
+#define LINK_THEIRS_OID            "8bfb012a6d809e499bd8d3e194a3929bc8995b93"
+
 #define CONFLICTING_OURS_FILE \
 	"this file is changed in master and branch\n"
 #define CONFLICTING_THEIRS_FILE \
@@ -99,7 +103,21 @@ static void create_conflicting_index(void)
 	git_index_write(g_index);
 }
 
-static void ensure_workdir_contents(const char *oid_str, const char *path)
+static void ensure_workdir_contents(const char *path, const char *contents)
+{
+	git_buf fullpath = GIT_BUF_INIT, data_buf = GIT_BUF_INIT;
+
+	cl_git_pass(
+		git_buf_joinpath(&fullpath, git_repository_workdir(g_repo), path));
+
+	cl_git_pass(git_futils_readbuffer(&data_buf, git_buf_cstr(&fullpath)));
+	cl_assert(strcmp(git_buf_cstr(&data_buf), contents) == 0);
+
+	git_buf_free(&fullpath);
+	git_buf_free(&data_buf);
+}
+
+static void ensure_workdir_oid(const char *path, const char *oid_str)
 {
 	git_oid expected, actual;
 
@@ -108,21 +126,20 @@ static void ensure_workdir_contents(const char *oid_str, const char *path)
 	cl_assert(git_oid_cmp(&expected, &actual) == 0);
 }
 
-void test_checkout_conflict__fails(void)
+static void ensure_workdir_mode(const char *path, int mode)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
-	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
+#ifndef GIT_WIN32
+	git_buf fullpath = GIT_BUF_INIT;
+	struct stat st;
 
-	opts.checkout_strategy |= GIT_CHECKOUT_USE_OURS;
+	cl_git_pass(
+		git_buf_joinpath(&fullpath, git_repository_workdir(g_repo), path));
 
-	create_conflicting_index();
+	cl_git_pass(p_stat(git_buf_cstr(&fullpath), &st));
+	cl_assert_equal_i(mode, st.st_mode);
 
-	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
-
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_OURS_FILE) == 0);
-	git_buf_free(&conflicting_buf);
+	git_buf_free(&fullpath);
+#endif
 }
 
 void test_checkout_conflict__ignored(void)
@@ -150,10 +167,7 @@ void test_checkout_conflict__ours(void)
 
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_OURS_FILE) == 0);
-	git_buf_free(&conflicting_buf);
+	ensure_workdir_contents("conflicting.txt", CONFLICTING_OURS_FILE);
 }
 
 void test_checkout_conflict__theirs(void)
@@ -167,10 +181,8 @@ void test_checkout_conflict__theirs(void)
 
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_THEIRS_FILE) == 0);
-	git_buf_free(&conflicting_buf);
+	ensure_workdir_contents("conflicting.txt", CONFLICTING_THEIRS_FILE);
+
 }
 
 void test_checkout_conflict__diff3(void)
@@ -182,10 +194,7 @@ void test_checkout_conflict__diff3(void)
 
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_DIFF3_FILE) == 0);
-	git_buf_free(&conflicting_buf);
+	ensure_workdir_contents("conflicting.txt", CONFLICTING_DIFF3_FILE);
 }
 
 void test_checkout_conflict__automerge(void)
@@ -204,10 +213,7 @@ void test_checkout_conflict__automerge(void)
 
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/automergeable.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, AUTOMERGEABLE_MERGED_FILE) == 0);
-	git_buf_free(&conflicting_buf);
+	ensure_workdir_contents("automergeable.txt", AUTOMERGEABLE_MERGED_FILE);
 }
 
 void test_checkout_conflict__directory_file(void)
@@ -239,14 +245,14 @@ void test_checkout_conflict__directory_file(void)
 
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-1/file");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-1~ours");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-2/file");
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-2~theirs");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-3/file");
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-3~theirs");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-4~ours");
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-4/file");
+	ensure_workdir_oid("df-1/file", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("df-1~ours", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-2/file", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-2~theirs", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("df-3/file", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-3~theirs", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("df-4~ours", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-4/file", CONFLICTING_THEIRS_OID);
 }
 
 void test_checkout_conflict__directory_file_with_custom_labels(void)
@@ -280,12 +286,155 @@ void test_checkout_conflict__directory_file_with_custom_labels(void)
 
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-1/file");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-1~HEAD");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-2/file");
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-2~branch");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-3/file");
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-3~branch");
-	ensure_workdir_contents(CONFLICTING_OURS_OID, "df-4~HEAD");
-	ensure_workdir_contents(CONFLICTING_THEIRS_OID, "df-4/file");
+	ensure_workdir_oid("df-1/file", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("df-1~HEAD", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-2/file", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-2~branch", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("df-3/file", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-3~branch", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("df-4~HEAD", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("df-4/file", CONFLICTING_THEIRS_OID);
+}
+
+void test_checkout_conflict__link_file(void)
+{
+	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
+
+	struct checkout_index_entry checkout_index_entries[] = {
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 1, "link-1" },
+		{ 0100644, CONFLICTING_OURS_OID, 2, "link-1" },
+		{ 0120000, LINK_THEIRS_OID, 3, "link-1" },
+
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 1, "link-2" },
+		{ 0120000, LINK_OURS_OID, 2, "link-2" },
+		{ 0100644, CONFLICTING_THEIRS_OID, 3, "link-2" },
+
+		{ 0120000, LINK_ANCESTOR_OID, 1, "link-3" },
+		{ 0100644, CONFLICTING_OURS_OID, 2, "link-3" },
+		{ 0120000, LINK_THEIRS_OID, 3, "link-3" },
+
+		{ 0120000, LINK_ANCESTOR_OID, 1, "link-4" },
+		{ 0120000, LINK_OURS_OID, 2, "link-4" },
+		{ 0100644, CONFLICTING_THEIRS_OID, 3, "link-4" },
+	};
+
+	opts.checkout_strategy |= GIT_CHECKOUT_SAFE;
+
+	create_index(checkout_index_entries, 12);
+	git_index_write(g_index);
+
+	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
+
+	/* Typechange conflicts always keep the file in the workdir */
+	ensure_workdir_oid("link-1", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("link-2", CONFLICTING_THEIRS_OID);
+	ensure_workdir_oid("link-3", CONFLICTING_OURS_OID);
+	ensure_workdir_oid("link-4", CONFLICTING_THEIRS_OID);
+}
+
+void test_checkout_conflict__links(void)
+{
+	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
+
+	struct checkout_index_entry checkout_index_entries[] = {
+		{ 0120000, LINK_ANCESTOR_OID, 1, "link-1" },
+		{ 0120000, LINK_OURS_OID, 2, "link-1" },
+		{ 0120000, LINK_THEIRS_OID, 3, "link-1" },
+
+		{ 0120000, LINK_OURS_OID, 2, "link-2" },
+		{ 0120000, LINK_THEIRS_OID, 3, "link-2" },
+	};
+
+	opts.checkout_strategy |= GIT_CHECKOUT_SAFE;
+
+	create_index(checkout_index_entries, 5);
+	git_index_write(g_index);
+
+	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
+
+	/* Conflicts with links always keep the ours side (even with -Xtheirs) */
+	ensure_workdir_oid("link-1", LINK_OURS_OID);
+	ensure_workdir_oid("link-2", LINK_OURS_OID);
+}
+
+void test_checkout_conflict__add_add(void)
+{
+	git_buf conflicting_buf = GIT_BUF_INIT;
+	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
+
+	struct checkout_index_entry checkout_index_entries[] = {
+		{ 0100644, CONFLICTING_OURS_OID, 2, "conflicting.txt" },
+		{ 0100644, CONFLICTING_THEIRS_OID, 3, "conflicting.txt" },
+	};
+
+	opts.checkout_strategy |= GIT_CHECKOUT_SAFE;
+
+	create_index(checkout_index_entries, 2);
+	git_index_write(g_index);
+
+	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
+
+	/* Add/add writes diff3 files */
+	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
+		TEST_REPO_PATH "/conflicting.txt"));
+	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_DIFF3_FILE) == 0);
+	git_buf_free(&conflicting_buf);
+}
+
+void test_checkout_conflict__mode_change(void)
+{
+	git_buf conflicting_buf = GIT_BUF_INIT;
+	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
+
+	struct checkout_index_entry checkout_index_entries[] = {
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 1, "executable-1" },
+		{ 0100755, CONFLICTING_ANCESTOR_OID, 2, "executable-1" },
+		{ 0100644, CONFLICTING_THEIRS_OID, 3, "executable-1" },
+
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 1, "executable-2" },
+		{ 0100644, CONFLICTING_OURS_OID, 2, "executable-2" },
+		{ 0100755, CONFLICTING_ANCESTOR_OID, 3, "executable-2" },
+
+		{ 0100755, CONFLICTING_ANCESTOR_OID, 1, "executable-3" },
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 2, "executable-3" },
+		{ 0100755, CONFLICTING_THEIRS_OID, 3, "executable-3" },
+
+		{ 0100755, CONFLICTING_ANCESTOR_OID, 1, "executable-4" },
+		{ 0100755, CONFLICTING_OURS_OID, 2, "executable-4" },
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 3, "executable-4" },
+
+		{ 0100644, CONFLICTING_ANCESTOR_OID, 1, "executable-5" },
+		{ 0100755, CONFLICTING_OURS_OID, 2, "executable-5" },
+		{ 0100644, CONFLICTING_THEIRS_OID, 3, "executable-5" },
+
+		{ 0100755, CONFLICTING_ANCESTOR_OID, 1, "executable-6" },
+		{ 0100644, CONFLICTING_OURS_OID, 2, "executable-6" },
+		{ 0100755, CONFLICTING_THEIRS_OID, 3, "executable-6" },
+	};
+
+	opts.checkout_strategy |= GIT_CHECKOUT_SAFE;
+
+	create_index(checkout_index_entries, 18);
+	git_index_write(g_index);
+
+	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
+
+	/* Keep the modified mode */
+	ensure_workdir_oid("executable-1", CONFLICTING_THEIRS_OID);
+	ensure_workdir_mode("executable-1", 0100755);
+
+	ensure_workdir_oid("executable-2", CONFLICTING_OURS_OID);
+	ensure_workdir_mode("executable-2", 0100755);
+
+	ensure_workdir_oid("executable-3", CONFLICTING_THEIRS_OID);
+	ensure_workdir_mode("executable-3", 0100644);
+
+	ensure_workdir_oid("executable-4", CONFLICTING_OURS_OID);
+	ensure_workdir_mode("executable-4", 0100644);
+
+	ensure_workdir_contents("executable-5", CONFLICTING_DIFF3_FILE);
+	ensure_workdir_mode("executable-5", 0100755);
+
+	ensure_workdir_contents("executable-6", CONFLICTING_DIFF3_FILE);
+	ensure_workdir_mode("executable-6", 0100644);
 }
