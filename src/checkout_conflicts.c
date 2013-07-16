@@ -12,6 +12,7 @@
 #include "vector.h"
 #include "index.h"
 #include "merge_file.h"
+#include "git2/repository.h"
 #include "git2/types.h"
 #include "git2/index.h"
 #include "git2/sys/index.h"
@@ -386,7 +387,6 @@ static int checkout_write_entry(
 {
 	const char *hint_path = NULL, *side_label;
 	struct stat st;
-	int error = 0;
 
 	assert (side == conflict->ours ||
 		side == conflict->theirs);

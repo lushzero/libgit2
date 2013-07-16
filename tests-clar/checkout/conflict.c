@@ -20,6 +20,10 @@ static git_index *g_index;
 #define LINK_OURS_OID              "72ea499e108df5ff0a4a913e7655bbeeb1fb69f2"
 #define LINK_THEIRS_OID            "8bfb012a6d809e499bd8d3e194a3929bc8995b93"
 
+#define LINK_ANCESTOR_TARGET       "file"
+#define LINK_OURS_TARGET           "other-file"
+#define LINK_THEIRS_TARGET         "still-another-file"
+
 #define CONFLICTING_OURS_FILE \
 	"this file is changed in master and branch\n"
 #define CONFLICTING_THEIRS_FILE \
@@ -78,7 +82,9 @@ static void create_index(struct checkout_index_entry *entries, size_t entries_le
 	}
 
 	for (i = 0; i < entries_len; i++) {
-		git_index_entry entry = {0};
+		git_index_entry entry;
+
+		memset(&entry, 0x0, sizeof(git_index_entry));
 
 		entry.mode = entries[i].mode;
 		entry.flags = entries[i].stage << GIT_IDXENTRY_STAGESHIFT;
@@ -142,9 +148,32 @@ static void ensure_workdir_mode(const char *path, int mode)
 #endif
 }
 
+static void ensure_workdir_link(const char *path, const char *target)
+{
+#ifdef GIT_WIN32
+	ensure_workdir_contents(path, target);
+#else
+	git_buf fullpath = GIT_BUF_INIT;
+	char actual[1024];
+	struct stat st;
+	int len;
+
+	cl_git_pass(
+		git_buf_joinpath(&fullpath, git_repository_workdir(g_repo), path));
+
+	cl_git_pass(p_lstat(git_buf_cstr(&fullpath), &st));
+	cl_assert(S_ISLNK(st.st_mode));
+
+	cl_assert((len = p_readlink(git_buf_cstr(&fullpath), actual, 1024)) > 0);
+	actual[len] = '\0';
+	cl_assert(strcmp(actual, target) == 0);
+
+	git_buf_free(&fullpath);
+#endif
+}
+
 void test_checkout_conflict__ignored(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	opts.checkout_strategy |= GIT_CHECKOUT_SKIP_UNMERGED;
@@ -158,7 +187,6 @@ void test_checkout_conflict__ignored(void)
 
 void test_checkout_conflict__ours(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	opts.checkout_strategy |= GIT_CHECKOUT_USE_OURS;
@@ -172,7 +200,6 @@ void test_checkout_conflict__ours(void)
 
 void test_checkout_conflict__theirs(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	opts.checkout_strategy |= GIT_CHECKOUT_USE_THEIRS;
@@ -187,7 +214,6 @@ void test_checkout_conflict__theirs(void)
 
 void test_checkout_conflict__diff3(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	create_conflicting_index();
@@ -199,7 +225,6 @@ void test_checkout_conflict__diff3(void)
 
 void test_checkout_conflict__automerge(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	struct checkout_index_entry checkout_index_entries[] = {
@@ -353,13 +378,12 @@ void test_checkout_conflict__links(void)
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
 	/* Conflicts with links always keep the ours side (even with -Xtheirs) */
-	ensure_workdir_oid("link-1", LINK_OURS_OID);
-	ensure_workdir_oid("link-2", LINK_OURS_OID);
+	ensure_workdir_link("link-1", LINK_OURS_TARGET);
+	ensure_workdir_link("link-2", LINK_OURS_TARGET);
 }
 
 void test_checkout_conflict__add_add(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	struct checkout_index_entry checkout_index_entries[] = {
@@ -375,15 +399,11 @@ void test_checkout_conflict__add_add(void)
 	cl_git_pass(git_checkout_index(g_repo, g_index, &opts));
 
 	/* Add/add writes diff3 files */
-	cl_git_pass(git_futils_readbuffer(&conflicting_buf,
-		TEST_REPO_PATH "/conflicting.txt"));
-	cl_assert(strcmp(conflicting_buf.ptr, CONFLICTING_DIFF3_FILE) == 0);
-	git_buf_free(&conflicting_buf);
+	ensure_workdir_contents("conflicting.txt", CONFLICTING_DIFF3_FILE);
 }
 
 void test_checkout_conflict__mode_change(void)
 {
-	git_buf conflicting_buf = GIT_BUF_INIT;
 	git_checkout_opts opts = GIT_CHECKOUT_OPTS_INIT;
 
 	struct checkout_index_entry checkout_index_entries[] = {
