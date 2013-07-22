@@ -1206,7 +1206,17 @@ static int checkout_data_init(
 				(error = git_index_read(data->index)) < 0)
 				goto cleanup;
 
-			/* clear the REUC when doing a tree or commit checkout */
+			/* cannot checkout if unresolved conflicts exist */
+			if ((data->opts.checkout_strategy & GIT_CHECKOUT_FORCE) == 0 &&
+				git_index_has_conflicts(data->index)) {
+				error = GIT_EMERGECONFLICT;
+				giterr_set(GITERR_CHECKOUT,
+					"unresolved conflicts exist in the index");
+				goto cleanup;
+			}
+
+			/* clean conflict data when doing a tree or commit checkout */
+			git_index_name_clear(data->index);
 			git_index_reuc_clear(data->index);
 		}
 	}
