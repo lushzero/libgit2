@@ -882,7 +882,7 @@ static void report_progress(
 			data->opts.progress_payload);
 }
 
-static int checkout_safe_for_update_only(const char *path, mode_t expected_mode)
+int git_checkout__safe_for_update_only(const char *path, mode_t expected_mode)
 {
 	struct stat st;
 
@@ -952,7 +952,7 @@ static int checkout_blob(
 		return -1;
 
 	if ((data->strategy & GIT_CHECKOUT_UPDATE_ONLY) != 0) {
-		int rval = checkout_safe_for_update_only(
+		int rval = git_checkout__safe_for_update_only(
 			git_buf_cstr(&data->path), file->mode);
 
 		if (rval <= 0)
